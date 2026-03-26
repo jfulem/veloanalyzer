@@ -1,0 +1,13 @@
+[project]
+name = "mtb"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.14.3",
+    "python-levenshtein>=0.27.3",
+    "requests>=2.33.0",
+    "rich>=14.3.3",
+    "thefuzz>=0.22.1",
+]
