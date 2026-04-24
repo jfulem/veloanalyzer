@@ -33,18 +33,18 @@ pip install requests beautifulsoup4 rich thefuzz python-Levenshtein
 
 ```bash
 # Analyse a single race — Men Juniors category
-python mtb_analyzer.py \
+python main.py \
   --url "https://www.sportzeitnehmung.at/en/component/eventbooking/34-ktm-kamptal-trophy-c/registrants-list.html" \
   --category "Men Juniors"
 
 # Same race, export as HTML report
-python mtb_analyzer.py \
+python main.py \
   --url "https://www.sportzeitnehmung.at/..." \
   --category "Men Juniors" \
   --export report.html
 
 # Compare two races (outputs a single HTML file with both lists + comparison)
-python mtb_analyzer.py \
+python main.py \
   --compare \
     "https://www.sportzeitnehmung.at/.../registrants-list.html" \
     "https://runtix.com/sts/10040/3104/19m/-/-" \
@@ -52,7 +52,7 @@ python mtb_analyzer.py \
   --export comparison.html
 
 # Refresh the cached UCI ranking
-python mtb_analyzer.py --refresh-cache --uci-category MJ
+python main.py --refresh-cache --uci-category MJ
 ```
 
 ---
@@ -121,7 +121,7 @@ When fuzzy name matching is used, a confidence badge is shown in the output (e.g
 Pass the event URL directly — the event ID is extracted automatically:
 
 ```bash
-python mtb_analyzer.py \
+python main.py \
   --url "https://sportkrono.hu/Rendezvenyek2/nevezes-lista/152" \
   --category "U19"
 ```
@@ -131,7 +131,7 @@ python mtb_analyzer.py \
 Pass the participants page URL — the tool fetches the config and data via the internal JSON API:
 
 ```bash
-python mtb_analyzer.py \
+python main.py \
   --url "https://my.raceresult.com/379442/participants" \
   --category "Men Juniors"
 ```
@@ -143,7 +143,7 @@ Categories follow the `Men <age group>` / `Women <age group>` pattern (e.g. `Men
 Pass the published `pubhtml` URL. The tool converts it to a CSV export internally:
 
 ```bash
-python mtb_analyzer.py \
+python main.py \
   --url "https://docs.google.com/spreadsheets/d/e/DOCID/pubhtml?gid=GID&single=true" \
   --category "Men Juniors"
 ```
@@ -191,7 +191,7 @@ A higher score means a stronger and deeper field. The verdict is shown both in t
 UCI ranking data is downloaded from [xcodata.com](https://www.xcodata.com) and stored locally in a `.mtb_cache/` folder next to the script. The cache is considered fresh for **7 days**. To force a re-download at any time:
 
 ```bash
-python mtb_analyzer.py --refresh-cache --uci-category MJ
+python main.py --refresh-cache --uci-category MJ
 ```
 
 Cache files follow the naming pattern `.mtb_cache/ranking_MJ_2026.json`. Delete the folder to clear all cached data.
@@ -203,7 +203,7 @@ Cache files follow the naming pattern `.mtb_cache/ranking_MJ_2026.json`. Delete 
 ### Single race — terminal output only
 
 ```bash
-python mtb_analyzer.py \
+python main.py \
   --url "https://www.sportzeitnehmung.at/en/component/eventbooking/34-ktm-kamptal-trophy-c/registrants-list.html" \
   --category "Men Juniors" \
   --uci-category MJ
@@ -212,7 +212,7 @@ python mtb_analyzer.py \
 ### Single race — HTML export
 
 ```bash
-python mtb_analyzer.py \
+python main.py \
   --url "https://runtix.com/sts/10040/3104/19m/-/-" \
   --category "Junior" \
   --uci-category MJ \
@@ -222,7 +222,7 @@ python mtb_analyzer.py \
 ### Single race — CSV export
 
 ```bash
-python mtb_analyzer.py \
+python main.py \
   --url "https://www.sportzeitnehmung.at/..." \
   --category "Men Elite" \
   --uci-category ME \
@@ -232,7 +232,7 @@ python mtb_analyzer.py \
 ### Compare two races — HTML with comparison
 
 ```bash
-python mtb_analyzer.py \
+python main.py \
   --compare \
     "https://www.sportzeitnehmung.at/.../registrants-list.html" \
     "https://runtix.com/sts/10040/3104/19m/-/-" \
@@ -246,7 +246,7 @@ python mtb_analyzer.py \
 When exporting a comparison to CSV, two files are created automatically:
 
 ```bash
-python mtb_analyzer.py \
+python main.py \
   --compare "https://race1..." "https://race2..." \
   --category "Junior" \
   --export results.csv
@@ -256,7 +256,7 @@ python mtb_analyzer.py \
 ### Skip UCI lookup (fast, start list only)
 
 ```bash
-python mtb_analyzer.py \
+python main.py \
   --url "https://my.raceresult.com/379442/participants" \
   --category "Men Juniors" \
   --no-lookup
@@ -267,12 +267,29 @@ python mtb_analyzer.py \
 ## Project Structure
 
 ```
-mtb_analyzer.py      # main script — everything is in one file
-.mtb_cache/          # auto-created local cache folder
+main.py                          # CLI entry point
+mtb_analyzer/                    # package
+├── config.py                    # constants (flags, country maps, category aliases)
+├── models.py                    # Rider dataclass
+├── utils.py                     # fetch, normalize_*, category_matches
+├── ranking.py                   # UCI ranking cache + lookup
+├── display.py                   # terminal output, sort_riders, race_quality_stats
+├── export.py                    # HTML and CSV export
+└── parsers/
+    ├── __init__.py              # detect_site + parse_start_list
+    ├── sportzeitnehmung.py
+    ├── runtix.py
+    ├── sportkrono.py
+    ├── gsheets.py
+    ├── raceresult.py
+    └── generic.py               # generic table fallback
+.mtb_cache/                      # auto-created local cache folder
   ranking_MJ_2026.json
   ranking_WJ_2026.json
   ...
 ```
+
+To add support for a new website, create a parser file in `mtb_analyzer/parsers/`, register it in `parsers/__init__.py` (`detect_site` + `parse_start_list`), and nothing else needs to change.
 
 ---
 
