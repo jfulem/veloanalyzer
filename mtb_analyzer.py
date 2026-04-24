@@ -103,6 +103,24 @@ COUNTRY_NORMALIZE = {
     "ukraine": "UKR",
 }
 
+CATEGORY_ALIASES = {
+    # German
+    "junioren": "Juniors",
+    "amateure": "Amateur",
+    "damen":    "Women",
+    "herren":   "Men",
+    # Hungarian / other
+    "elit":     "Elite",
+    # Generic singular → plural
+    "junior":   "Juniors",
+    "amateur":  "Amateur",
+}
+
+
+def normalize_category_name(name: str) -> str:
+    """Replaces non-English category words with standard English equivalents."""
+    return " ".join(CATEGORY_ALIASES.get(w.lower(), w) for w in name.split())
+
 
 # ─────────────────────────── data classes ─────────────────────────────────
 @dataclass
@@ -373,13 +391,239 @@ def lookup_rider(rider: Rider, cache: dict) -> Rider:
 
 
 # ─────────────────────────── start list parsers ───────────────────────────
+_ISO2_TO_IOC = {
+    "AT": "AUT", "DE": "GER", "CH": "SUI", "FR": "FRA", "IT": "ITA",
+    "CZ": "CZE", "SK": "SVK", "HU": "HUN", "PL": "POL", "SI": "SLO",
+    "HR": "CRO", "BE": "BEL", "NL": "NED", "GB": "GBR", "ES": "ESP",
+    "SE": "SWE", "NO": "NOR", "DK": "DEN", "IE": "IRL", "PT": "POR",
+    "US": "USA", "CA": "CAN", "AU": "AUS", "NZ": "NZL", "ZA": "RSA",
+    "JP": "JPN", "BR": "BRA", "AR": "ARG", "CO": "COL", "CL": "CHI",
+    "RS": "SRB", "BG": "BUL", "GR": "GRE", "IL": "ISR", "LU": "LUX",
+    "MX": "MEX", "TR": "TUR", "UA": "UKR", "RO": "ROM",
+}
+
+
 def detect_site(url: str) -> str:
     host = urlparse(url).netloc.lower()
     if "sportzeitnehmung" in host:
         return "sportzeitnehmung"
     if "runtix" in host:
         return "runtix"
+    if "sportkrono" in host:
+        return "sportkrono"
+    if "docs.google.com" in host and "spreadsheets" in url:
+        return "gsheets"
+    if "raceresult" in host:
+        return "raceresult"
     return "unknown"
+
+
+def parse_raceresult(url: str, category_filter: str = None) -> list:
+    """
+    Parses a my.raceresult.com participants page.
+    Fetches /RRPublish/data/config for the API key, then /RRPublish/data/list
+    for all participants. Data is grouped by category → gender subgroup.
+    Row layout: [BIB, ID, rank, "Lastname, Firstname", flag_img, year, club, ...]
+    Country is extracted from the flag SVG URL (2-letter ISO → 3-letter IOC).
+    Gender comes from subgroup name: männlich=Men, weiblich=Women.
+    """
+    parsed   = urlparse(url)
+    event_id = parsed.path.strip("/").split("/")[0]
+    base     = f"{parsed.scheme}://{parsed.netloc}/{event_id}/RRPublish/data"
+
+    try:
+        resp = requests.get(f"{base}/config", headers=HEADERS, timeout=20)
+        resp.raise_for_status()
+        config = resp.json()
+    except Exception as e:
+        console.print(f"[red]Error fetching raceresult config: {e}[/red]")
+        return []
+
+    key   = config.get("key", "")
+    lists = config.get("lists", [])
+    if not lists:
+        console.print("[red]No lists found in raceresult config[/red]")
+        return []
+    list_name = lists[0]["Name"]
+
+    try:
+        resp = requests.get(f"{base}/list",
+                            params={"listname": list_name, "contest": "0",
+                                    "r": "all", "l": "en", "key": key},
+                            headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        console.print(f"[red]Error fetching raceresult data: {e}[/red]")
+        return []
+
+    def flag_to_country(flag_str: str) -> str:
+        m = re.search(r"/flags/([A-Z]{2})\.svg", flag_str, re.IGNORECASE)
+        return _ISO2_TO_IOC.get(m.group(1).upper(), m.group(1).upper()) if m else ""
+
+    riders = []
+    for grp_key, grp_val in data.get("data", {}).items():
+        category_base = normalize_category_name(re.sub(r"^#\d+_", "", grp_key))
+        subgroups = grp_val.items() if isinstance(grp_val, dict) else [(grp_key, grp_val)]
+
+        for sub_key, rows in subgroups:
+            sub_name = re.sub(r"^#\d+_", "", sub_key)
+            sub_lower = sub_name.lower()
+            if "männlich" in sub_lower or "male" in sub_lower or sub_name.endswith(" M"):
+                gender = "Men"
+            elif "weiblich" in sub_lower or "female" in sub_lower or sub_name.endswith(" W"):
+                gender = "Women"
+            else:
+                gender = ""
+            category = f"{gender} {category_base}".strip() if gender else category_base
+
+            if not category_matches(category, category_filter):
+                continue
+
+            for row in rows:
+                if not isinstance(row, list) or len(row) < 4:
+                    continue
+                name_raw = str(row[3]).strip()
+                if not name_raw:
+                    continue
+                if "," in name_raw:
+                    last, first = (p.strip().title() for p in name_raw.split(",", 1))
+                else:
+                    parts = name_raw.split(None, 1)
+                    last  = parts[0].title()
+                    first = parts[1].title() if len(parts) > 1 else ""
+
+                riders.append(Rider(
+                    first_name=first, last_name=last,
+                    country=flag_to_country(str(row[4])) if len(row) > 4 else "",
+                    birth_year=str(row[5])              if len(row) > 5 else "",
+                    team=str(row[6])                    if len(row) > 6 else "",
+                    category=category,
+                    start_nr=str(row[0]).strip(),
+                ))
+
+    return riders
+
+
+def parse_gsheets(url: str, category_filter: str = None) -> list:
+    """
+    Parses a Google Sheets published spreadsheet (pubhtml or pub CSV URL).
+    Converts the URL to CSV export format for reliable parsing.
+    Columns: # | UCI ID | Prezime (last) | Ime (first) | Spol (M/Ž) | Kategorija | Klub
+    Spol is mapped to Men/Women and combined with Kategorija: e.g. "Men Junior".
+    """
+    csv_url = re.sub(r"/pubhtml\b", "/pub", url)
+    if "output=csv" not in csv_url:
+        sep = "&" if "?" in csv_url else "?"
+        csv_url += f"{sep}output=csv"
+
+    try:
+        resp = requests.get(csv_url, headers=HEADERS, timeout=20)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        console.print(f"[red]Error fetching Google Sheets data: {e}[/red]")
+        return []
+
+    reader = csv.reader(resp.content.decode("utf-8-sig").splitlines())
+    rows   = list(reader)
+    if not rows:
+        return []
+
+    header = [h.strip().lower() for h in rows[0]]
+
+    def col(row, name):
+        try:
+            return row[header.index(name)].strip()
+        except (ValueError, IndexError):
+            return ""
+
+    riders = []
+    for row in rows[1:]:
+        if not row or not any(row):
+            continue
+
+        last  = col(row, "prezime").title()
+        first = col(row, "ime").title()
+        if not last and not first:
+            continue
+
+        spol       = col(row, "spol")
+        kategorija = col(row, "kategorija")
+        gender     = "Men" if spol == "M" else ("Women" if spol == "Ž" else spol)
+        category   = normalize_category_name(f"{gender} {kategorija}".strip() if gender else kategorija)
+
+        uci_id   = re.sub(r"\s+", "", col(row, "uci id"))
+        start_nr = col(row, "#")
+        team     = col(row, "klub")
+
+        if not category_matches(category, category_filter):
+            continue
+
+        riders.append(Rider(
+            first_name=first, last_name=last,
+            uci_id=uci_id, team=team,
+            category=category, start_nr=start_nr,
+        ))
+
+    return riders
+
+
+def parse_sportkrono(url: str, category_filter: str = None) -> list:
+    """
+    Parses a sportkrono.hu entry list.
+    The page renders via an AJAX POST to /ajax/feliratkozas/lista with the event ID.
+    Columns: Sorszám | Vezetéknév | Keresztnév | Egyesület | Város | Kategória
+    No country or UCI ID is available from this source.
+    """
+    parsed   = urlparse(url)
+    event_id = parsed.path.rstrip("/").split("/")[-1]
+    base     = f"{parsed.scheme}://{parsed.netloc}"
+    # Strip any application sub-path prefix (e.g. /Rendezvenyek2) from the base
+    path_parts = parsed.path.rstrip("/").split("/")
+    # App prefix is everything before the page slug and event ID (last two segments)
+    app_prefix = "/".join(path_parts[:-2])
+    api_url = f"{base}{app_prefix}/ajax/feliratkozas/lista"
+
+    try:
+        resp = requests.post(api_url, data={"rendezveny": event_id},
+                             headers=HEADERS, timeout=20)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        console.print(f"[red]Error fetching sportkrono data: {e}[/red]")
+        return []
+
+    if data.get("STATUS") != "OK":
+        console.print("[red]sportkrono API returned non-OK status[/red]")
+        return []
+
+    soup  = BeautifulSoup(data["HTML"], "html.parser")
+    table = soup.find("table")
+    if not table:
+        return []
+
+    riders = []
+    for row in table.find_all("tr")[1:]:  # skip header
+        cols = row.find_all("td")
+        if len(cols) < 6:
+            continue
+        start_nr = cols[0].get_text(strip=True).rstrip(".")
+        last     = cols[1].get_text(strip=True)
+        first    = cols[2].get_text(strip=True)
+        team     = cols[3].get_text(strip=True)
+        category = normalize_category_name(cols[5].get_text(strip=True))
+
+        if not first or not last:
+            continue
+        if not category_matches(category, category_filter):
+            continue
+
+        riders.append(Rider(
+            first_name=first, last_name=last,
+            team=team, category=category, start_nr=start_nr
+        ))
+
+    return riders
 
 
 def parse_sportzeitnehmung(url: str, category_filter: str = None) -> list:
@@ -525,6 +769,12 @@ def parse_start_list(url: str, category_filter: str = None) -> tuple:
         riders = parse_sportzeitnehmung(url, category_filter)
     elif site == "runtix":
         riders = parse_runtix(url, category_filter)
+    elif site == "sportkrono":
+        riders = parse_sportkrono(url, category_filter)
+    elif site == "gsheets":
+        riders = parse_gsheets(url, category_filter)
+    elif site == "raceresult":
+        riders = parse_raceresult(url, category_filter)
     else:
         console.print("[yellow]Unknown website format — trying generic parser...[/yellow]")
         riders = parse_generic(soup_title, category_filter)

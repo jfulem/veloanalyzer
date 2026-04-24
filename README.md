@@ -6,10 +6,11 @@ A command-line tool that fetches MTB race start lists, enriches them with UCI ra
 
 ## Features
 
-- **Auto-detects the website format** — supports sportzeitnehmung.at, runtix.com, and a generic fallback for other sites
-- **UCI ranking lookup** — matches riders by UCI ID (exact) or by name using fuzzy matching when no ID is available (e.g. runtix.com)
+- **Auto-detects the website format** — supports sportzeitnehmung.at, runtix.com, sportkrono.hu, my.raceresult.com, Google Sheets (pubhtml), and a generic fallback
+- **UCI ranking lookup** — matches riders by UCI ID (exact) or by name using fuzzy matching when no ID is available
 - **Local cache** — downloads the UCI ranking once and caches it for 7 days so repeat runs are instant
 - **Accurate category filtering** — word-boundary matching prevents `Men Juniors` from accidentally matching `Women Juniors`
+- **Category name normalisation** — non-English category words (e.g. German *Junioren*, Hungarian *Elit*) are mapped to standard English so `--category "Men Juniors"` works across all sources
 - **HTML export** — self-contained dark-themed report with stat cards, colour-coded rider table, live search, country bar chart, and an optional race comparison section
 - **CSV export** — plain spreadsheet, sorted by UCI ranking
 - **Race comparison** — quality score formula ranks two start lists and declares a winner
@@ -90,19 +91,64 @@ The `--category` filter uses word-boundary matching, so partial words work and f
 --category "Men Elite"     # matches only "Men Elite", not "Women Elite"
 ```
 
+Non-English category words are automatically normalised to English before filtering, so you always use English terms regardless of the source site:
+
+| Raw (source) | Normalised |
+|---|---|
+| Junioren (German) | Juniors |
+| Amateure (German) | Amateur |
+| Elit (Hungarian) | Elite |
+
 If you omit `--category`, all entries from the start list are included.
 
 ---
 
 ## Supported Websites
 
-| Website | UCI ID available | Lookup method |
-|---------|-----------------|---------------|
-| sportzeitnehmung.at | ✅ Yes | Exact UCI ID match |
-| runtix.com | ❌ No | Fuzzy name matching |
-| Other | Depends | Generic parser + fuzzy match |
+| Website | UCI ID | Country | Notes |
+|---------|--------|---------|-------|
+| sportzeitnehmung.at | ✅ | ✅ | Exact UCI ID match; paginated |
+| runtix.com | ❌ | ✅ | Fuzzy name matching |
+| sportkrono.hu | ❌ | ❌ | Hungarian race series; AJAX-based |
+| my.raceresult.com | ❌ | ✅ | JSON API; gender from subgroup names |
+| Google Sheets (pubhtml) | ✅ | ❌ | Croatian/regional events; CSV export used |
+| Other | Depends | Depends | Generic table parser + fuzzy match |
 
 When fuzzy name matching is used, a confidence badge is shown in the output (e.g. `87%`). Only matches above 82 % are accepted; below that, the rider is listed as unranked.
+
+### sportkrono.hu
+
+Pass the event URL directly — the event ID is extracted automatically:
+
+```bash
+python mtb_analyzer.py \
+  --url "https://sportkrono.hu/Rendezvenyek2/nevezes-lista/152" \
+  --category "U19"
+```
+
+### my.raceresult.com
+
+Pass the participants page URL — the tool fetches the config and data via the internal JSON API:
+
+```bash
+python mtb_analyzer.py \
+  --url "https://my.raceresult.com/379442/participants" \
+  --category "Men Juniors"
+```
+
+Categories follow the `Men <age group>` / `Women <age group>` pattern (e.g. `Men Elite`, `Women U23`, `Men Juniors`).
+
+### Google Sheets (pubhtml)
+
+Pass the published `pubhtml` URL. The tool converts it to a CSV export internally:
+
+```bash
+python mtb_analyzer.py \
+  --url "https://docs.google.com/spreadsheets/d/e/DOCID/pubhtml?gid=GID&single=true" \
+  --category "Men Juniors"
+```
+
+The sheet must have columns: `#`, `UCI ID`, `Prezime`, `Ime`, `Spol` (M/Ž), `Kategorija`, `Klub`.
 
 ---
 
@@ -211,8 +257,8 @@ python mtb_analyzer.py \
 
 ```bash
 python mtb_analyzer.py \
-  --url "https://runtix.com/sts/10040/3104/19m/-/-" \
-  --category "Junior" \
+  --url "https://my.raceresult.com/379442/participants" \
+  --category "Men Juniors" \
   --no-lookup
 ```
 
