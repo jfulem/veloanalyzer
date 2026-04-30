@@ -48,7 +48,8 @@ def generate_report(race: dict, uci_caches: dict) -> bool:
     for rider in riders:
         lookup_rider(rider, cache)
 
-    export_html(riders, race_name, uci_category, output_path)
+    export_html(riders, race_name, uci_category, output_path,
+                race_date=race.get("date", ""))
     return True
 
 
@@ -58,9 +59,10 @@ def generate_index(races: list, results: list):
     for race, ok in zip(races, results):
         status = f'<a href="{race["output"]}">{race.get("name", race["output"])}</a>' if ok \
                  else f'<span style="color:#718096">{race.get("name", race["output"])} (failed)</span>'
+        date   = race.get("date", "—")
         cat    = race.get("category", "—")
         uci    = race.get("uci_category", "MJ")
-        rows  += f'<tr><td>{status}</td><td>{cat}</td><td>{uci}</td></tr>\n'
+        rows  += f'<tr><td>{status}</td><td>{date}</td><td>{cat}</td><td>{uci}</td></tr>\n'
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -94,7 +96,7 @@ def generate_index(races: list, results: list):
   <h1>🚵 VeloAnalyzer — Race Reports</h1>
   <p class="sub">UCI-enriched MTB start list analysis &nbsp;·&nbsp; Updated: {generated_at}</p>
   <table>
-    <thead><tr><th>Race</th><th>Category</th><th>UCI ranking</th></tr></thead>
+    <thead><tr><th>Race</th><th>Date</th><th>Category</th><th>UCI ranking</th></tr></thead>
     <tbody>
 {rows}
     </tbody>

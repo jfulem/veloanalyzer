@@ -4,6 +4,7 @@
 # Fields:
 #   url          - start list URL (any supported site)
 #   name         - display name shown on the index page
+#   date         - race date in YYYY-MM-DD format
 #   category     - category filter passed to --category (e.g. "Men Juniors")
 #   uci_category - UCI ranking to use: MJ | WJ | ME | WE  (default: MJ)
 #   output       - filename inside docs/ (must end in .html)
@@ -11,24 +12,28 @@
 races:
   - url: "https://www.stoperica.live/races/414"
     name: "XCO Krizni put Posedarje - UCI C2 2026"
+    date: "2026-05-03"
     category: "Men Juniors"
     uci_category: MJ
     output: "posedarje-2026-mj.html"
-  
+
   - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3544"
     name: "ČP XCO MTB VIMPERK - UCI C1 2026"
+    date: "2026-05-10"
     category: "Men Juniors"
     uci_category: MJ
     output: "vimperk-2026-mj.html"
 
   - url: "https://www.wowtiming.cz/race-start-list/?id=57"
     name: "Tessuti Sport Bike Race - UCI C2 2026"
+    date: "2026-05-16"
     category: "Men Juniors"
     uci_category: MJ
     output: "tessuti-2026-mj.html"
 
   - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3597"
     name: "SP XCO MTB Skalica 2026 - UCI C3 2026"
+    date: "2026-05-16"
     category: "Men Juniors"
     uci_category: MJ
     output: "skalica-2026-mj.html"

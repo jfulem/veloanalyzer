@@ -31,7 +31,7 @@ def export_csv(riders: list, path: str):
 
 
 def export_html(riders: list, race_name: str, uci_cat: str, path: str,
-                compare_data: tuple = None):
+                compare_data: tuple = None, race_date: str = ""):
     """
     Exports a polished, self-contained HTML report.
     If compare_data=(riders2, name2, url2, url1) is provided, a comparison
@@ -316,7 +316,7 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
   <header class="page-header">
     <h1>{race_name}</h1>
     <div class="meta">
-      UCI category: <strong>{uci_cat}</strong> &nbsp;|&nbsp;
+      {f'Date: <strong>{race_date}</strong> &nbsp;|&nbsp; ' if race_date else ''}UCI category: <strong>{uci_cat}</strong> &nbsp;|&nbsp;
       Total starters: <strong>{len(riders)}</strong> &nbsp;|&nbsp;
       Generated: {generated_at} &nbsp;|&nbsp;
       Ranking data: <a href="https://www.xcodata.com" target="_blank">xcodata.com</a>

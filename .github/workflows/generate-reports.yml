@@ -26,12 +26,18 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Get current ISO week
+        id: week
+        run: echo "week=$(date +%G-W%V)" >> $GITHUB_OUTPUT
+
       - name: Cache UCI ranking data
         uses: actions/cache@v4
         with:
           path: .mtb_cache
-          key: mtb-cache-${{ runner.os }}-${{ hashFiles('races.yml') }}
-          restore-keys: mtb-cache-${{ runner.os }}-
+          key: mtb-cache-${{ runner.os }}-${{ steps.week.outputs.week }}-${{ hashFiles('races.yml') }}
+          restore-keys: |
+            mtb-cache-${{ runner.os }}-${{ steps.week.outputs.week }}-
+            mtb-cache-${{ runner.os }}-
 
       - name: Generate reports
         run: uv run python scripts/generate_site.py
