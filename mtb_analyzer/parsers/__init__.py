@@ -8,6 +8,9 @@ from .raceresult import parse_raceresult
 from .runtix import parse_runtix
 from .sportkrono import parse_sportkrono
 from .sportzeitnehmung import parse_sportzeitnehmung
+from .sportsoft import parse_sportsoft
+from .stoperica import parse_stoperica
+from .wowtiming import parse_wowtiming
 
 
 def detect_site(url: str) -> str:
@@ -22,6 +25,12 @@ def detect_site(url: str) -> str:
         return "gsheets"
     if "raceresult" in host:
         return "raceresult"
+    if "stoperica" in host:
+        return "stoperica"
+    if "sportsoft" in host:
+        return "sportsoft"
+    if "wowtiming" in host:
+        return "wowtiming"
     return "unknown"
 
 
@@ -43,6 +52,12 @@ def parse_start_list(url: str, category_filter: str = None) -> tuple:
         riders = parse_gsheets(url, category_filter)
     elif site == "raceresult":
         riders = parse_raceresult(url, category_filter)
+    elif site == "stoperica":
+        riders = parse_stoperica(url, category_filter)
+    elif site == "sportsoft":
+        riders = parse_sportsoft(url, category_filter)
+    elif site == "wowtiming":
+        riders = parse_wowtiming(url, category_filter)
     else:
         console.print("[yellow]Unknown website format — trying generic parser...[/yellow]")
         riders = parse_generic(soup_title, category_filter)
@@ -58,5 +73,8 @@ __all__ = [
     "parse_sportkrono",
     "parse_gsheets",
     "parse_raceresult",
+    "parse_stoperica",
+    "parse_sportsoft",
+    "parse_wowtiming",
     "parse_generic",
 ]

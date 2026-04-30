@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 .mtb_cache/
 *.html
+!docs/
 
 # C extensions
 *.so
