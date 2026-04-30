@@ -5,6 +5,7 @@ __pycache__/
 .mtb_cache/
 *.html
 !docs/
+!docs/**
 
 # C extensions
 *.so
