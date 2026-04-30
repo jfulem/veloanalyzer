@@ -9,7 +9,6 @@
 #   output       - filename inside docs/ (must end in .html)
 
 races:
-
   - url: "https://www.stoperica.live/races/414"
     name: "XCO Krizni put Posedarje - UCI C2 2026"
     category: "Men Juniors"
@@ -27,7 +26,7 @@ races:
     category: "Men Juniors"
     uci_category: MJ
     output: "tessuti-2026-mj.html"
-    
+
   - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3597"
     name: "SP XCO MTB Skalica 2026 - UCI C3 2026"
     category: "Men Juniors"
