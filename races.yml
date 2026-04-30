@@ -7,7 +7,7 @@
 #   category     - category filter passed to --category (e.g. "Men Juniors")
 #   uci_category - UCI ranking to use: MJ | WJ | ME | WE  (default: MJ)
 #   output       - filename inside docs/ (must end in .html)
-
+#
 races:
   - url: "https://www.stoperica.live/races/414"
     name: "XCO Krizni put Posedarje - UCI C2 2026"
