@@ -8,7 +8,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from thefuzz import fuzz, process
 
 from .config import (
-    CACHE_DIR, CACHE_MAX_AGE_DAYS, HEADERS, XCODATA_RANKING_BASE, console,
+    CACHE_DIR, CACHE_MAX_AGE_DAYS, HEADERS, XCODATA_BASE, console,
 )
 from .models import Rider
 from .utils import cell_direct_text, fetch, normalize_rider_name
@@ -16,7 +16,30 @@ from .utils import cell_direct_text, fetch, normalize_rider_name
 
 def cache_path(uci_cat: str) -> str:
     os.makedirs(CACHE_DIR, exist_ok=True)
-    return os.path.join(CACHE_DIR, f"ranking_{uci_cat}_2026.json")
+    year = datetime.now().year
+    return os.path.join(CACHE_DIR, f"ranking_{uci_cat}_{year}.json")
+
+
+def get_latest_ranking_date(uci_cat: str) -> tuple:
+    """
+    Returns (year, date_slug) of the most recent ranking published on xcodata.com.
+    Falls back to the most recent Tuesday if the page can't be fetched.
+    """
+    try:
+        soup = fetch(f"{XCODATA_BASE}/rankings/{uci_cat}/")
+        for sel in soup.find_all("select"):
+            for opt in sel.find_all("option"):
+                href = opt.get("value", "")
+                m = re.search(r"/rankings/\w+/(\d{4})/(\d{4}-\d{2}-\d{2})/", href)
+                if m:
+                    return m.group(1), m.group(2)
+    except Exception:
+        pass
+    # Fallback: last Tuesday (xcodata publishes on Tuesdays)
+    today = datetime.now().date()
+    days_since_tuesday = (today.weekday() - 1) % 7
+    latest = today - timedelta(days=days_since_tuesday)
+    return str(latest.year), latest.strftime("%Y-%m-%d")
 
 
 def cache_is_fresh(uci_cat: str) -> bool:
@@ -42,15 +65,16 @@ def save_cache(uci_cat: str, data: dict):
 
 def build_uci_cache(uci_cat: str) -> dict:
     """Downloads all pages of the UCI ranking from xcodata.com and saves to cache."""
-    console.print(f"\n[cyan]Downloading UCI ranking ({uci_cat}) from xcodata.com...[/cyan]")
-    cache = {"by_name": {}, "by_id": {}, "fetched_at": datetime.now().isoformat()}
+    year, date = get_latest_ranking_date(uci_cat)
+    console.print(f"\n[cyan]Downloading UCI ranking ({uci_cat}, {date}) from xcodata.com...[/cyan]")
+    cache = {"by_name": {}, "by_id": {}, "fetched_at": datetime.now().isoformat(), "ranking_date": date}
 
     with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
                   console=console) as progress:
         task = progress.add_task("Loading ranking pages...", total=None)
         page = 1
         while True:
-            url = XCODATA_RANKING_BASE.format(cat=uci_cat, page=page)
+            url = f"{XCODATA_BASE}/rankings/{uci_cat}/{year}/{date}/{page}/?country="
             try:
                 soup = fetch(url)
             except Exception:
@@ -62,7 +86,8 @@ def build_uci_cache(uci_cat: str) -> dict:
                 cols = row.find_all("td")
                 if len(cols) < 4:
                     continue
-                rank_text   = cell_direct_text(cols[0])
+                circle      = cols[0].find("div", class_="circle")
+                rank_text   = circle.get_text(strip=True) if circle else cell_direct_text(cols[0])
                 rider_cell  = cols[1].get_text(strip=True)
                 points_text = cell_direct_text(cols[3])
 
