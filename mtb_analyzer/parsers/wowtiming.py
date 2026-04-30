@@ -6,16 +6,18 @@ from ..utils import category_matches, fetch
 # Slash-separated categories (e.g. "Junioři/juniorky") are split on "/"
 # before lookup, so each side is normalized independently then deduplicated.
 _CZECH_WORD_MAP = {
-    "junioři": "Juniors",
-    "juniorky": "Juniors",
+    # Gender-specific Czech words → full English phrase so "Men Juniors" filter works
+    "junioři": "Men Juniors",
+    "juniorky": "Women Juniors",
+    "kadeti": "Men Cadets",
+    "kadetky": "Women Cadets",
+    # Gender-neutral / other words
     "žactvo": "Youth",
     "žáci": "Boys",
     "žákyně": "Girls",
     "veteráni": "Veterans",
     "ženy": "Women",
     "muži": "Men",
-    "kadeti": "Cadets",
-    "kadetky": "Cadets",
     "elite": "Elite",
     "elita": "Elite",
     "dospělí": "Adults",

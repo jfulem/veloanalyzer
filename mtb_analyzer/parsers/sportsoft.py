@@ -5,8 +5,9 @@ from ..config import HEADERS, console
 from ..models import Rider
 from ..utils import category_matches
 
-# Czech category names → standard English
+# Czech/Slovak category names → standard English
 _CATEGORY_MAP = {
+    # Czech (with diacritics)
     "Junioři": "Men Juniors",
     "Juniorky": "Women Juniors",
     "Kadeti": "Men Cadets",
@@ -17,6 +18,9 @@ _CATEGORY_MAP = {
     "Ženy Elite": "Women Elite",
     "Expert": "Expert",
     "Masters": "Masters",
+    "Masters A": "Masters A",
+    "Masters B": "Masters B",
+    "Masters C": "Masters C",
     "Žáci I": "Boys U13",
     "Žáci II": "Boys U15",
     "Žákyně I": "Girls U13",
@@ -27,6 +31,16 @@ _CATEGORY_MAP = {
     "Holky 5-6 let": "Girls U6",
     "Holky 7-8 let": "Girls U8",
     "Holky 9-10 let": "Girls U10",
+    # Slovak (without háček on Junior/Kadett)
+    "Juniori": "Men Juniors",
+    "Kadeti": "Men Cadets",
+    "Ženy Masters": "Women Masters",
+    "Mini chlapci": "Boys Mini",
+    "Mini dievčatá": "Girls Mini",
+    "Mladší žiaci": "Young Boys",
+    "Mladšie žiačky": "Young Girls",
+    "Starší žiaci": "Older Boys",
+    "Staršie žiačky": "Older Girls",
 }
 
 # ISO 3166-1 alpha-3 codes that differ from IOC alpha-3
@@ -101,20 +115,31 @@ def parse_sportsoft(url: str, category_filter: str = None) -> list:
         console.print("[yellow]sportsoft: no rider table in response[/yellow]")
         return []
 
+    # Read header to locate columns (layout varies: optional St.no. column)
+    header_row = table.find("tr", class_="zahlavi")
+    if header_row:
+        col = {th.get_text(strip=True).lower(): i
+               for i, th in enumerate(header_row.find_all("th"))}
+    else:
+        col = {}
+    name_idx    = col.get("name",   0)
+    year_idx    = col.get("year",   1)
+    club_idx    = col.get("club",   2)
+    nat_idx     = col.get("nat.",   3)
+    course_idx  = col.get("course", 4)
+
     riders = []
     for row in table.find_all("tr", class_=["licha", "suda"]):
         cells = row.find_all("td")
-        if len(cells) < 5:
+        if len(cells) <= course_idx:
             continue
 
-        # Cell 4: Czech category name
-        czech_cat = cells[4].get_text(strip=True)
+        czech_cat = cells[course_idx].get_text(strip=True)
         english_cat = _CATEGORY_MAP.get(czech_cat, czech_cat)
         if not category_matches(english_cat, category_filter):
             continue
 
-        # Cell 0: "LASTNAME Firstname"
-        raw_name = cells[0].get_text(strip=True)
+        raw_name = cells[name_idx].get_text(strip=True)
         parts = raw_name.split()
         if parts and parts[0].replace("-", "").isupper():
             last_name = parts[0].title()
@@ -123,16 +148,15 @@ def parse_sportsoft(url: str, category_filter: str = None) -> list:
             first_name = " ".join(parts[:-1])
             last_name = parts[-1].title() if parts else ""
 
-        # Cell 3: country code (mostly IOC, remap known ISO3 differences)
-        raw_cc = cells[3].get_text(strip=True)
+        raw_cc = cells[nat_idx].get_text(strip=True)
         country = _ISO3_TO_IOC.get(raw_cc, raw_cc)
 
         riders.append(Rider(
             first_name=first_name,
             last_name=last_name,
             country=country,
-            birth_year=cells[1].get_text(strip=True),
-            team=cells[2].get_text(strip=True),
+            birth_year=cells[year_idx].get_text(strip=True),
+            team=cells[club_idx].get_text(strip=True),
             category=english_cat,
         ))
 
