@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths: [races.yml]        # run when race list changes
   schedule:
-    - cron: "0 6 * * 1"      # every Monday at 06:00 UTC (fresh rankings)
+    - cron: "0 12 * * 2"      # every Tuesday at 12:00 UTC (fresh rankings)
   workflow_dispatch:           # manual trigger from GitHub Actions UI
 
 permissions:
