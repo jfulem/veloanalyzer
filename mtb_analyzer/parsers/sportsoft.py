@@ -54,13 +54,68 @@ _ISO3_TO_IOC = {
 }
 
 
+def _parse_rows(table, col: dict, category_filter) -> list:
+    """Extract Rider objects from one page of the sportsoft table."""
+    name_idx   = col.get("name",   0)
+    year_idx   = col.get("year",   1)
+    club_idx   = col.get("club",   2)
+    nat_idx    = col.get("nat.",   3)
+    course_idx = col.get("course", 4)
+
+    riders = []
+    for row in table.find_all("tr", class_=["licha", "suda"]):
+        cells = row.find_all("td")
+        if len(cells) <= course_idx:
+            continue
+
+        czech_cat   = cells[course_idx].get_text(strip=True)
+        english_cat = _CATEGORY_MAP.get(czech_cat, czech_cat)
+        if not category_matches(english_cat, category_filter):
+            continue
+
+        raw_name = cells[name_idx].get_text(strip=True)
+        parts    = raw_name.split()
+        if parts and parts[0].replace("-", "").isupper():
+            last_name  = parts[0].title()
+            first_name = " ".join(parts[1:])
+        else:
+            first_name = " ".join(parts[:-1])
+            last_name  = parts[-1].title() if parts else ""
+
+        raw_cc  = cells[nat_idx].get_text(strip=True)
+        country = _ISO3_TO_IOC.get(raw_cc, raw_cc)
+
+        riders.append(Rider(
+            first_name=first_name,
+            last_name=last_name,
+            country=country,
+            birth_year=cells[year_idx].get_text(strip=True),
+            team=cells[club_idx].get_text(strip=True),
+            category=english_cat,
+        ))
+    return riders
+
+
+def _max_page(table) -> int:
+    """Return the highest page number found in the pagination row, or 1."""
+    paging = table.find("tr", class_="strankovani")
+    if not paging:
+        return 1
+    pages = []
+    for a in paging.find_all("a", href=True):
+        import re
+        m = re.search(r"Page\$(\d+)", a["href"])
+        if m:
+            pages.append(int(m.group(1)))
+    return max(pages) if pages else 1
+
+
 def parse_sportsoft(url: str, category_filter: str = None) -> list:
     """
     Parses a registrace.sportsoft.cz start list page (ASP.NET WebForms).
 
-    The rider table is only rendered after an HTTP POST with the ASP.NET
-    state fields and clicking the OK button. All courses are fetched at once
-    (Filtr = -1) and filtered client-side.
+    Fetches all pages of the rider table by simulating the page-navigation
+    postback ('Page$N') and updating ASP.NET state between requests.
 
     Row layout: Name | Year | Club | Nat. | Course | Category | Payment | —
     Country codes on the site are mostly IOC alpha-3; known ISO3 differences
@@ -76,12 +131,10 @@ def parse_sportsoft(url: str, category_filter: str = None) -> list:
 
     soup = BeautifulSoup(resp.text, "html.parser")
 
-    # Collect ASP.NET postback state from hidden inputs
-    def _hv(name: str) -> str:
-        el = soup.find("input", {"name": name})
+    def _hv(s: BeautifulSoup, name: str) -> str:
+        el = s.find("input", {"name": name})
         return el["value"] if el else ""
 
-    # Find the course-select and submit button names dynamically
     sel_el = soup.find("select", id=lambda i: i and "Filtr" in i and "Tab" not in i)
     btn_el = soup.find("input", type="submit", id=lambda i: i and "BtnFiltr" in i)
     txt_el = soup.find("input", type="text")
@@ -90,74 +143,60 @@ def parse_sportsoft(url: str, category_filter: str = None) -> list:
         console.print("[yellow]sportsoft: could not find filter form elements[/yellow]")
         return []
 
-    post_data = {
-        "__EVENTTARGET": "",
-        "__EVENTARGUMENT": "",
-        "__VIEWSTATE": _hv("__VIEWSTATE"),
-        "__VIEWSTATEGENERATOR": _hv("__VIEWSTATEGENERATOR"),
-        "__EVENTVALIDATION": _hv("__EVENTVALIDATION"),
-        sel_el["name"]: "-1",         # all courses
-        btn_el["name"]: btn_el.get("value", "OK"),
-    }
+    # Base form data reused across all page requests
+    base_data = {sel_el["name"]: "-1"}
     if txt_el:
-        post_data[txt_el["name"]] = ""
+        base_data[txt_el["name"]] = ""
 
+    def _post(current_soup: BeautifulSoup, event_target: str, event_arg: str,
+              extra: dict = None) -> BeautifulSoup:
+        data = {
+            "__EVENTTARGET":        event_target,
+            "__EVENTARGUMENT":      event_arg,
+            "__VIEWSTATE":          _hv(current_soup, "__VIEWSTATE"),
+            "__VIEWSTATEGENERATOR": _hv(current_soup, "__VIEWSTATEGENERATOR"),
+            "__EVENTVALIDATION":    _hv(current_soup, "__EVENTVALIDATION"),
+            **base_data,
+            **(extra or {}),
+        }
+        r = s.post(url, data=data, headers=HEADERS, timeout=30)
+        r.raise_for_status()
+        return BeautifulSoup(r.text, "html.parser")
+
+    # Page 1: submit the filter form (button click)
     try:
-        resp2 = s.post(url, data=post_data, headers=HEADERS, timeout=30)
-        resp2.raise_for_status()
+        page_soup = _post(soup, "", "", extra={btn_el["name"]: btn_el.get("value", "OK")})
     except Exception as e:
         console.print(f"[red]Error posting to sportsoft: {e}[/red]")
         return []
 
-    soup2 = BeautifulSoup(resp2.text, "html.parser")
-    table = soup2.find("table", id=lambda i: i and "Tab1" in i)
+    table = page_soup.find("table", id=lambda i: i and "Tab1" in i)
     if not table:
         console.print("[yellow]sportsoft: no rider table in response[/yellow]")
         return []
 
-    # Read header to locate columns (layout varies: optional St.no. column)
+    # Derive column indices from the header row (layout varies by event)
     header_row = table.find("tr", class_="zahlavi")
-    if header_row:
-        col = {th.get_text(strip=True).lower(): i
-               for i, th in enumerate(header_row.find_all("th"))}
-    else:
-        col = {}
-    name_idx    = col.get("name",   0)
-    year_idx    = col.get("year",   1)
-    club_idx    = col.get("club",   2)
-    nat_idx     = col.get("nat.",   3)
-    course_idx  = col.get("course", 4)
+    col = ({th.get_text(strip=True).lower(): i
+            for i, th in enumerate(header_row.find_all("th"))}
+           if header_row else {})
 
-    riders = []
-    for row in table.find_all("tr", class_=["licha", "suda"]):
-        cells = row.find_all("td")
-        if len(cells) <= course_idx:
-            continue
+    # The grid's postback target name (table id uses _ but postback uses $)
+    grid_name = table["id"].replace("_", "$")
 
-        czech_cat = cells[course_idx].get_text(strip=True)
-        english_cat = _CATEGORY_MAP.get(czech_cat, czech_cat)
-        if not category_matches(english_cat, category_filter):
-            continue
+    riders = _parse_rows(table, col, category_filter)
 
-        raw_name = cells[name_idx].get_text(strip=True)
-        parts = raw_name.split()
-        if parts and parts[0].replace("-", "").isupper():
-            last_name = parts[0].title()
-            first_name = " ".join(parts[1:])
-        else:
-            first_name = " ".join(parts[:-1])
-            last_name = parts[-1].title() if parts else ""
-
-        raw_cc = cells[nat_idx].get_text(strip=True)
-        country = _ISO3_TO_IOC.get(raw_cc, raw_cc)
-
-        riders.append(Rider(
-            first_name=first_name,
-            last_name=last_name,
-            country=country,
-            birth_year=cells[year_idx].get_text(strip=True),
-            team=cells[club_idx].get_text(strip=True),
-            category=english_cat,
-        ))
+    # Navigate remaining pages
+    total_pages = _max_page(table)
+    for page_num in range(2, total_pages + 1):
+        try:
+            page_soup = _post(page_soup, grid_name, f"Page${page_num}")
+        except Exception as e:
+            console.print(f"[yellow]sportsoft: error fetching page {page_num}: {e}[/yellow]")
+            break
+        table = page_soup.find("table", id=lambda i: i and "Tab1" in i)
+        if not table:
+            break
+        riders.extend(_parse_rows(table, col, category_filter))
 
     return riders
