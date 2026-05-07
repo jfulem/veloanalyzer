@@ -63,6 +63,70 @@ def save_cache(uci_cat: str, data: dict):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+_DATE_RE = re.compile(r'\d{2}(?:\s*-\s*\d{2})?\s+\w{3}\s+\d{4}')
+
+
+def _rider_cache_path(slug: str) -> str:
+    riders_dir = os.path.join(CACHE_DIR, "riders")
+    os.makedirs(riders_dir, exist_ok=True)
+    safe = slug.strip("/").replace("/", "_")
+    return os.path.join(riders_dir, f"{safe}.json")
+
+
+def fetch_rider_history(slug: str) -> list:
+    """Fetch race result history for a rider from their xcodata.com profile page."""
+    if not slug:
+        return []
+    path = _rider_cache_path(slug)
+    if os.path.exists(path):
+        mtime = datetime.fromtimestamp(os.path.getmtime(path))
+        if datetime.now() - mtime < timedelta(days=CACHE_MAX_AGE_DAYS):
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+    try:
+        soup = fetch(f"{XCODATA_BASE}{slug}")
+        tables = soup.find_all("table")
+        if len(tables) < 3:
+            return []
+        results = []
+        for row in tables[2].find_all("tr")[1:]:
+            cells = row.find_all("td")
+            if len(cells) < 3:
+                continue
+            rank_text = cells[0].get_text(strip=True)
+            if not rank_text.isdigit():
+                continue
+            link     = cells[1].find("a", href=True)
+            race_id  = ""
+            race_name = ""
+            if link:
+                m = re.search(r"/race/(\d+)/", link["href"])
+                race_id   = m.group(1) if m else ""
+                race_name = link.get_text(strip=True)
+            date_str = location = ""
+            date_div = cells[1].find("div", class_="text-nowrap")
+            if date_div:
+                div_text = date_div.get_text(" ", strip=True)
+                m = _DATE_RE.search(div_text)
+                if m:
+                    date_str = m.group(0).strip()
+                    location = div_text[m.end():].strip()
+            results.append({
+                "race_id":   race_id,
+                "race_name": race_name,
+                "date":      date_str,
+                "location":  location,
+                "rank":      int(rank_text),
+                "cat":       cells[2].get_text(strip=True),
+            })
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(results, f, ensure_ascii=False)
+        time.sleep(0.2)
+        return results
+    except Exception:
+        return []
+
+
 def build_uci_cache(uci_cat: str) -> dict:
     """Downloads all pages of the UCI ranking from xcodata.com and saves to cache."""
     year, date = get_latest_ranking_date(uci_cat)
@@ -102,14 +166,16 @@ def build_uci_cache(uci_cat: str) -> dict:
                 link = cols[1].find("a")
                 if link:
                     name_raw = link.get_text(strip=True)
+                    slug     = link.get("href", "")
                 else:
-                    parts = rider_cell.split(None, 1)
+                    parts    = rider_cell.split(None, 1)
                     name_raw = parts[1] if len(parts) > 1 else rider_cell
+                    slug     = ""
 
                 name_normalized = normalize_rider_name(name_raw)
                 name_key = name_normalized.lower()
                 cache["by_name"][name_key] = {
-                    "rank": rank, "points": points, "name": name_normalized
+                    "rank": rank, "points": points, "name": name_normalized, "slug": slug,
                 }
                 found_any = True
 
@@ -144,30 +210,27 @@ def lookup_rider(rider: Rider, cache: dict) -> Rider:
     if not by_name:
         return rider
 
-    key = rider.full_name.lower()
-    if key in by_name:
-        entry = by_name[key]
+    def _apply(entry: dict, confidence: int):
         rider.uci_rank         = entry["rank"]
         rider.uci_points       = entry["points"]
-        rider.match_confidence = 100
+        rider.xcodata_slug     = entry.get("slug", "")
+        rider.match_confidence = confidence
+
+    key = rider.full_name.lower()
+    if key in by_name:
+        _apply(by_name[key], 100)
         return rider
 
     key2 = f"{rider.last_name} {rider.first_name}".lower()
     if key2 in by_name:
-        entry = by_name[key2]
-        rider.uci_rank         = entry["rank"]
-        rider.uci_points       = entry["points"]
-        rider.match_confidence = 100
+        _apply(by_name[key2], 100)
         return rider
 
     all_names = list(by_name.keys())
     if all_names:
         best_match, score = process.extractOne(key, all_names, scorer=fuzz.token_sort_ratio)
         if score >= 82:
-            entry = by_name[best_match]
-            rider.uci_rank         = entry["rank"]
-            rider.uci_points       = entry["points"]
-            rider.match_confidence = score
+            _apply(by_name[best_match], score)
         else:
             rider.uci_rank         = None
             rider.uci_points       = 0

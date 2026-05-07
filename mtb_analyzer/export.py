@@ -1,4 +1,5 @@
 import csv
+import json
 import os
 from collections import Counter
 from datetime import datetime
@@ -50,7 +51,7 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
         if r.match_confidence < 100 and r.uci_rank:
             conf_badge = f'<span class="conf-badge">{r.match_confidence}%</span>'
         return (
-            f'<tr class="{tier}">'
+            f'<tr class="{tier}" data-ridx="{i-1}" onclick="selectRider({i-1})">'
             f'<td class="num">{i}</td>'
             f'<td class="name">{r.full_name}{conf_badge}</td>'
             f'<td class="country">{r.flag} {r.country}</td>'
@@ -61,7 +62,15 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
             f'</tr>\n'
         )
 
-    rows_html = "".join(rider_row(i, r) for i, r in enumerate(sorted_riders, 1))
+    rows_html   = "".join(rider_row(i, r) for i, r in enumerate(sorted_riders, 1))
+    riders_json = json.dumps([{
+        "name":    r.full_name,
+        "rank":    r.uci_rank,
+        "points":  r.uci_points or 0,
+        "country": r.country,
+        "flag":    FLAG.get(r.country, ""),
+        "results": r.race_results,
+    } for r in sorted_riders], ensure_ascii=False)
 
     total     = len(sorted_riders)
     max_count = max(country_counts.values(), default=1)
@@ -308,6 +317,69 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
     width: 280px; outline: none;
   }}
   #search:focus {{ border-color: #4299e1; }}
+  table.rider-table tbody tr {{ cursor: pointer; user-select: none; }}
+  tr.selected {{ background: #172a45 !important; outline: 1px solid #4299e1; outline-offset: -1px; }}
+  tr.selected td.name {{ color: #63b3ed !important; font-weight: 600; }}
+  #h2h-hint {{
+    font-size: .8rem; color: #4a5568; margin-bottom: 1rem; font-style: italic;
+  }}
+  #h2h-panel {{
+    display: none; margin-top: 2.5rem; border: 1px solid #2d3748;
+    border-radius: 10px; overflow: hidden;
+  }}
+  .h2h-header {{
+    background: #1c2f3f; padding: .75rem 1.2rem;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid #2d3748;
+  }}
+  .h2h-header span {{ font-size: 1rem; font-weight: 700; color: #f6ad55; }}
+  .h2h-clear {{
+    background: none; border: 1px solid #4a5568; color: #a0aec0;
+    border-radius: 4px; padding: .25rem .7rem; cursor: pointer; font-size: .8rem;
+  }}
+  .h2h-clear:hover {{ border-color: #a0aec0; color: #e2e8f0; }}
+  .h2h-cards {{
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    gap: 0; background: #141920;
+  }}
+  .h2h-card {{
+    padding: 1.2rem 1.5rem; background: #1a202c;
+  }}
+  .h2h-card:last-child {{ text-align: right; }}
+  .h2h-card .hc-name {{ font-size: 1.05rem; font-weight: 700; color: #e2e8f0; margin-bottom: .25rem; }}
+  .h2h-card .hc-country {{ font-size: .85rem; color: #718096; margin-bottom: .5rem; }}
+  .h2h-card .hc-rank {{ font-size: 1.5rem; font-weight: 700; color: #63b3ed; }}
+  .h2h-card .hc-label {{ font-size: .72rem; color: #4a5568; text-transform: uppercase; letter-spacing: .06em; }}
+  .h2h-card .hc-pts {{ font-size: .9rem; color: #a0aec0; margin-top: .2rem; }}
+  .h2h-vs {{
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 1rem; font-size: 1.1rem; font-weight: 900;
+    color: #4a5568; background: #141920;
+  }}
+  .h2h-record {{
+    padding: .8rem 1.5rem; background: #141920; border-top: 1px solid #2d3748;
+    font-size: .88rem; color: #a0aec0; display: flex; gap: 2rem; flex-wrap: wrap;
+  }}
+  .h2h-record .rec-win  {{ color: #68d391; font-weight: 700; }}
+  .h2h-record .rec-loss {{ color: #fc8181; font-weight: 700; }}
+  .h2h-record .rec-tie  {{ color: #718096; }}
+  .h2h-races-wrap {{ overflow-x: auto; }}
+  table.h2h-races {{
+    width: 100%; border-collapse: collapse; font-size: .85rem;
+    border-top: 1px solid #2d3748;
+  }}
+  table.h2h-races th {{
+    background: #1e2738; color: #a0aec0; text-transform: uppercase;
+    font-size: .72rem; letter-spacing: .06em; padding: .5rem .9rem; text-align: left;
+  }}
+  table.h2h-races td {{ padding: .5rem .9rem; border-bottom: 1px solid #1e2738; }}
+  table.h2h-races td.hr-race {{ color: #e2e8f0; max-width: 360px; }}
+  table.h2h-races td.hr-date {{ color: #718096; white-space: nowrap; }}
+  table.h2h-races td.hr-r1   {{ text-align: center; font-weight: 600; }}
+  table.h2h-races td.hr-r2   {{ text-align: center; font-weight: 600; }}
+  table.h2h-races td.hr-win  {{ color: #68d391; }}
+  table.h2h-races td.hr-loss {{ color: #fc8181; }}
+  table.h2h-races .no-shared {{ padding: 1rem 1.5rem; color: #718096; font-style: italic; }}
 </style>
 </head>
 <body>
@@ -340,6 +412,7 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
   <div class="search-wrap">
     <input id="search" type="text" placeholder="🔍  Filter by name, country or team…" oninput="filterTable()">
   </div>
+  <div id="h2h-hint">Click any two riders to compare head-to-head ↓</div>
 
   <div class="rider-table-wrap">
     <table class="rider-table" id="riderTable">
@@ -362,6 +435,18 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
     </tbody>
   </table>
 
+  <div id="h2h-panel">
+    <div class="h2h-header">
+      <span>⚔ Head-to-Head</span>
+      <button class="h2h-clear" onclick="clearSelection()">× Clear</button>
+    </div>
+    <div class="h2h-cards" id="h2h-cards"></div>
+    <div class="h2h-record" id="h2h-record"></div>
+    <div class="h2h-races-wrap">
+      <table class="h2h-races" id="h2h-races"></table>
+    </div>
+  </div>
+
 {comparison_html}
 
   <div class="footer">
@@ -370,6 +455,133 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
 </div>
 
 <script>
+var RIDERS = {riders_json};
+var selected = [];
+
+function esc(s) {{
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}}
+
+function selectRider(idx) {{
+  var pos = selected.indexOf(idx);
+  if (pos >= 0) {{
+    selected.splice(pos, 1);
+    var row = document.querySelector('tr[data-ridx="' + idx + '"]');
+    if (row) row.classList.remove('selected');
+  }} else {{
+    if (selected.length >= 2) {{
+      var old = selected.shift();
+      var oldRow = document.querySelector('tr[data-ridx="' + old + '"]');
+      if (oldRow) oldRow.classList.remove('selected');
+    }}
+    selected.push(idx);
+    var row = document.querySelector('tr[data-ridx="' + idx + '"]');
+    if (row) row.classList.add('selected');
+  }}
+  updateH2H();
+}}
+
+function clearSelection() {{
+  selected.forEach(function(idx) {{
+    var row = document.querySelector('tr[data-ridx="' + idx + '"]');
+    if (row) row.classList.remove('selected');
+  }});
+  selected = [];
+  updateH2H();
+}}
+
+function rankDisp(r) {{
+  return r == null ? '—' : '#' + r;
+}}
+
+function posLabel(rank) {{
+  if (rank == null) return '—';
+  var s = ['th','st','nd','rd'];
+  var v = rank % 100;
+  return rank + (s[(v-20)%10] || s[v] || s[0]);
+}}
+
+function updateH2H() {{
+  var panel = document.getElementById('h2h-panel');
+  var hint  = document.getElementById('h2h-hint');
+  if (selected.length < 2) {{
+    panel.style.display = 'none';
+    if (hint) hint.style.display = '';
+    return;
+  }}
+  var r1 = RIDERS[selected[0]], r2 = RIDERS[selected[1]];
+  if (!r1 || !r2) return;
+  if (hint) hint.style.display = 'none';
+
+  // Build shared races map
+  var map1 = {{}};
+  (r1.results || []).forEach(function(res) {{ if (res.race_id) map1[res.race_id] = res; }});
+  var shared = [];
+  (r2.results || []).forEach(function(res) {{
+    if (res.race_id && map1[res.race_id]) {{
+      shared.push({{ r1res: map1[res.race_id], r2res: res }});
+    }}
+  }});
+
+  var wins1 = shared.filter(function(s) {{ return s.r1res.rank < s.r2res.rank; }}).length;
+  var wins2 = shared.filter(function(s) {{ return s.r2res.rank < s.r1res.rank; }}).length;
+  var ties  = shared.length - wins1 - wins2;
+
+  // Render cards
+  function card(r, wins, losses, right) {{
+    var rankColor = r.rank && r.rank <= 50 ? '#68d391' : r.rank && r.rank <= 200 ? '#9ae6b4' : r.rank ? '#f6e05e' : '#a0aec0';
+    return '<div class="h2h-card' + (right ? ' right' : '') + '">' +
+      '<div class="hc-name">' + esc(r.flag) + ' ' + esc(r.name) + '</div>' +
+      '<div class="hc-country">' + esc(r.country) + '</div>' +
+      '<div class="hc-rank" style="color:' + rankColor + '">' + rankDisp(r.rank) + '</div>' +
+      '<div class="hc-label">UCI rank</div>' +
+      '<div class="hc-pts">' + r.points + ' pts</div>' +
+      (shared.length > 0 ? '<div class="hc-pts" style="margin-top:.5rem"><span class="rec-win">' + wins + 'W</span> / <span class="rec-loss">' + losses + 'L</span></div>' : '') +
+      '</div>';
+  }}
+  document.getElementById('h2h-cards').innerHTML =
+    card(r1, wins1, wins2, false) +
+    '<div class="h2h-vs">VS</div>' +
+    card(r2, wins2, wins1, true);
+
+  // Record bar
+  var recHtml = '<span>' + shared.length + ' shared race' + (shared.length !== 1 ? 's' : '') + '</span>';
+  if (shared.length > 0) {{
+    recHtml += '<span>' + esc(r1.name.split(' ').pop()) + ': <span class="rec-win">' + wins1 + ' win' + (wins1!==1?'s':'') + '</span></span>';
+    recHtml += '<span>' + esc(r2.name.split(' ').pop()) + ': <span class="rec-win">' + wins2 + ' win' + (wins2!==1?'s':'') + '</span></span>';
+    if (ties > 0) recHtml += '<span class="rec-tie">' + ties + ' tie' + (ties!==1?'s':'') + '</span>';
+  }}
+  document.getElementById('h2h-record').innerHTML = recHtml;
+
+  // Races table
+  var raceHtml = '<thead><tr>' +
+    '<th>Race</th><th>Date</th>' +
+    '<th>' + esc(r1.name.split(' ').pop()) + '</th>' +
+    '<th>' + esc(r2.name.split(' ').pop()) + '</th>' +
+    '</tr></thead><tbody>';
+  if (shared.length === 0) {{
+    raceHtml += '<tr><td colspan="4" class="no-shared">No shared UCI races found</td></tr>';
+  }} else {{
+    shared.forEach(function(s) {{
+      var c1 = s.r1res.rank < s.r2res.rank ? ' hr-win' : s.r1res.rank > s.r2res.rank ? ' hr-loss' : '';
+      var c2 = s.r2res.rank < s.r1res.rank ? ' hr-win' : s.r2res.rank > s.r1res.rank ? ' hr-loss' : '';
+      raceHtml += '<tr>' +
+        '<td class="hr-race">' + esc(s.r2res.race_name) + '</td>' +
+        '<td class="hr-date">' + esc(s.r2res.date) + '</td>' +
+        '<td class="hr-r1' + c1 + '">' + posLabel(s.r1res.rank) + '</td>' +
+        '<td class="hr-r2' + c2 + '">' + posLabel(s.r2res.rank) + '</td>' +
+        '</tr>';
+    }});
+  }}
+  raceHtml += '</tbody>';
+  document.getElementById('h2h-races').innerHTML = raceHtml;
+
+  panel.style.display = 'block';
+  panel.scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
+}}
+
 function filterTable() {{
   var q = document.getElementById('search').value.toLowerCase();
   var rows = document.querySelectorAll('#riderTable tbody tr');
