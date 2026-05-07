@@ -67,6 +67,31 @@ def save_cache(uci_cat: str, data: dict):
 _DATE_RE = re.compile(r'\d{2}(?:\s*-\s*\d{2})?\s+\w{3}\s+\d{4}')
 
 
+def _strip_diacritics(s: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", s)
+                   if unicodedata.category(c) != "Mn")
+
+
+def infer_rider_slug(first_name: str, last_name: str) -> str:
+    """
+    For riders not found in the UCI ranking, try to locate their xcodata profile
+    by guessing the slug from the name (xcodata uses ASCII-ified, hyphenated slugs).
+    Tries both 'first-last' and 'last-first' orderings.
+    """
+    def to_slug(name: str) -> str:
+        s = _strip_diacritics(name.lower())
+        return "/rider/" + re.sub(r"[^a-z0-9]+", "-", s).strip("-") + "/"
+
+    for order in (f"{first_name} {last_name}", f"{last_name} {first_name}"):
+        slug = to_slug(order)
+        try:
+            fetch(f"{XCODATA_BASE}{slug}")
+            return slug
+        except Exception:
+            pass
+    return ""
+
+
 def _rider_cache_path(slug: str) -> str:
     riders_dir = os.path.join(CACHE_DIR, "riders")
     os.makedirs(riders_dir, exist_ok=True)
@@ -90,7 +115,7 @@ def fetch_rider_history(slug: str) -> list:
         if len(tables) < 3:
             return []
         results = []
-        for row in tables[2].find_all("tr")[1:]:
+        for row in tables[2].find_all("tr"):
             cells = row.find_all("td")
             if len(cells) < 3:
                 continue
@@ -126,6 +151,108 @@ def fetch_rider_history(slug: str) -> list:
         return results
     except Exception:
         return []
+
+
+def _race_page_cache_path(race_id: str) -> str:
+    race_dir = os.path.join(CACHE_DIR, "race_pages")
+    os.makedirs(race_dir, exist_ok=True)
+    return os.path.join(race_dir, f"{race_id}.json")
+
+
+def fetch_race_page(race_id: str) -> dict:
+    """
+    Fetch a race results page and return a mapping of rider_slug → rank,
+    plus '_name', '_date', '_location' metadata keys.
+    Cached with the standard TTL.
+    """
+    path = _race_page_cache_path(race_id)
+    if os.path.exists(path):
+        mtime = datetime.fromtimestamp(os.path.getmtime(path))
+        if datetime.now() - mtime < timedelta(days=CACHE_MAX_AGE_DAYS):
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+    try:
+        soup = fetch(f"{XCODATA_BASE}/race/{race_id}/")
+        result: dict = {}
+        for table in soup.find_all("table"):
+            for row in table.find_all("tr")[1:]:
+                cells = row.find_all("td")
+                if len(cells) < 2:
+                    continue
+                rank_text = cells[0].get_text(strip=True)
+                if not rank_text.isdigit():
+                    continue
+                link = cells[1].find("a", href=True)
+                if link:
+                    m = re.search(r"(/rider/[^/]+/)", link["href"])
+                    if m:
+                        result[m.group(1)] = int(rank_text)
+        # Metadata from the Info table (last table: location / date / Website)
+        title = soup.find("title")
+        result["_name"] = title.get_text(strip=True).split(" | ")[0].strip() if title else ""
+        all_tables = soup.find_all("table")
+        if all_tables:
+            info_rows = all_tables[-1].find_all("tr")
+            cells_by_row = [[td.get_text(strip=True) for td in r.find_all("td")] for r in info_rows]
+            texts = [c[0] for c in cells_by_row if c and c[0] and c[0] != "Website"]
+            date_val = next((t for t in texts if _DATE_RE.search(t)), "")
+            location = next((t for t in texts if t and not _DATE_RE.search(t)), "")
+            result["_date"]     = date_val
+            result["_location"] = location
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False)
+        time.sleep(0.2)
+        return result
+    except Exception:
+        return {}
+
+
+def supplement_history_from_race_pages(riders: list) -> None:
+    """
+    Supplement each rider's race history with results from race pages that were
+    found in OTHER riders' profiles but are missing from their own.
+
+    This covers the common xcodata lag where a race page is updated before the
+    rider profile pages reflect it.
+    """
+    # Collect all race IDs known from any rider's profile
+    all_known: dict[str, dict] = {}  # race_id → basic info from whoever has it
+    for rider in riders:
+        for res in rider.race_results:
+            rid = res.get("race_id")
+            if rid and rid not in all_known:
+                all_known[rid] = {
+                    "race_name": res.get("race_name", ""),
+                    "date":      res.get("date", ""),
+                    "location":  res.get("location", ""),
+                }
+
+    if not all_known:
+        return
+
+    for rider in riders:
+        if not rider.xcodata_slug:
+            continue
+        existing_ids = {r["race_id"] for r in rider.race_results if r.get("race_id")}
+        missing_ids  = [rid for rid in all_known if rid not in existing_ids]
+        if not missing_ids:
+            continue
+
+        new_results = []
+        for rid in missing_ids:
+            page = fetch_race_page(rid)
+            if rider.xcodata_slug in page:
+                info = all_known[rid]
+                new_results.append({
+                    "race_id":   rid,
+                    "race_name": page.get("_name") or info["race_name"],
+                    "date":      page.get("_date") or info["date"],
+                    "location":  page.get("_location") or info["location"],
+                    "rank":      page[rider.xcodata_slug],
+                    "cat":       "",
+                })
+        if new_results:
+            rider.race_results = new_results + rider.race_results
 
 
 def build_uci_cache(uci_cat: str) -> dict:
@@ -242,19 +369,20 @@ def lookup_rider(rider: Rider, cache: dict) -> Rider:
         rider.xcodata_slug     = entry.get("slug", "")
         rider.match_confidence = confidence
 
-    key = rider.full_name.lower()
-    if key in by_name:
-        _apply(by_name[key], 100)
-        return rider
-
-    key2 = f"{rider.last_name} {rider.first_name}".lower()
-    if key2 in by_name:
-        _apply(by_name[key2], 100)
-        return rider
+    for key in (
+        rider.full_name.lower(),
+        f"{rider.last_name} {rider.first_name}".lower(),
+        _strip_diacritics(rider.full_name.lower()),
+        _strip_diacritics(f"{rider.last_name} {rider.first_name}".lower()),
+    ):
+        if key in by_name:
+            _apply(by_name[key], 100)
+            return rider
 
     all_names = list(by_name.keys())
     if all_names:
-        best_match, score = process.extractOne(key, all_names, scorer=fuzz.token_sort_ratio)
+        key_ascii = _strip_diacritics(rider.full_name.lower())
+        best_match, score = process.extractOne(key_ascii, all_names, scorer=fuzz.token_sort_ratio)
         if score >= 82:
             _apply(by_name[best_match], score)
             entry_name = by_name[best_match]["name"]
