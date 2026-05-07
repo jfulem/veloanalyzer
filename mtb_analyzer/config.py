@@ -21,6 +21,7 @@ FLAG = {
     "ARG": "🇦🇷", "COL": "🇨🇴", "CHI": "🇨🇱", "SRB": "🇷🇸",
     "BUL": "🇧🇬", "GRE": "🇬🇷", "ISR": "🇮🇱", "LUX": "🇱🇺",
     "MEX": "🇲🇽", "URU": "🇺🇾", "TUR": "🇹🇷", "UKR": "🇺🇦",
+    "LTU": "🇱🇹", "LVA": "🇱🇻", "EST": "🇪🇪",
 }
 
 COUNTRY_NORMALIZE = {
@@ -62,6 +63,9 @@ COUNTRY_NORMALIZE = {
     "mexico": "MEX",
     "turkey": "TUR",
     "ukraine": "UKR",
+    "lithuania": "LTU", 
+    "latvia": "LVA", 
+    "estonia": "EST",
 }
 
 CATEGORY_ALIASES = {
@@ -83,5 +87,6 @@ ISO2_TO_IOC = {
     "US": "USA", "CA": "CAN", "AU": "AUS", "NZ": "NZL", "ZA": "RSA",
     "JP": "JPN", "BR": "BRA", "AR": "ARG", "CO": "COL", "CL": "CHI",
     "RS": "SRB", "BG": "BUL", "GR": "GRE", "IL": "ISR", "LU": "LUX",
-    "MX": "MEX", "TR": "TUR", "UA": "UKR", "RO": "ROM",
+    "MX": "MEX", "TR": "TUR", "UA": "UKR", "RO": "ROM", "LT": "LTU", 
+    "LV": "LVA", "EE": "EST",
 }
