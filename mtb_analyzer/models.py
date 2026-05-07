@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from .config import FLAG
@@ -17,6 +17,8 @@ class Rider:
     uci_rank: Optional[int] = None
     uci_points: Optional[int] = None
     match_confidence: int = 100  # 100 = exact match, <100 = fuzzy match %
+    xcodata_slug: str = ""
+    race_results: list = field(default_factory=list)  # [{race_id, race_name, date, location, rank, cat}]
 
     @property
     def full_name(self):
