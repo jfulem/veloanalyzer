@@ -6,7 +6,12 @@ on:
     paths: [races.yml]        # run when race list changes
   schedule:
     - cron: "0 12 * * *"      # every day at 12:00 UTC (fresh rankings)
-  workflow_dispatch:           # manual trigger from GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      force_refresh:
+        description: 'Force re-download of UCI ranking cache'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -40,7 +45,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .mtb_cache
-          key: mtb-cache-${{ runner.os }}-${{ steps.week.outputs.week }}-${{ hashFiles('races.yml') }}
+          key: mtb-cache-${{ runner.os }}-${{ steps.week.outputs.week }}-${{ hashFiles('races.yml') }}${{ inputs.force_refresh && format('-bust{0}', github.run_id) || '' }}
           restore-keys: |
             mtb-cache-${{ runner.os }}-${{ steps.week.outputs.week }}-
             mtb-cache-${{ runner.os }}-
