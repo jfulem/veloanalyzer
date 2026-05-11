@@ -38,7 +38,8 @@ def generate_report(race: dict, uci_caches: dict) -> bool:
     cache = uci_caches[uci_category]
 
     console.print(f"\n[cyan]Generating:[/cyan] {race.get('name', url)}")
-    riders, race_name = parse_start_list(url, category)
+    riders, _ = parse_start_list(url, category)
+    race_name = race["name"]
 
     if not riders:
         console.print(f"[yellow]  No riders found — skipping[/yellow]")
