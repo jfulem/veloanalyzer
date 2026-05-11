@@ -62,9 +62,10 @@ def display_riders(riders: list, race_name: str, uci_cat: str):
         elif r.uci_rank:                        name_style = "yellow"
         else:                                   name_style = "white"
 
+        display_name = r.corrected_name if r.corrected_name else r.full_name
         table.add_row(
             str(i),
-            f"[{name_style}]{r.full_name}[/{name_style}]{confidence}",
+            f"[{name_style}]{display_name}[/{name_style}]{confidence}",
             f"{r.flag} {r.country}",
             rank_str, pts_str,
             r.uci_id or "—",

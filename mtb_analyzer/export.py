@@ -50,10 +50,11 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
         conf_badge  = ""
         if r.match_confidence < 100 and r.uci_rank:
             conf_badge = f'<span class="conf-badge">{r.match_confidence}%</span>'
+        display_name = r.corrected_name if r.corrected_name else r.full_name
         return (
             f'<tr class="{tier}" data-ridx="{i-1}" onclick="selectRider({i-1})">'
             f'<td class="num">{i}</td>'
-            f'<td class="name">{r.full_name}{conf_badge}</td>'
+            f'<td class="name">{display_name}{conf_badge}</td>'
             f'<td class="country">{r.flag} {r.country}</td>'
             f'<td class="rank">{rank_disp}</td>'
             f'<td class="pts">{pts_disp}</td>'
@@ -64,7 +65,7 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
 
     rows_html   = "".join(rider_row(i, r) for i, r in enumerate(sorted_riders, 1))
     riders_json = json.dumps([{
-        "name":    r.full_name,
+        "name":    r.corrected_name or r.full_name,
         "rank":    r.uci_rank,
         "points":  r.uci_points or 0,
         "country": r.country,
