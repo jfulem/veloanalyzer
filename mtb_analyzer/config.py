@@ -87,6 +87,9 @@ ISO2_TO_IOC = {
     "US": "USA", "CA": "CAN", "AU": "AUS", "NZ": "NZL", "ZA": "RSA",
     "JP": "JPN", "BR": "BRA", "AR": "ARG", "CO": "COL", "CL": "CHI",
     "RS": "SRB", "BG": "BUL", "GR": "GRE", "IL": "ISR", "LU": "LUX",
-    "MX": "MEX", "TR": "TUR", "UA": "UKR", "RO": "ROM", "LT": "LTU", 
+    "MX": "MEX", "TR": "TUR", "UA": "UKR", "RO": "ROM", "LT": "LTU",
     "LV": "LVA", "EE": "EST",
 }
+
+# Reverse: IOC alpha-3 → lowercase ISO2 (for flagcdn.com URLs)
+IOC_TO_ISO2 = {ioc: iso2.lower() for iso2, ioc in ISO2_TO_IOC.items()}

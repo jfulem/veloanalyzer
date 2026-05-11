@@ -5,7 +5,14 @@ from collections import Counter
 from datetime import datetime
 from typing import Optional
 
-from .config import FLAG, console
+from .config import IOC_TO_ISO2, console
+
+
+def _flag_img(country: str) -> str:
+    iso2 = IOC_TO_ISO2.get(country, "")
+    if not iso2:
+        return ""
+    return f'<img src="https://flagcdn.com/16x12/{iso2}.png" alt="{country}" style="vertical-align:middle">'
 from .display import race_quality_stats, sort_riders
 from .models import Rider
 
@@ -55,7 +62,7 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
             f'<tr class="{tier}" data-ridx="{i-1}" onclick="selectRider({i-1})">'
             f'<td class="num">{i}</td>'
             f'<td class="name">{display_name}{conf_badge}</td>'
-            f'<td class="country">{r.flag} {r.country}</td>'
+            f'<td class="country">{_flag_img(r.country)} {r.country}</td>'
             f'<td class="rank">{rank_disp}</td>'
             f'<td class="pts">{pts_disp}</td>'
             f'<td class="uci-id">{r.uci_id if r.uci_id else "—"}</td>'
@@ -69,7 +76,7 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
         "rank":    r.uci_rank,
         "points":  r.uci_points or 0,
         "country": r.country,
-        "flag":    FLAG.get(r.country, ""),
+        "flag":    IOC_TO_ISO2.get(r.country, ""),
         "results": r.race_results,
     } for r in sorted_riders], ensure_ascii=False)
 
@@ -77,12 +84,11 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
     max_count = max(country_counts.values(), default=1)
     country_rows = ""
     for country, count in sorted(country_counts.items(), key=lambda x: -x[1]):
-        flag_str = FLAG.get(country, "")
         pct      = count / total * 100
         bar_pct  = count / max_count * 100
         country_rows += (
             f'<tr>'
-            f'<td class="c-flag">{flag_str} {country}</td>'
+            f'<td class="c-flag">{_flag_img(country)} {country}</td>'
             f'<td class="c-count">{count}</td>'
             f'<td class="c-bar-cell">'
             f'  <div class="c-bar" style="width:{bar_pct:.1f}%"></div>'
@@ -148,7 +154,7 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
                 rows += (f'<tr><td class="rank">{r.uci_rank}</td>'
                          f'<td class="name">{r.full_name}</td>'
                          f'<td class="pts">{r.uci_points}</td>'
-                         f'<td class="country">{r.flag} {r.country}</td></tr>\n')
+                         f'<td class="country">{_flag_img(r.country)} {r.country}</td></tr>\n')
             return rows or '<tr><td colspan="4">No ranked riders</td></tr>'
 
         comparison_html = f"""
@@ -534,7 +540,7 @@ function updateH2H() {{
   function card(r, wins, losses, right) {{
     var rankColor = r.rank && r.rank <= 50 ? '#68d391' : r.rank && r.rank <= 200 ? '#9ae6b4' : r.rank ? '#f6e05e' : '#a0aec0';
     return '<div class="h2h-card' + (right ? ' right' : '') + '">' +
-      '<div class="hc-name">' + esc(r.flag) + ' ' + esc(r.name) + '</div>' +
+      '<div class="hc-name">' + (r.flag ? '<img src="https://flagcdn.com/16x12/' + r.flag + '.png" style="vertical-align:middle" alt=""> ' : '') + esc(r.name) + '</div>' +
       '<div class="hc-country">' + esc(r.country) + '</div>' +
       '<div class="hc-rank" style="color:' + rankColor + '">' + rankDisp(r.rank) + '</div>' +
       '<div class="hc-label">UCI rank</div>' +
