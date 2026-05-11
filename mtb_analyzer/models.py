@@ -17,6 +17,7 @@ class Rider:
     uci_rank: Optional[int] = None
     uci_points: Optional[int] = None
     match_confidence: int = 100  # 100 = exact match, <100 = fuzzy match %
+    corrected_name: str = ""    # set when fuzzy match reveals a non-diacritic typo
     xcodata_slug: str = ""
     race_results: list = field(default_factory=list)  # [{race_id, race_name, date, location, rank, cat}]
 

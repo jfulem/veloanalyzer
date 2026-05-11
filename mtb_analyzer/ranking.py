@@ -2,6 +2,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 from datetime import datetime, timedelta
 
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -204,6 +205,11 @@ def get_uci_cache(uci_cat: str, force_refresh: bool = False) -> dict:
     return build_uci_cache(uci_cat)
 
 
+def _strip_diacritics(s: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", s)
+                   if unicodedata.category(c) != "Mn").lower()
+
+
 def lookup_rider(rider: Rider, cache: dict) -> Rider:
     """Looks up UCI rank for a rider. Tries exact name match first, then fuzzy."""
     by_name = cache.get("by_name", {})
@@ -231,6 +237,9 @@ def lookup_rider(rider: Rider, cache: dict) -> Rider:
         best_match, score = process.extractOne(key, all_names, scorer=fuzz.token_sort_ratio)
         if score >= 82:
             _apply(by_name[best_match], score)
+            entry_name = by_name[best_match]["name"]
+            if _strip_diacritics(rider.full_name) != _strip_diacritics(entry_name):
+                rider.corrected_name = entry_name
         else:
             rider.uci_rank         = None
             rider.uci_points       = 0
