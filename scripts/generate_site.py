@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mtb_analyzer.config import console
 from mtb_analyzer.export import export_html
 from mtb_analyzer.parsers import parse_start_list
-from mtb_analyzer.ranking import fetch_rider_history, get_uci_cache, lookup_rider
+from mtb_analyzer.ranking import fetch_rider_history, find_xcodata_slug, get_uci_cache, lookup_rider
 
 REPO_ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RACES_FILE = os.path.join(REPO_ROOT, "races.yml")
@@ -49,6 +49,8 @@ def generate_report(race: dict, uci_caches: dict) -> bool:
     console.print(f"[dim]  Looking up UCI rankings and fetching race histories...[/dim]")
     for rider in riders:
         lookup_rider(rider, cache)
+        if not rider.xcodata_slug:
+            rider.xcodata_slug = find_xcodata_slug(rider)
         if rider.xcodata_slug:
             rider.race_results = fetch_rider_history(rider.xcodata_slug)
 

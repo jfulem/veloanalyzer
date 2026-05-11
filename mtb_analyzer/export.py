@@ -612,7 +612,12 @@ function updateH2H() {{
     '<th>' + esc(r2.name.split(' ').pop()) + '</th>' +
     '</tr></thead><tbody>';
   if (shared.length === 0) {{
-    raceHtml += '<tr><td colspan="4" class="no-shared">No shared UCI races found</td></tr>';
+    var noMsg = 'No shared races found';
+    var missing = [];
+    if (!r1.results || r1.results.length === 0) missing.push(esc(r1.name));
+    if (!r2.results || r2.results.length === 0) missing.push(esc(r2.name));
+    if (missing.length > 0) noMsg = 'No race history available for: ' + missing.join(', ') + ' (no xcodata profile found)';
+    raceHtml += '<tr><td colspan="4" class="no-shared">' + noMsg + '</td></tr>';
   }} else {{
     shared.forEach(function(s) {{
       var c1 = s.r1res.rank < s.r2res.rank ? ' hr-win' : s.r1res.rank > s.r2res.rank ? ' hr-loss' : '';
