@@ -117,12 +117,9 @@ def parse_sportsoft(url: str, category_filter: str = None) -> list:
     """
     Parses a registrace.sportsoft.cz start list page (ASP.NET WebForms).
 
-    Fetches all pages of the rider table by simulating the page-navigation
-    postback ('Page$N') and updating ASP.NET state between requests.
-
-    Row layout: Name | Year | Club | Nat. | Course | Category | Payment | —
-    Country codes on the site are mostly IOC alpha-3; known ISO3 differences
-    (e.g. ROU → ROM) are remapped.
+    Single-race pages (startlist.aspx?e=N): returns riders with no race_name set.
+    Multi-race meeting pages (mstartlist.aspx?m=N): iterates every race in the
+    Zavod dropdown and sets rider.race_name to the race label for each group.
     """
     s = requests.Session()
     try:
@@ -134,8 +131,8 @@ def parse_sportsoft(url: str, category_filter: str = None) -> list:
 
     soup = BeautifulSoup(resp.text, "html.parser")
 
-    def _hv(s: BeautifulSoup, name: str) -> str:
-        el = s.find("input", {"name": name})
+    def _hv(soup_: BeautifulSoup, name: str) -> str:
+        el = soup_.find("input", {"name": name})
         return el["value"] if el else ""
 
     # Course-filter select: older pages use "Filtr", multi-race meeting pages use "Trat"
@@ -150,21 +147,18 @@ def parse_sportsoft(url: str, category_filter: str = None) -> list:
         console.print("[yellow]sportsoft: could not find filter form elements[/yellow]")
         return []
 
-    # Base form data reused across all page requests
     base_data = {sel_el["name"]: "-1"}  # all courses
     if txt_el:
         base_data[txt_el["name"]] = ""
 
-    # Race selector present on multi-race meeting pages (mstartlist.aspx)
     zavod_el = soup.find("select", id=lambda i: i and "Zavod" in i)
+    race_options = []
     if zavod_el:
-        default_val = next(
-            (opt["value"] for opt in zavod_el.find_all("option") if opt.get("selected")),
-            (zavod_el.find("option") or {}).get("value", ""),
-        )
-        _, fragment = urldefrag(url)
-        desired_val = fragment if fragment else default_val
-        base_data[zavod_el["name"]] = desired_val
+        race_options = [
+            (opt["value"], opt.get_text(strip=True))
+            for opt in zavod_el.find_all("option")
+            if opt.get("value")
+        ]
 
     def _post(current_soup: BeautifulSoup, event_target: str, event_arg: str,
               extra: dict = None) -> BeautifulSoup:
@@ -181,49 +175,76 @@ def parse_sportsoft(url: str, category_filter: str = None) -> list:
         r.raise_for_status()
         return BeautifulSoup(r.text, "html.parser")
 
-    # If a non-default race was requested, postback the race selector first so
-    # the server's VIEWSTATE/EVENTVALIDATION is consistent with the chosen race.
-    if zavod_el and desired_val != default_val:
+    def _fetch_race(race_soup: BeautifulSoup, race_label: str) -> list:
+        """Click BtnFiltr and paginate; tag every rider with race_label."""
         try:
-            soup = _post(soup, zavod_el["name"], "")
+            page_soup = _post(race_soup, "", "",
+                              extra={btn_el["name"]: btn_el.get("value", "OK")})
         except Exception as e:
-            console.print(f"[red]Error selecting race on sportsoft: {e}[/red]")
+            console.print(f"[red]sportsoft: error fetching '{race_label}': {e}[/red]")
             return []
 
-    # Page 1: submit the filter form (button click)
-    try:
-        page_soup = _post(soup, "", "", extra={btn_el["name"]: btn_el.get("value", "OK")})
-    except Exception as e:
-        console.print(f"[red]Error posting to sportsoft: {e}[/red]")
-        return []
-
-    table = page_soup.find("table", id=lambda i: i and "Tab1" in i)
-    if not table:
-        console.print("[yellow]sportsoft: no rider table in response[/yellow]")
-        return []
-
-    # Derive column indices from the header row (layout varies by event)
-    header_row = table.find("tr", class_="zahlavi")
-    col = ({th.get_text(strip=True).lower(): i
-            for i, th in enumerate(header_row.find_all("th"))}
-           if header_row else {})
-
-    # The grid's postback target name (table id uses _ but postback uses $)
-    grid_name = table["id"].replace("_", "$")
-
-    riders = _parse_rows(table, col, category_filter)
-
-    # Navigate remaining pages
-    total_pages = _max_page(table)
-    for page_num in range(2, total_pages + 1):
-        try:
-            page_soup = _post(page_soup, grid_name, f"Page${page_num}")
-        except Exception as e:
-            console.print(f"[yellow]sportsoft: error fetching page {page_num}: {e}[/yellow]")
-            break
         table = page_soup.find("table", id=lambda i: i and "Tab1" in i)
         if not table:
-            break
-        riders.extend(_parse_rows(table, col, category_filter))
+            console.print(f"[yellow]sportsoft: no table for '{race_label}'[/yellow]")
+            return []
 
-    return riders
+        header_row = table.find("tr", class_="zahlavi")
+        col = ({th.get_text(strip=True).lower(): i
+                for i, th in enumerate(header_row.find_all("th"))}
+               if header_row else {})
+        grid_name = table["id"].replace("_", "$")
+
+        riders = _parse_rows(table, col, category_filter)
+        for r in riders:
+            r.race_name = race_label
+
+        total_pages = _max_page(table)
+        for page_num in range(2, total_pages + 1):
+            try:
+                page_soup = _post(page_soup, grid_name, f"Page${page_num}")
+            except Exception as e:
+                console.print(f"[yellow]sportsoft: page {page_num} error: {e}[/yellow]")
+                break
+            table = page_soup.find("table", id=lambda i: i and "Tab1" in i)
+            if not table:
+                break
+            more = _parse_rows(table, col, category_filter)
+            for r in more:
+                r.race_name = race_label
+            riders.extend(more)
+
+        return riders
+
+    if len(race_options) > 1:
+        # Multi-race meeting: iterate every race in the Zavod dropdown.
+        # Each race is fetched by posting a Zavod-change postback from the
+        # initial (clean) soup, then clicking BtnFiltr.
+        all_riders = []
+        for race_val, race_label in race_options:
+            base_data[zavod_el["name"]] = race_val
+            try:
+                race_soup = _post(soup, zavod_el["name"], "")
+            except Exception as e:
+                console.print(f"[red]sportsoft: error selecting '{race_label}': {e}[/red]")
+                continue
+            all_riders.extend(_fetch_race(race_soup, race_label))
+        return all_riders
+
+    # Single-race: optionally honour a URL fragment to pick a specific race.
+    if race_options:
+        default_val = next(
+            (opt["value"] for opt in zavod_el.find_all("option") if opt.get("selected")),
+            race_options[0][0],
+        )
+        _, fragment = urldefrag(url)
+        desired_val = fragment if fragment else default_val
+        base_data[zavod_el["name"]] = desired_val
+        if desired_val != default_val:
+            try:
+                soup = _post(soup, zavod_el["name"], "")
+            except Exception as e:
+                console.print(f"[red]sportsoft: error selecting race: {e}[/red]")
+                return []
+
+    return _fetch_race(soup, "")
