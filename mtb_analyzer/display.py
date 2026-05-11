@@ -32,14 +32,9 @@ def race_quality_stats(riders: list) -> dict:
     }
 
 
-def display_riders(riders: list, race_name: str, uci_cat: str):
-    """Displays the rider table sorted by UCI ranking (ranked first, then unranked A-Z)."""
-    sorted_riders = sort_riders(riders)
-
+def _riders_table(riders: list, title: str) -> Table:
     table = Table(
-        title=(f"[bold cyan]{race_name}[/bold cyan]\n"
-               f"[dim]UCI category: {uci_cat} | Total starters: {len(riders)}[/dim]"),
-        show_header=True, header_style="bold magenta",
+        title=title, show_header=True, header_style="bold magenta",
         border_style="dim", show_lines=False,
     )
     table.add_column("#",       style="dim", width=4,  justify="right")
@@ -50,7 +45,7 @@ def display_riders(riders: list, race_name: str, uci_cat: str):
     table.add_column("UCI ID", style="dim", width=13)
     table.add_column("Team",   style="dim", min_width=20)
 
-    for i, r in enumerate(sorted_riders, 1):
+    for i, r in enumerate(sort_riders(riders), 1):
         rank_str   = str(r.uci_rank) if r.uci_rank else "[dim]—[/dim]"
         pts_str    = str(r.uci_points) if r.uci_points else "[dim]0[/dim]"
         confidence = ""
@@ -71,9 +66,32 @@ def display_riders(riders: list, race_name: str, uci_cat: str):
             r.uci_id or "—",
             r.team[:40] if r.team else "—",
         )
+    return table
 
-    console.print(table)
-    display_country_stats(sorted_riders)
+
+def display_riders(riders: list, race_name: str, uci_cat: str):
+    """Displays the rider table(s) sorted by UCI ranking."""
+    race_keys = list(dict.fromkeys(r.race_name for r in riders if r.race_name))
+
+    if len(race_keys) > 1:
+        # Multi-race meeting: one table per race
+        console.print(f"\n[bold cyan]{race_name}[/bold cyan]  "
+                      f"[dim]UCI: {uci_cat} | {len(riders)} total starters[/dim]")
+        for rk in race_keys:
+            group = [r for r in riders if r.race_name == rk]
+            console.print(_riders_table(
+                group,
+                f"[bold]{rk}[/bold]  [dim]{len(group)} starters[/dim]",
+            ))
+        display_country_stats(sort_riders(riders))
+    else:
+        sorted_riders = sort_riders(riders)
+        console.print(_riders_table(
+            riders,
+            (f"[bold cyan]{race_name}[/bold cyan]\n"
+             f"[dim]UCI category: {uci_cat} | Total starters: {len(riders)}[/dim]"),
+        ))
+        display_country_stats(sorted_riders)
 
 
 def display_country_stats(riders: list):

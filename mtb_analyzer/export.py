@@ -50,7 +50,10 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
     stats          = race_quality_stats(riders)
     generated_at   = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    def rider_row(i: int, r: Rider) -> str:
+    # Global index map for H2H (data-ridx must match position in riders_json)
+    global_idx = {id(r): i for i, r in enumerate(sorted_riders)}
+
+    def rider_row(sec_rank: int, r: Rider, ridx: int) -> str:
         tier        = rank_tier(r.uci_rank)
         rank_disp   = str(r.uci_rank)   if r.uci_rank   else "—"
         pts_disp    = str(r.uci_points) if r.uci_points else "0"
@@ -59,8 +62,8 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
             conf_badge = f'<span class="conf-badge">{r.match_confidence}%</span>'
         display_name = r.corrected_name if r.corrected_name else r.full_name
         return (
-            f'<tr class="{tier}" data-ridx="{i-1}" onclick="selectRider({i-1})">'
-            f'<td class="num">{i}</td>'
+            f'<tr class="{tier}" data-ridx="{ridx}" onclick="selectRider({ridx})">'
+            f'<td class="num">{sec_rank}</td>'
             f'<td class="name">{display_name}{conf_badge}</td>'
             f'<td class="country">{_flag_img(r.country)} {r.country}</td>'
             f'<td class="rank">{rank_disp}</td>'
@@ -70,7 +73,10 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
             f'</tr>\n'
         )
 
-    rows_html   = "".join(rider_row(i, r) for i, r in enumerate(sorted_riders, 1))
+    # Detect multi-race: distinct non-empty race_name values
+    race_keys = list(dict.fromkeys(r.race_name for r in sorted_riders if r.race_name))
+    multi_race = len(race_keys) > 1
+
     riders_json = json.dumps([{
         "name":    r.corrected_name or r.full_name,
         "rank":    r.uci_rank,
@@ -116,6 +122,53 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
         stat_card("Total UCI pts",   stats["total_pts"]) +
         stat_card("TOP-10 pts",      stats["top10_pts"], "(top 10 riders)")
     )
+
+    TABLE_HEAD = ('<thead><tr>'
+                  '<th>#</th><th>Name</th><th>Country</th>'
+                  '<th>UCI rank</th><th>UCI pts</th><th>UCI ID</th><th>Team</th>'
+                  '</tr></thead>')
+
+    if multi_race:
+        start_list_block = ""
+        for rk in race_keys:
+            group = [r for r in sorted_riders if r.race_name == rk]
+            gs    = race_quality_stats(group)
+            g_avg = f"{gs['avg_rank']:.0f}" if gs["avg_rank"] else "—"
+            g_stat_cards = (
+                stat_card("Starters",   gs["total"]) +
+                stat_card("Ranked",     gs["ranked"]) +
+                stat_card("Best rank",  gs["best_rank"] or "—") +
+                stat_card("Avg rank",   g_avg, "(ranked only)") +
+                stat_card("TOP 50",     gs["top50"]) +
+                stat_card("TOP 100",    gs["top100"]) +
+                stat_card("Total pts",  gs["total_pts"])
+            )
+            group_rows = "".join(
+                rider_row(sec_rank, r, global_idx[id(r)])
+                for sec_rank, r in enumerate(sort_riders(group), 1)
+            )
+            start_list_block += (
+                f'\n  <section class="race-section">'
+                f'\n    <h2 class="race-section-title">{rk}</h2>'
+                f'\n    <div class="stats-grid">{g_stat_cards}</div>'
+                f'\n    <div class="rider-table-wrap">'
+                f'\n      <table class="rider-table">{TABLE_HEAD}'
+                f'\n        <tbody>{group_rows}</tbody>'
+                f'\n      </table></div>'
+                f'\n  </section>'
+            )
+    else:
+        rows_html = "".join(
+            rider_row(i, r, i - 1) for i, r in enumerate(sorted_riders, 1)
+        )
+        start_list_block = (
+            f'\n  <div class="section-title">Start List</div>'
+            f'\n  <div class="rider-table-wrap">'
+            f'\n    <table class="rider-table" id="riderTable">{TABLE_HEAD}'
+            f'\n      <tbody>\n{rows_html}      </tbody>'
+            f'\n    </table>'
+            f'\n  </div>'
+        )
 
     comparison_html = ""
     if compare_data:
@@ -231,6 +284,12 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
   .section-title {{
     font-size: 1.1rem; font-weight: 600; color: #a0aec0;
     margin: 1.5rem 0 .6rem; text-transform: uppercase; letter-spacing: .08em;
+  }}
+  .race-section {{ margin-bottom: 2.5rem; }}
+  .race-section-title {{
+    font-size: 1.15rem; font-weight: 700; color: #90cdf4;
+    border-left: 3px solid #4299e1; padding-left: .75rem;
+    margin: 1.5rem 0 .8rem;
   }}
   .rider-table-wrap {{ overflow-x: auto; margin-bottom: 2rem; }}
   table.rider-table {{ width: 100%; border-collapse: collapse; font-size: .88rem; }}
@@ -402,11 +461,7 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
     </div>
   </header>
 
-  <div class="stats-grid">
-{stat_cards}
-  </div>
-
-  <div class="section-title">Start List</div>
+  {'<div class="stats-grid">' + stat_cards + '</div>' if not multi_race else ''}
 
   <div class="legend">
     <span><span class="dot dot-top50"></span>TOP 50</span>
@@ -421,19 +476,7 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
   </div>
   <div id="h2h-hint">Click any two riders to compare head-to-head ↓</div>
 
-  <div class="rider-table-wrap">
-    <table class="rider-table" id="riderTable">
-      <thead>
-        <tr>
-          <th>#</th><th>Name</th><th>Country</th>
-          <th>UCI rank</th><th>UCI pts</th><th>UCI ID</th><th>Team</th>
-        </tr>
-      </thead>
-      <tbody>
-{rows_html}
-      </tbody>
-    </table>
-  </div>
+{start_list_block}
 
   <div class="section-title">Starters by Country</div>
   <table class="country-table">
@@ -591,7 +634,7 @@ function updateH2H() {{
 
 function filterTable() {{
   var q = document.getElementById('search').value.toLowerCase();
-  var rows = document.querySelectorAll('#riderTable tbody tr');
+  var rows = document.querySelectorAll('.rider-table tbody tr');
   rows.forEach(function(row) {{
     row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
   }});
