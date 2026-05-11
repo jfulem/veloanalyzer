@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import urldefrag
 
 from ..config import HEADERS, console
 from ..models import Rider
@@ -58,7 +59,7 @@ def _parse_rows(table, col: dict, category_filter) -> list:
     """Extract Rider objects from one page of the sportsoft table."""
     name_idx   = col.get("name",   0)
     year_idx   = col.get("year",   1)
-    club_idx   = col.get("club",   2)
+    club_idx   = col.get("club",   None)
     nat_idx    = col.get("nat.",   3)
     course_idx = col.get("course", 4)
 
@@ -85,12 +86,14 @@ def _parse_rows(table, col: dict, category_filter) -> list:
         raw_cc  = cells[nat_idx].get_text(strip=True)
         country = _ISO3_TO_IOC.get(raw_cc, raw_cc)
 
+        team = cells[club_idx].get_text(strip=True) if club_idx is not None and len(cells) > club_idx else ""
+
         riders.append(Rider(
             first_name=first_name,
             last_name=last_name,
             country=country,
             birth_year=cells[year_idx].get_text(strip=True),
-            team=cells[club_idx].get_text(strip=True),
+            team=team,
             category=english_cat,
         ))
     return riders
@@ -135,7 +138,11 @@ def parse_sportsoft(url: str, category_filter: str = None) -> list:
         el = s.find("input", {"name": name})
         return el["value"] if el else ""
 
-    sel_el = soup.find("select", id=lambda i: i and "Filtr" in i and "Tab" not in i)
+    # Course-filter select: older pages use "Filtr", multi-race meeting pages use "Trat"
+    sel_el = (
+        soup.find("select", id=lambda i: i and "Filtr" in i and "Tab" not in i)
+        or soup.find("select", id=lambda i: i and "Trat" in i)
+    )
     btn_el = soup.find("input", type="submit", id=lambda i: i and "BtnFiltr" in i)
     txt_el = soup.find("input", type="text")
 
@@ -144,9 +151,20 @@ def parse_sportsoft(url: str, category_filter: str = None) -> list:
         return []
 
     # Base form data reused across all page requests
-    base_data = {sel_el["name"]: "-1"}
+    base_data = {sel_el["name"]: "-1"}  # all courses
     if txt_el:
         base_data[txt_el["name"]] = ""
+
+    # Race selector present on multi-race meeting pages (mstartlist.aspx)
+    zavod_el = soup.find("select", id=lambda i: i and "Zavod" in i)
+    if zavod_el:
+        default_val = next(
+            (opt["value"] for opt in zavod_el.find_all("option") if opt.get("selected")),
+            (zavod_el.find("option") or {}).get("value", ""),
+        )
+        _, fragment = urldefrag(url)
+        desired_val = fragment if fragment else default_val
+        base_data[zavod_el["name"]] = desired_val
 
     def _post(current_soup: BeautifulSoup, event_target: str, event_arg: str,
               extra: dict = None) -> BeautifulSoup:
@@ -162,6 +180,15 @@ def parse_sportsoft(url: str, category_filter: str = None) -> list:
         r = s.post(url, data=data, headers=HEADERS, timeout=30)
         r.raise_for_status()
         return BeautifulSoup(r.text, "html.parser")
+
+    # If a non-default race was requested, postback the race selector first so
+    # the server's VIEWSTATE/EVENTVALIDATION is consistent with the chosen race.
+    if zavod_el and desired_val != default_val:
+        try:
+            soup = _post(soup, zavod_el["name"], "")
+        except Exception as e:
+            console.print(f"[red]Error selecting race on sportsoft: {e}[/red]")
+            return []
 
     # Page 1: submit the filter form (button click)
     try:
