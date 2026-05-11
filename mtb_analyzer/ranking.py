@@ -210,6 +210,26 @@ def _strip_diacritics(s: str) -> str:
                    if unicodedata.category(c) != "Mn").lower()
 
 
+def find_xcodata_slug(rider: Rider) -> str:
+    """
+    For riders not found in the UCI ranking, guess their xcodata slug from name.
+    xcodata uses /rider/{first}-{last}/ (diacritics stripped, lowercase).
+    Returns the slug if the profile has race results, otherwise "".
+    """
+    def slugify(s: str) -> str:
+        return re.sub(r"\s+", "-", _strip_diacritics(s).lower().strip())
+
+    first = slugify(rider.first_name)
+    last  = slugify(rider.last_name)
+    if not first or not last:
+        return ""
+
+    for slug in [f"/rider/{first}-{last}/", f"/rider/{last}-{first}/"]:
+        if fetch_rider_history(slug):
+            return slug
+    return ""
+
+
 def lookup_rider(rider: Rider, cache: dict) -> Rider:
     """Looks up UCI rank for a rider. Tries exact name match first, then fuzzy."""
     by_name = cache.get("by_name", {})
