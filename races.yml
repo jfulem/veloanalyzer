@@ -26,6 +26,7 @@ races:
   
   - url: "https://registrace.sportsoft.cz/mstartlist.aspx?m=478"
     name: "Junior Series NMNM 2026"
+    date: "2026-05-23"
     category: "Men Juniors"
     uci_category: MJ
     output: "nmnm-2026-mj.html"
