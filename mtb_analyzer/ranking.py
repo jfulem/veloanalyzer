@@ -100,19 +100,21 @@ def _rider_cache_path(slug: str) -> str:
 
 
 def _flag_img_to_ioc(img) -> str:
-    """Extract IOC country code from a flag <img> tag (flagcdn.com src or alt text)."""
+    """Extract IOC country code from a flag <img> tag (xcodata src or alt text)."""
     src = img.get("src", "").lower()
-    m = re.search(r"/([a-z]{2})\.(?:png|gif|svg)", src)
+    m = re.search(r"/([a-z]{2,3})\.(?:png|gif|svg)", src)
     if m:
-        iso2 = m.group(1).upper()
-        if iso2 in ISO2_TO_IOC:
-            return ISO2_TO_IOC[iso2]
+        code = m.group(1).upper()
+        if code in FLAG:
+            return code
+        if code in ISO2_TO_IOC:
+            return ISO2_TO_IOC[code]
     alt = img.get("alt", "").strip()
     if alt.upper() in FLAG:
         return alt.upper()
     if alt:
         normed = normalize_country(alt)
-        if normed and normed != "UNK":
+        if normed in FLAG:   # must be a known IOC code, not a fallback abbreviation
             return normed
     return ""
 
@@ -210,7 +212,7 @@ def fetch_rider_history(slug: str) -> list:
 
 
 def fetch_rider_country(slug: str) -> str:
-    """Return the cached IOC country code for a rider (empty string if unknown)."""
+    """Return the cached IOC country code for a rider (empty string if unknown or invalid)."""
     if not slug:
         return ""
     path = _rider_cache_path(slug)
@@ -219,7 +221,8 @@ def fetch_rider_country(slug: str) -> str:
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
     if isinstance(data, dict):
-        return data.get("country", "")
+        country = data.get("country", "")
+        return country if country in FLAG else ""
     return ""
 
 
@@ -256,7 +259,8 @@ def fetch_race_page(race_id: str) -> dict:
                 if link:
                     m = re.search(r"(/rider/[^/]+/)", link["href"])
                     if m:
-                        result[m.group(1)] = int(rank_text)
+                        time_val = cell_direct_text(cells[2]).strip() if len(cells) > 2 else ""
+                        result[m.group(1)] = {"rank": int(rank_text), "time": time_val}
         # Metadata from the Info table (last table: location / date / Website)
         title = soup.find("title")
         result["_name"] = title.get_text(strip=True).split(" | ")[0].strip() if title else ""
@@ -313,18 +317,50 @@ def supplement_history_from_race_pages(riders: list) -> None:
         new_results = []
         for rid in missing_ids:
             page = fetch_race_page(rid)
-            if rider.xcodata_slug in page:
+            slug_data = page.get(rider.xcodata_slug)
+            if slug_data is not None:
                 info = all_known[rid]
+                rank = slug_data["rank"] if isinstance(slug_data, dict) else slug_data
+                time_val = slug_data.get("time", "") if isinstance(slug_data, dict) else ""
                 new_results.append({
                     "race_id":   rid,
                     "race_name": page.get("_name") or info["race_name"],
                     "date":      page.get("_date") or info["date"],
                     "location":  page.get("_location") or info["location"],
-                    "rank":      page[rider.xcodata_slug],
+                    "rank":      rank,
+                    "time":      time_val,
                     "cat":       "",
                 })
         if new_results:
             rider.race_results = new_results + rider.race_results
+
+
+def enrich_times_from_race_pages(riders: list) -> None:
+    """
+    Backfill 'time' into race results that came from rider profile pages
+    (which don't include time) by reading already-cached race pages.
+    Makes no network requests — only reads files already on disk.
+    """
+    for rider in riders:
+        if not rider.xcodata_slug:
+            continue
+        for res in rider.race_results:
+            if res.get("time"):
+                continue
+            rid = res.get("race_id")
+            if not rid:
+                continue
+            path = _race_page_cache_path(rid)
+            if not os.path.exists(path):
+                continue
+            try:
+                with open(path, encoding="utf-8") as f:
+                    page = json.load(f)
+                slug_data = page.get(rider.xcodata_slug)
+                if isinstance(slug_data, dict):
+                    res["time"] = slug_data.get("time", "")
+            except Exception:
+                pass
 
 
 def build_uci_cache(uci_cat: str) -> dict:
@@ -445,6 +481,11 @@ def lookup_rider(rider: Rider, cache: dict) -> Rider:
         rider.match_confidence = confidence
         if not rider.country and entry.get("country"):
             rider.country = entry["country"]
+        # Use the UCI canonical name (title-case, correct diacritics) as the
+        # display name whenever it differs from what the start list provided.
+        canonical = entry.get("name", "")
+        if canonical and rider.full_name != canonical:
+            rider.corrected_name = canonical
 
     for key in (
         rider.full_name.lower(),
@@ -462,9 +503,6 @@ def lookup_rider(rider: Rider, cache: dict) -> Rider:
         best_match, score = process.extractOne(key_ascii, all_names, scorer=fuzz.token_sort_ratio)
         if score >= 82:
             _apply(by_name[best_match], score)
-            entry_name = by_name[best_match]["name"]
-            if _strip_diacritics(rider.full_name) != _strip_diacritics(entry_name):
-                rider.corrected_name = entry_name
         else:
             rider.uci_rank         = None
             rider.uci_points       = 0
