@@ -99,6 +99,29 @@ def _rider_cache_path(slug: str) -> str:
     return os.path.join(riders_dir, f"{safe}.json")
 
 
+def _rider_history_is_fresh(mtime: datetime) -> bool:
+    """
+    Weekday-aware freshness check for rider history / race-page caches.
+
+    Outside July/August races only happen on weekends, so data fetched any time
+    after the Monday of the current week is still current (no new results can
+    appear Mon–Fri).  On weekends or during the summer the cache expires quickly.
+    """
+    now = datetime.now()
+    month = now.month
+    weekday = now.weekday()  # 0 = Mon, 6 = Sun
+
+    if month in (7, 8):
+        return now - mtime < timedelta(days=2)
+
+    if weekday >= 5:  # Sat or Sun — race weekend
+        return now - mtime < timedelta(days=1)
+
+    # Mon–Fri outside summer: fresh if written on or after Monday 00:00 this week
+    monday = (now - timedelta(days=weekday)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return mtime >= monday
+
+
 def fetch_rider_history(slug: str) -> list:
     """Fetch race result history for a rider from their xcodata.com profile page."""
     if not slug:
@@ -106,7 +129,7 @@ def fetch_rider_history(slug: str) -> list:
     path = _rider_cache_path(slug)
     if os.path.exists(path):
         mtime = datetime.fromtimestamp(os.path.getmtime(path))
-        if datetime.now() - mtime < timedelta(days=CACHE_MAX_AGE_DAYS):
+        if _rider_history_is_fresh(mtime):
             with open(path, encoding="utf-8") as f:
                 return json.load(f)
     try:
@@ -168,7 +191,7 @@ def fetch_race_page(race_id: str) -> dict:
     path = _race_page_cache_path(race_id)
     if os.path.exists(path):
         mtime = datetime.fromtimestamp(os.path.getmtime(path))
-        if datetime.now() - mtime < timedelta(days=CACHE_MAX_AGE_DAYS):
+        if _rider_history_is_fresh(mtime):
             with open(path, encoding="utf-8") as f:
                 return json.load(f)
     try:
