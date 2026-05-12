@@ -68,6 +68,11 @@ COUNTRY_NORMALIZE = {
     "estonia": "EST",
 }
 
+# Known typos in start lists: "Typo Full Name" → ("CorrectFirst", "CorrectLast")
+NAME_CORRECTIONS: dict[str, tuple[str, str]] = {
+    "Dwnis Vašíček": ("Denis", "Vašíček"),
+}
+
 CATEGORY_ALIASES = {
     "junioren": "Juniors",
     "amateure": "Amateur",

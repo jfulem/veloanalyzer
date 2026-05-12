@@ -1,6 +1,6 @@
 from urllib.parse import urlparse
 
-from ..config import console
+from ..config import NAME_CORRECTIONS, console
 from ..utils import fetch
 from .generic import parse_generic
 from .gsheets import parse_gsheets
@@ -34,6 +34,13 @@ def detect_site(url: str) -> str:
     return "unknown"
 
 
+def _apply_name_corrections(riders: list) -> None:
+    for rider in riders:
+        correction = NAME_CORRECTIONS.get(rider.full_name)
+        if correction:
+            rider.first_name, rider.last_name = correction
+
+
 def parse_start_list(url: str, category_filter: str = None) -> tuple:
     """Auto-detects the website format and returns (riders, race_name)."""
     site = detect_site(url)
@@ -62,6 +69,7 @@ def parse_start_list(url: str, category_filter: str = None) -> tuple:
         console.print("[yellow]Unknown website format — trying generic parser...[/yellow]")
         riders = parse_generic(soup_title, category_filter)
 
+    _apply_name_corrections(riders)
     return riders, race_name
 
 
