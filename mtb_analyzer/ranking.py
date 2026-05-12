@@ -242,7 +242,7 @@ def fetch_race_page(race_id: str) -> dict:
             with open(path, encoding="utf-8") as f:
                 return json.load(f)
     try:
-        soup = fetch(f"{XCODATA_BASE}/race/{race_id}/")
+        soup = fetch(f"{XCODATA_BASE}/race/{race_id}", retries=1, timeout=10)
         result: dict = {}
         for table in soup.find_all("table"):
             for row in table.find_all("tr")[1:]:
@@ -274,6 +274,8 @@ def fetch_race_page(race_id: str) -> dict:
         time.sleep(0.2)
         return result
     except Exception:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({}, f)
         return {}
 
 

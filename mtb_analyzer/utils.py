@@ -7,10 +7,10 @@ from bs4 import BeautifulSoup, NavigableString
 from .config import CATEGORY_ALIASES, COUNTRY_NORMALIZE, HEADERS, console
 
 
-def fetch(url: str, retries: int = 3, delay: float = 1.0) -> BeautifulSoup:
+def fetch(url: str, retries: int = 3, delay: float = 1.0, timeout: int = 20) -> BeautifulSoup:
     for attempt in range(retries):
         try:
-            resp = requests.get(url, headers=HEADERS, timeout=20)
+            resp = requests.get(url, headers=HEADERS, timeout=timeout)
             resp.raise_for_status()
             return BeautifulSoup(resp.text, "html.parser")
         except requests.RequestException as e:
