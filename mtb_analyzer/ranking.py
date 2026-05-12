@@ -9,10 +9,10 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from thefuzz import fuzz, process
 
 from .config import (
-    CACHE_DIR, CACHE_MAX_AGE_DAYS, HEADERS, XCODATA_BASE, console,
+    CACHE_DIR, CACHE_MAX_AGE_DAYS, FLAG, HEADERS, ISO2_TO_IOC, XCODATA_BASE, console,
 )
 from .models import Rider
-from .utils import cell_direct_text, fetch, normalize_rider_name
+from .utils import cell_direct_text, fetch, normalize_country, normalize_rider_name
 
 
 def cache_path(uci_cat: str) -> str:
@@ -99,6 +99,33 @@ def _rider_cache_path(slug: str) -> str:
     return os.path.join(riders_dir, f"{safe}.json")
 
 
+def _flag_img_to_ioc(img) -> str:
+    """Extract IOC country code from a flag <img> tag (flagcdn.com src or alt text)."""
+    src = img.get("src", "").lower()
+    m = re.search(r"/([a-z]{2})\.(?:png|gif|svg)", src)
+    if m:
+        iso2 = m.group(1).upper()
+        if iso2 in ISO2_TO_IOC:
+            return ISO2_TO_IOC[iso2]
+    alt = img.get("alt", "").strip()
+    if alt.upper() in FLAG:
+        return alt.upper()
+    if alt:
+        normed = normalize_country(alt)
+        if normed and normed != "UNK":
+            return normed
+    return ""
+
+
+def _country_from_soup(soup) -> str:
+    """Return the first IOC country code found via any flag image in soup."""
+    for img in soup.find_all("img"):
+        c = _flag_img_to_ioc(img)
+        if c:
+            return c
+    return ""
+
+
 def _rider_history_is_fresh(mtime: datetime) -> bool:
     """
     Weekday-aware freshness check for rider history / race-page caches.
@@ -123,7 +150,11 @@ def _rider_history_is_fresh(mtime: datetime) -> bool:
 
 
 def fetch_rider_history(slug: str) -> list:
-    """Fetch race result history for a rider from their xcodata.com profile page."""
+    """Fetch race result history for a rider from their xcodata.com profile page.
+
+    Cache format: {"country": "CZE", "results": [...]} — old plain-list caches are
+    handled transparently (read as results, country treated as unknown).
+    """
     if not slug:
         return []
     path = _rider_cache_path(slug)
@@ -131,7 +162,8 @@ def fetch_rider_history(slug: str) -> list:
         mtime = datetime.fromtimestamp(os.path.getmtime(path))
         if _rider_history_is_fresh(mtime):
             with open(path, encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+            return data if isinstance(data, list) else data.get("results", [])
     try:
         soup = fetch(f"{XCODATA_BASE}{slug}")
         tables = soup.find_all("table")
@@ -145,8 +177,8 @@ def fetch_rider_history(slug: str) -> list:
             rank_text = cells[0].get_text(strip=True)
             if not rank_text.isdigit():
                 continue
-            link     = cells[1].find("a", href=True)
-            race_id  = ""
+            link      = cells[1].find("a", href=True)
+            race_id   = ""
             race_name = ""
             if link:
                 m = re.search(r"/race/(\d+)/", link["href"])
@@ -168,12 +200,27 @@ def fetch_rider_history(slug: str) -> list:
                 "rank":      int(rank_text),
                 "cat":       cells[2].get_text(strip=True),
             })
+        country = _country_from_soup(soup)
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(results, f, ensure_ascii=False)
+            json.dump({"country": country, "results": results}, f, ensure_ascii=False)
         time.sleep(0.2)
         return results
     except Exception:
         return []
+
+
+def fetch_rider_country(slug: str) -> str:
+    """Return the cached IOC country code for a rider (empty string if unknown)."""
+    if not slug:
+        return ""
+    path = _rider_cache_path(slug)
+    if not os.path.exists(path):
+        return ""
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    if isinstance(data, dict):
+        return data.get("country", "")
+    return ""
 
 
 def _race_page_cache_path(race_id: str) -> str:
@@ -323,10 +370,13 @@ def build_uci_cache(uci_cat: str) -> dict:
                     name_raw = parts[1] if len(parts) > 1 else rider_cell
                     slug     = ""
 
+                country = _flag_img_to_ioc(cols[2].find("img")) if cols[2].find("img") else ""
+
                 name_normalized = normalize_rider_name(name_raw)
                 name_key = name_normalized.lower()
                 cache["by_name"][name_key] = {
-                    "rank": rank, "points": points, "name": name_normalized, "slug": slug,
+                    "rank": rank, "points": points, "name": name_normalized,
+                    "slug": slug, "country": country,
                 }
                 found_any = True
 
@@ -391,6 +441,8 @@ def lookup_rider(rider: Rider, cache: dict) -> Rider:
         rider.uci_points       = entry["points"]
         rider.xcodata_slug     = entry.get("slug", "")
         rider.match_confidence = confidence
+        if not rider.country and entry.get("country"):
+            rider.country = entry["country"]
 
     for key in (
         rider.full_name.lower(),

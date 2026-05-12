@@ -61,10 +61,15 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
         if r.match_confidence < 100 and r.uci_rank:
             conf_badge = f'<span class="conf-badge">{r.match_confidence}%</span>'
         display_name = r.corrected_name if r.corrected_name else r.full_name
+        xco_link = (
+            f' <a class="xco-link" href="https://www.xcodata.com{r.xcodata_slug}"'
+            f' target="_blank" onclick="event.stopPropagation()">↗</a>'
+            if r.xcodata_slug else ""
+        )
         return (
             f'<tr class="{tier}" data-ridx="{ridx}" onclick="selectRider({ridx})">'
             f'<td class="num">{sec_rank}</td>'
-            f'<td class="name">{display_name}{conf_badge}</td>'
+            f'<td class="name">{display_name}{conf_badge}{xco_link}</td>'
             f'<td class="country">{_flag_img(r.country)} {r.country}</td>'
             f'<td class="rank">{rank_disp}</td>'
             f'<td class="pts">{pts_disp}</td>'
@@ -386,6 +391,8 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
   table.rider-table tbody tr {{ cursor: pointer; user-select: none; }}
   tr.selected {{ background: #172a45 !important; outline: 1px solid #4299e1; outline-offset: -1px; }}
   tr.selected td.name {{ color: #63b3ed !important; font-weight: 600; }}
+  .xco-link {{ color: #4a5568; font-size: .72rem; margin-left: .35rem; text-decoration: none; vertical-align: middle; }}
+  .xco-link:hover {{ color: #63b3ed; }}
   #h2h-hint {{
     font-size: .8rem; color: #4a5568; margin-bottom: 1rem; font-style: italic;
   }}
