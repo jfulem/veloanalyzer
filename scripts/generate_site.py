@@ -15,9 +15,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mtb_analyzer.config import console
 from mtb_analyzer.export import export_html
 from mtb_analyzer.parsers import parse_start_list
-from mtb_analyzer.ranking import (fetch_rider_country, fetch_rider_history, get_uci_cache,
-                                   infer_rider_slug, lookup_rider,
-                                   supplement_history_from_race_pages)
+from mtb_analyzer.ranking import (enrich_times_from_race_pages, fetch_rider_country,
+                                   fetch_rider_history, get_uci_cache, infer_rider_slug,
+                                   lookup_rider, supplement_history_from_race_pages)
 
 REPO_ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RACES_FILE = os.path.join(REPO_ROOT, "races.yml")
@@ -59,6 +59,7 @@ def generate_report(race: dict, uci_caches: dict) -> bool:
                 rider.country = fetch_rider_country(rider.xcodata_slug)
 
     supplement_history_from_race_pages(riders)
+    enrich_times_from_race_pages(riders)
 
     export_html(riders, race_name, uci_category, output_path,
                 race_date=race.get("date", ""))

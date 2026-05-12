@@ -66,11 +66,17 @@ COUNTRY_NORMALIZE = {
     "lithuania": "LTU", 
     "latvia": "LVA", 
     "estonia": "EST",
+    "finland": "FIN", 
+    "suomi": "FIN",
+    "russia": "RUS", 
+    "ruská federace": "RUS", 
+    "rusko": "RUS",
 }
 
 # Known typos in start lists: "Typo Full Name" → ("CorrectFirst", "CorrectLast")
 NAME_CORRECTIONS: dict[str, tuple[str, str]] = {
     "Dwnis Vašíček": ("Denis", "Vašíček"),
+    "Vojtěch Zaloha": ("Vojtěch", "Záloha")
 }
 
 CATEGORY_ALIASES = {
@@ -93,7 +99,7 @@ ISO2_TO_IOC = {
     "JP": "JPN", "BR": "BRA", "AR": "ARG", "CO": "COL", "CL": "CHI",
     "RS": "SRB", "BG": "BUL", "GR": "GRE", "IL": "ISR", "LU": "LUX",
     "MX": "MEX", "TR": "TUR", "UA": "UKR", "RO": "ROM", "LT": "LTU",
-    "LV": "LVA", "EE": "EST",
+    "LV": "LVA", "EE": "EST", "FI": "FIN", "RU": "RUS",
 }
 
 # Reverse: IOC alpha-3 → lowercase ISO2 (for flagcdn.com URLs)

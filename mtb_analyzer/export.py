@@ -450,8 +450,10 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
   table.h2h-races td.hr-date {{ color: #718096; white-space: nowrap; }}
   table.h2h-races td.hr-r1   {{ text-align: center; font-weight: 600; }}
   table.h2h-races td.hr-r2   {{ text-align: center; font-weight: 600; }}
+  table.h2h-races td.hr-gap  {{ text-align: center; color: #a0aec0; white-space: nowrap; font-size: .8rem; }}
   table.h2h-races td.hr-win  {{ color: #68d391; }}
   table.h2h-races td.hr-loss {{ color: #fc8181; }}
+  table.h2h-races .hr-time   {{ display: block; font-size: .72rem; color: #718096; font-weight: 400; }}
   table.h2h-races .no-shared {{ padding: 1rem 1.5rem; color: #718096; font-style: italic; }}
 </style>
 </head>
@@ -613,10 +615,13 @@ function updateH2H() {{
   document.getElementById('h2h-record').innerHTML = recHtml;
 
   // Races table
+  var r1last = esc(r1.name.split(' ').pop());
+  var r2last = esc(r2.name.split(' ').pop());
   var raceHtml = '<thead><tr>' +
     '<th>Race</th><th>Date</th>' +
-    '<th>' + esc(r1.name.split(' ').pop()) + '</th>' +
-    '<th>' + esc(r2.name.split(' ').pop()) + '</th>' +
+    '<th>' + r1last + '</th>' +
+    '<th>' + r2last + '</th>' +
+    '<th>Gap</th>' +
     '</tr></thead><tbody>';
   if (shared.length === 0) {{
     var noMsg = 'No shared races found';
@@ -624,16 +629,22 @@ function updateH2H() {{
     if (!r1.results || r1.results.length === 0) missing.push(esc(r1.name));
     if (!r2.results || r2.results.length === 0) missing.push(esc(r2.name));
     if (missing.length > 0) noMsg = 'No race history available for: ' + missing.join(', ') + ' (no xcodata profile found)';
-    raceHtml += '<tr><td colspan="4" class="no-shared">' + noMsg + '</td></tr>';
+    raceHtml += '<tr><td colspan="5" class="no-shared">' + noMsg + '</td></tr>';
   }} else {{
     shared.forEach(function(s) {{
       var c1 = s.r1res.rank < s.r2res.rank ? ' hr-win' : s.r1res.rank > s.r2res.rank ? ' hr-loss' : '';
       var c2 = s.r2res.rank < s.r1res.rank ? ' hr-win' : s.r2res.rank > s.r1res.rank ? ' hr-loss' : '';
+      var t1 = s.r1res.time || '';
+      var t2 = s.r2res.time || '';
+      var gap = timeGap(t1, t2);
       raceHtml += '<tr>' +
         '<td class="hr-race">' + esc(s.r2res.race_name) + '</td>' +
         '<td class="hr-date">' + esc(s.r2res.date) + '</td>' +
-        '<td class="hr-r1' + c1 + '">' + posLabel(s.r1res.rank) + '</td>' +
-        '<td class="hr-r2' + c2 + '">' + posLabel(s.r2res.rank) + '</td>' +
+        '<td class="hr-r1' + c1 + '">' + posLabel(s.r1res.rank) +
+          (t1 ? '<span class="hr-time">' + esc(t1) + '</span>' : '') + '</td>' +
+        '<td class="hr-r2' + c2 + '">' + posLabel(s.r2res.rank) +
+          (t2 ? '<span class="hr-time">' + esc(t2) + '</span>' : '') + '</td>' +
+        '<td class="hr-gap">' + gap + '</td>' +
         '</tr>';
     }});
   }}
@@ -642,6 +653,25 @@ function updateH2H() {{
 
   panel.style.display = 'block';
   panel.scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
+}}
+
+function parseTimeSecs(t) {{
+  if (!t || t === 'OVL' || t === '') return null;
+  var parts = t.split(':').map(Number);
+  if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+  if (parts.length === 2) return parts[0]*60 + parts[1];
+  return null;
+}}
+
+function timeGap(t1, t2) {{
+  var s1 = parseTimeSecs(t1), s2 = parseTimeSecs(t2);
+  if (s1 === null || s2 === null) return '—';
+  var diff = Math.abs(s1 - s2);
+  var h = Math.floor(diff / 3600);
+  var m = Math.floor((diff % 3600) / 60);
+  var s = diff % 60;
+  var str = (h > 0 ? h + ':' + String(m).padStart(2,'0') : String(m)) + ':' + String(s).padStart(2,'0');
+  return '+' + str;
 }}
 
 function filterTable() {{
