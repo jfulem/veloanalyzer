@@ -11,11 +11,18 @@
 #
 races:
   - url: "https://www.wowtiming.cz/race-start-list/?id=57"
-    name: "Tessuti Sport Bike Race - UCI C2 2026"
+    name: "Tessuti Sport Bike Race - UCI C2 2026 MJ"
     date: "2026-05-16"
     category: "Men Juniors"
     uci_category: MJ
     output: "tessuti-2026-mj.html"
+
+  - url: "https://www.wowtiming.cz/race-start-list/?id=57"
+    name: "Tessuti Sport Bike Race - UCI C2 2026 ME"
+    date: "2026-05-16"
+    category: "Men Elite"
+    uci_category: ME
+    output: "tessuti-2026-me.html"
 
   - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3597"
     name: "SP XCO MTB Skalica 2026 - UCI C3 2026"
