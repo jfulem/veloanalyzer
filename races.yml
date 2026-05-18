@@ -10,26 +10,6 @@
 #   output       - filename inside docs/ (must end in .html)
 #
 races:
-  - url: "https://www.wowtiming.cz/race-start-list/?id=57"
-    name: "Tessuti Sport Bike Race - UCI C2 2026 MJ"
-    date: "2026-05-16"
-    category: "Men Juniors"
-    uci_category: MJ
-    output: "tessuti-2026-mj.html"
-
-  - url: "https://www.wowtiming.cz/race-start-list/?id=57"
-    name: "Tessuti Sport Bike Race - UCI C2 2026 ME"
-    date: "2026-05-16"
-    category: "Men Elite"
-    uci_category: ME
-    output: "tessuti-2026-me.html"
-
-  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3597"
-    name: "SP XCO MTB Skalica 2026 - UCI C3 2026"
-    date: "2026-05-16"
-    category: "Men Juniors"
-    uci_category: MJ
-    output: "skalica-2026-mj.html"
   
   - url: "https://registrace.sportsoft.cz/mstartlist.aspx?m=478"
     name: "Junior Series NMNM 2026"
@@ -37,3 +17,17 @@ races:
     category: "Men Juniors"
     uci_category: MJ
     output: "nmnm-2026-mj.html"
+  
+  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3549"
+    name: "MČR XCC MTB PRAHA - short track CN 2026"
+    date: "2026-06-01"
+    category: "Men Juniors"
+    uci_category: MJ
+    output: "motol-xcc-2026-mj.html"
+  
+  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3549"
+    name: "MČR XCC MTB PRAHA - short track CN 2026"
+    date: "2026-06-01"
+    category: "Men Elite"
+    uci_category: ME
+    output: "motol-xcc-2026-me.html"
