@@ -54,6 +54,7 @@ _ISO3_TO_IOC = {
     "CHE": "SUI",
     "DNK": "DEN",
     "GRC": "GRE",
+    "LTA": "LVA",
 }
 
 
