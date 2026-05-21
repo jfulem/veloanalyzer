@@ -21,7 +21,8 @@ const searchInput  = $<HTMLInputElement>("#search-input");
 const tableArea    = $<HTMLElement>("#table-area");
 const countryArea  = $<HTMLElement>("#country-area");
 const h2hPanel     = $<HTMLElement>("#h2h-panel");
-const h2hClear     = $<HTMLElement>("#h2h-clear");
+const h2hBackdrop  = $<HTMLElement>("#h2h-backdrop");
+const h2hClose     = $<HTMLElement>("#h2h-close");
 const loadingEl    = $<HTMLElement>("#loading");
 const appEl        = $<HTMLElement>("#app");
 const generatedAt  = $<HTMLElement>("#generated-at");
@@ -60,15 +61,28 @@ function onSelect(riderId: number): void {
     const id = Number(row.dataset["riderId"]);
     row.classList.toggle("selected", selectedIds.has(id));
   });
-  renderH2H(h2hPanel, currentRiders, currentResults, [...selectedIds]);
+  if (selectedIds.size === 2) {
+    renderH2H(h2hPanel, currentRiders, currentResults, [...selectedIds]);
+    h2hBackdrop.removeAttribute("hidden");
+    document.body.style.overflow = "hidden";
+  }
 }
 
-h2hClear.addEventListener("click", () => {
+function closeModal(): void {
+  h2hBackdrop.setAttribute("hidden", "");
+  document.body.style.overflow = "";
   selectedIds.clear();
   tableArea.querySelectorAll<HTMLTableRowElement>("tr[data-rider-id]").forEach((row) => {
     row.classList.remove("selected");
   });
-  h2hPanel.innerHTML = "";
+}
+
+h2hClose.addEventListener("click", closeModal);
+h2hBackdrop.addEventListener("click", (e) => {
+  if (e.target === h2hBackdrop) closeModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeModal();
 });
 
 // ── Search ─────────────────────────────────────────────────────────────────
