@@ -100,7 +100,13 @@ searchInput.addEventListener("input", () => {
   }
 
   const meta  = getMeta();
-  const races = getRaces();
+  const allRaces = getRaces();
+  const races = allRaces.filter((r) => {
+    if (!r.date) return true;
+    const cutoff = new Date(r.date);
+    cutoff.setHours(20, 0, 0, 0);
+    return new Date() <= cutoff;
+  });
 
   generatedAt.textContent = meta["generated_at"] ?? "";
 
@@ -120,5 +126,9 @@ searchInput.addEventListener("input", () => {
   loadingEl.style.display = "none";
   appEl.style.display     = "block";
 
-  if (races.length > 0) loadRace(races[0]!);
+  if (races.length > 0) {
+    loadRace(races[0]!);
+  } else {
+    $<HTMLElement>("#race-name").textContent = "No upcoming races";
+  }
 })();
