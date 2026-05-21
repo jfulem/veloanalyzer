@@ -5,6 +5,13 @@ export default defineConfig({
   build: {
     outDir: "../docs",
     emptyOutDir: false,  // preserve data.db written by Python
+    rollupOptions: {
+      output: {
+        entryFileNames: "index.js",
+        chunkFileNames: "[name].js",
+        assetFileNames: "[name][extname]",
+      },
+    },
   },
   optimizeDeps: {
     exclude: ["sql.js"],
