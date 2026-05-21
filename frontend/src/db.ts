@@ -67,7 +67,7 @@ export function getMeta(): Record<string, string> {
 }
 
 export function getRaces(): Race[] {
-  return rowsOf<Race>("SELECT * FROM races ORDER BY date DESC, name");
+  return rowsOf<Race>("SELECT * FROM races ORDER BY date ASC, name");
 }
 
 export function getRiders(raceId: number): Rider[] {

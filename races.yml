@@ -12,22 +12,72 @@
 races:
   
   - url: "https://registrace.sportsoft.cz/mstartlist.aspx?m=478"
-    name: "Junior Series NMNM 2026"
+    name: "Men Junior Series NMNM 2026"
     date: "2026-05-23"
     category: "Men Juniors"
     uci_category: MJ
     output: "nmnm-2026-mj.html"
   
+  - url: "https://registrace.sportsoft.cz/mstartlist.aspx?m=478"
+    name: "Women Junior Series NMNM 2026"
+    date: "2026-05-23"
+    category: "Women Juniors"
+    uci_category: WJ
+    output: "nmnm-2026-wj.html"
+  
   - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3549"
-    name: "MČR XCC MTB PRAHA - short track CN 2026"
+    name: "MČR XCC MTB PRAHA - Men Juniors CN 2026"
     date: "2026-06-01"
     category: "Men Juniors"
     uci_category: MJ
     output: "motol-xcc-2026-mj.html"
   
   - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3549"
-    name: "MČR XCC MTB PRAHA - short track CN 2026"
+    name: "MČR XCC MTB PRAHA - Women Juniors CN 2026"
+    date: "2026-06-01"
+    category: "Women Juniors"
+    uci_category: WJ
+    output: "motol-xcc-2026-wj.html"
+  
+  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3549"
+    name: "MČR XCC MTB PRAHA - Men Elite CN 2026"
     date: "2026-06-01"
     category: "Men Elite"
     uci_category: ME
     output: "motol-xcc-2026-me.html"
+  
+  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3549"
+    name: "MČR XCC MTB PRAHA - Women Elite CN 2026"
+    date: "2026-06-01"
+    category: "Women Elite"
+    uci_category: WE
+    output: "motol-xcc-2026-we.html"
+  
+  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3549"
+    name: "ČP XCO MTB BEDŘICHOV - UCI C1 Men Juniors"
+    date: "2026-06-06"
+    category: "Men Juniors"
+    uci_category: MJ
+    output: "bedrichov-xco-2026-mj.html"
+
+  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3549"
+    name: "ČP XCO MTB BEDŘICHOV - UCI C1 Women Juniors"
+    date: "2026-06-06"
+    category: "Women Juniors"
+    uci_category: WJ
+    output: "bedrichov-xco-2026-wj.html"
+
+  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3549"
+    name: "ČP XCO MTB BEDŘICHOV - UCI C1 Women Elite"
+    date: "2026-06-06"
+    category: "Women Elite"
+    uci_category: WE
+    output: "bedrichov-xco-2026-we.html"
+
+  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3549"
+    name: "ČP XCO MTB BEDŘICHOV - UCI C1 Men Elite"
+    date: "2026-06-06"
+    category: "Men Elite"
+    uci_category: ME
+    output: "bedrichov-xco-2026-me.html"
+  
