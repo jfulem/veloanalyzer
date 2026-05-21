@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "rm -rf ../docs/assets",
+    "prebuild": "rm -f ../docs/index.js ../docs/index.css ../docs/sql-wasm.wasm",
     "build": "tsc -noEmit && vite build",
     "preview": "vite preview --port 4173 --outDir ../docs"
   },
