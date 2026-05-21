@@ -5,7 +5,7 @@ let db: Database;
 
 export async function initDb(wasmUrl: string, dbUrl: string): Promise<void> {
   SQL = await initSqlJs({ locateFile: () => wasmUrl });
-  const resp = await fetch(dbUrl);
+  const resp = await fetch(dbUrl, { cache: "no-cache" });
   if (!resp.ok) throw new Error(`Failed to fetch ${dbUrl}: ${resp.status}`);
   const buf = await resp.arrayBuffer();
   db = new SQL.Database(new Uint8Array(buf));
