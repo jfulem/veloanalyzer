@@ -3,7 +3,7 @@ name: Generate Race Reports
 on:
   push:
     branches: [main]
-    paths: [races.yml]        # run when race list changes
+    paths: ['docs/**', 'races.yml']  # data.db/assets pushed locally, or races.yml changed
   schedule:
     - cron: "0 12 * * *"      # every day at 12:00 UTC (fresh rankings)
   workflow_dispatch:
@@ -29,15 +29,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ── Full regeneration (schedule / manual) ────────────────────────────
       - name: Set up uv
+        if: github.event_name != 'push'
         uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
 
       - name: Install Python dependencies
+        if: github.event_name != 'push'
         run: uv sync
 
       - name: Set up Node
+        if: github.event_name != 'push'
         uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -45,18 +49,22 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
+        if: github.event_name != 'push'
         run: npm ci
         working-directory: frontend
 
       - name: Build frontend
+        if: github.event_name != 'push'
         run: npm run build
         working-directory: frontend
 
       - name: Get current ISO week
+        if: github.event_name != 'push'
         id: week
         run: echo "week=$(date +%G-W%V)" >> $GITHUB_OUTPUT
 
       - name: Cache UCI ranking data
+        if: github.event_name != 'push'
         uses: actions/cache@v4
         with:
           path: .mtb_cache
@@ -66,8 +74,10 @@ jobs:
             mtb-cache-${{ runner.os }}-
 
       - name: Generate data.db
+        if: github.event_name != 'push'
         run: uv run python scripts/generate_site.py
 
+      # ── Always: deploy whatever is in docs/ ─────────────────────────────
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
