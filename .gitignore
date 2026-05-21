@@ -3,7 +3,6 @@ __pycache__/
 *.py[codz]
 *$py.class
 .mtb_cache/
-*.html
 !docs/
 !docs/**
 
@@ -212,7 +211,3 @@ __marimo__/
 
 # Frontend
 frontend/node_modules/
-
-# Generated database (produced by CI)
-docs/data.db
-docs/assets/
