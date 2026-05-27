@@ -59,7 +59,7 @@ function buildTable(
     const nameSpan = el("span", {}, displayName);
     nameCell.appendChild(nameSpan);
 
-    if (rider.match_confidence < 100) {
+    if (rider.match_confidence < 100 && rider.uci_rank != null) {
       const badge = el("span", { class: "conf-badge" }, `${rider.match_confidence}%`);
       nameCell.appendChild(badge);
     }
