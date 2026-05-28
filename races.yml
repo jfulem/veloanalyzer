@@ -1,83 +1,157 @@
-# Race configuration for the veloanalyzer GitHub Pages site.
-# Add or remove races here — pushing this file triggers a new report generation.
-#
-# Fields:
-#   url          - start list URL (any supported site)
-#   name         - display name shown on the index page
-#   date         - race date in YYYY-MM-DD format
-#   category     - category filter passed to --category (e.g. "Men Juniors")
-#   uci_category - UCI ranking to use: MJ | WJ | ME | WE  (default: MJ)
-#   output       - filename inside docs/ (must end in .html)
-#
 races:
-  
-  - url: "https://registrace.sportsoft.cz/mstartlist.aspx?m=478"
-    name: "Men Junior Series NMNM 2026"
-    date: "2026-05-23"
-    category: "Men Juniors"
-    uci_category: MJ
-    output: "nmnm-2026-mj.html"
-  
-  - url: "https://registrace.sportsoft.cz/mstartlist.aspx?m=478"
-    name: "Women Junior Series NMNM 2026"
-    date: "2026-05-23"
-    category: "Women Juniors"
-    uci_category: WJ
-    output: "nmnm-2026-wj.html"
-  
-  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3549"
-    name: "MČR XCC MTB PRAHA - Men Juniors CN 2026"
-    date: "2026-06-01"
-    category: "Men Juniors"
-    uci_category: MJ
-    output: "motol-xcc-2026-mj.html"
-  
-  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3549"
-    name: "MČR XCC MTB PRAHA - Women Juniors CN 2026"
-    date: "2026-06-01"
-    category: "Women Juniors"
-    uci_category: WJ
-    output: "motol-xcc-2026-wj.html"
-  
-  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3549"
-    name: "MČR XCC MTB PRAHA - Men Elite CN 2026"
-    date: "2026-06-01"
-    category: "Men Elite"
-    uci_category: ME
-    output: "motol-xcc-2026-me.html"
-  
-  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3549"
-    name: "MČR XCC MTB PRAHA - Women Elite CN 2026"
-    date: "2026-06-01"
-    category: "Women Elite"
-    uci_category: WE
-    output: "motol-xcc-2026-we.html"
-  
-  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3545"
-    name: "ČP XCO MTB BEDŘICHOV - UCI C1 Men Juniors"
-    date: "2026-06-06"
-    category: "Men Juniors"
-    uci_category: MJ
-    output: "bedrichov-xco-2026-mj.html"
-
-  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3545"
-    name: "ČP XCO MTB BEDŘICHOV - UCI C1 Women Juniors"
-    date: "2026-06-06"
-    category: "Women Juniors"
-    uci_category: WJ
-    output: "bedrichov-xco-2026-wj.html"
-
-  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3545"
-    name: "ČP XCO MTB BEDŘICHOV - UCI C1 Women Elite"
-    date: "2026-06-06"
-    category: "Women Elite"
-    uci_category: WE
-    output: "bedrichov-xco-2026-we.html"
-
-  - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3545"
-    name: "ČP XCO MTB BEDŘICHOV - UCI C1 Men Elite"
-    date: "2026-06-06"
-    category: "Men Elite"
-    uci_category: ME
-    output: "bedrichov-xco-2026-me.html"
-  
+- url: https://registrace.sportsoft.cz/mstartlist.aspx?m=478
+  name: Men Junior Series NMNM 2026
+  date: '2026-05-23'
+  category: Men Juniors
+  uci_category: MJ
+  output: nmnm-2026-mj.html
+- url: https://registrace.sportsoft.cz/mstartlist.aspx?m=478
+  name: Women Junior Series NMNM 2026
+  date: '2026-05-23'
+  category: Women Juniors
+  uci_category: WJ
+  output: nmnm-2026-wj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3549
+  name: MČR XCC MTB PRAHA - Men Juniors CN 2026
+  date: '2026-06-01'
+  category: Men Juniors
+  uci_category: MJ
+  output: motol-xcc-2026-mj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3549
+  name: MČR XCC MTB PRAHA - Women Juniors CN 2026
+  date: '2026-06-01'
+  category: Women Juniors
+  uci_category: WJ
+  output: motol-xcc-2026-wj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3549
+  name: MČR XCC MTB PRAHA - Men Elite CN 2026
+  date: '2026-06-01'
+  category: Men Elite
+  uci_category: ME
+  output: motol-xcc-2026-me.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3549
+  name: MČR XCC MTB Praha - Women Elite CN 2026
+  date: '2026-06-01'
+  category: Women Elite
+  uci_category: WE
+  output: motol-xcc-2026-we.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
+  name: ČP XCO MTB BEDŘICHOV - UCI C1 Men Juniors
+  date: '2026-06-06'
+  category: Men Juniors
+  uci_category: MJ
+  output: bedrichov-xco-2026-mj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
+  name: ČP XCO MTB BEDŘICHOV - UCI C1 Women Juniors
+  date: '2026-06-06'
+  category: Women Juniors
+  uci_category: WJ
+  output: bedrichov-xco-2026-wj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
+  name: ČP XCO MTB BEDŘICHOV - UCI C1 Women Elite
+  date: '2026-06-06'
+  category: Women Elite
+  uci_category: WE
+  output: bedrichov-xco-2026-we.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
+  name: ČP XCO MTB BEDŘICHOV - UCI C1 Men Elite
+  date: '2026-06-06'
+  category: Men Elite
+  uci_category: ME
+  output: bedrichov-xco-2026-me.html
+- url: https://registrace.sportsoft.cz/webstartlist.aspx?e=3551
+  name: MČR XCR Stupno 2026 — Men Juniors
+  date: '2026-07-17'
+  category: Men Juniors
+  uci_category: MJ
+  output: mcr-xcr-stupno-mj.html
+- url: https://registrace.sportsoft.cz/webstartlist.aspx?e=3551
+  name: MČR XCR Stupno 2026 — Women Juniors
+  date: '2026-07-17'
+  category: Women Juniors
+  uci_category: WJ
+  output: mcr-xcr-stupno-wj.html
+- url: https://registrace.sportsoft.cz/webstartlist.aspx?e=3551
+  name: MČR XCR Stupno 2026 — Men Elite
+  date: '2026-07-17'
+  category: Men Elite
+  uci_category: ME
+  output: mcr-xcr-stupno-me.html
+- url: https://registrace.sportsoft.cz/webstartlist.aspx?e=3551
+  name: MČR XCR Stupno 2026 — Women Elite
+  date: '2026-07-17'
+  category: Women Elite
+  uci_category: WE
+  output: mcr-xcr-stupno-we.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3548
+  name: MČR XCO Stupno 2026 — Men Juniors
+  date: '2026-07-19'
+  category: Men Juniors
+  uci_category: MJ
+  output: mcr-xco-stupno-mj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3548
+  name: MČR XCO Stupno 2026 — Women Juniors
+  date: '2026-07-19'
+  category: Women Juniors
+  uci_category: WJ
+  output: mcr-xco-stupno-wj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3548
+  name: MČR XCO Stupno 2026 — Men Elite
+  date: '2026-07-19'
+  category: Men Elite
+  uci_category: ME
+  output: mcr-xco-stupno-me.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3548
+  name: MČR XCO Stupno 2026 — Women Elite
+  date: '2026-07-19'
+  category: Women Elite
+  uci_category: WE
+  output: mcr-xco-stupno-we.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3546
+  name: ČP XCO Ostrava 2026 — Men Juniors
+  date: '2026-08-16'
+  category: Men Juniors
+  uci_category: MJ
+  output: cp-xco-ostrava-mj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3546
+  name: ČP XCO Ostrava 2026 — Women Juniors
+  date: '2026-08-16'
+  category: Women Juniors
+  uci_category: WJ
+  output: cp-xco-ostrava-wj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3546
+  name: ČP XCO Ostrava 2026 — Men Elite
+  date: '2026-08-16'
+  category: Men Elite
+  uci_category: ME
+  output: cp-xco-ostrava-me.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3546
+  name: ČP XCO Ostrava 2026 — Women Elite
+  date: '2026-08-16'
+  category: Women Elite
+  uci_category: WE
+  output: cp-xco-ostrava-we.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3547
+  name: ČP XCO NMNM 2026 — Men Juniors
+  date: '2026-09-06'
+  category: Men Juniors
+  uci_category: MJ
+  output: cp-xco-nmnm-mj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3547
+  name: ČP XCO NMNM 2026 — Women Juniors
+  date: '2026-09-06'
+  category: Women Juniors
+  uci_category: WJ
+  output: cp-xco-nmnm-wj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3547
+  name: ČP XCO NMNM 2026 — Men Elite
+  date: '2026-09-06'
+  category: Men Elite
+  uci_category: ME
+  output: cp-xco-nmnm-me.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3547
+  name: ČP XCO NMNM 2026 — Women Elite
+  date: '2026-09-06'
+  category: Women Elite
+  uci_category: WE
+  output: cp-xco-nmnm-we.html
