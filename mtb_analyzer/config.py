@@ -99,7 +99,7 @@ ISO2_TO_IOC = {
     "JP": "JPN", "BR": "BRA", "AR": "ARG", "CO": "COL", "CL": "CHI",
     "RS": "SRB", "BG": "BUL", "GR": "GRE", "IL": "ISR", "LU": "LUX",
     "MX": "MEX", "TR": "TUR", "UA": "UKR", "RO": "ROM", "LT": "LTU",
-    "LV": "LVA", "EE": "EST", "FI": "FIN", "RU": "RUS",
+    "LV": "LVA", "EE": "EST", "FI": "FIN", "RU": "RUS", 
 }
 
 # Reverse: IOC alpha-3 → lowercase ISO2 (for flagcdn.com URLs)
