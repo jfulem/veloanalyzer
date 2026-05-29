@@ -5,7 +5,8 @@ import { renderCountryChart } from "./ui/CountryChart.js";
 import { renderRiderTable, filterRiderTable } from "./ui/RiderTable.js";
 import { renderH2H } from "./ui/H2H.js";
 import { renderRiderCard } from "./ui/RiderCard.js";
-import { $ } from "./utils.js";
+import { renderTeamChart } from "./ui/TeamChart.js";
+import { $, computeTrends } from "./utils.js";
 
 // ── State ──────────────────────────────────────────────────────────────────
 let currentRiders: Rider[]     = [];
@@ -21,6 +22,7 @@ const statsArea    = $<HTMLElement>("#stats-area");
 const searchInput  = $<HTMLInputElement>("#search-input");
 const tableArea    = $<HTMLElement>("#table-area");
 const countryArea  = $<HTMLElement>("#country-area");
+const teamArea     = $<HTMLElement>("#team-area");
 const h2hPanel      = $<HTMLElement>("#h2h-panel");
 const h2hBackdrop   = $<HTMLElement>("#h2h-backdrop");
 const h2hClose      = $<HTMLElement>("#h2h-close");
@@ -41,9 +43,11 @@ function loadRace(race: Race): void {
   raceDate.textContent = race.date || "";
   raceCat.textContent  = `${race.category} · ${race.uci_category}`;
 
+  const trends = computeTrends(currentResults);
   renderStatsBar(statsArea, currentRiders);
-  renderRiderTable(tableArea, currentRiders, selectedIds, onSelect, openRiderCard);
+  renderRiderTable(tableArea, currentRiders, selectedIds, onSelect, openRiderCard, trends);
   renderCountryChart(countryArea, currentRiders);
+  renderTeamChart(teamArea, currentRiders);
   renderH2H(h2hPanel, currentRiders, currentResults, [...selectedIds]);
   searchInput.value = "";
 }

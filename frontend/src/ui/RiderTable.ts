@@ -1,5 +1,5 @@
 import { Rider } from "../db.js";
-import { flagEmoji, tierClass, el } from "../utils.js";
+import { flagEmoji, tierClass, el, Trend } from "../utils.js";
 
 type SelectCallback = (riderId: number) => void;
 type DetailCallback = (riderId: number) => void;
@@ -10,6 +10,7 @@ export function renderRiderTable(
   selectedIds: Set<number>,
   onSelect: SelectCallback,
   onDetail: DetailCallback,
+  trends: Map<number, Trend> = new Map(),
 ): void {
   container.innerHTML = "";
 
@@ -26,7 +27,7 @@ export function renderRiderTable(
       const h3 = el("h3", { class: "subrace-label" }, label);
       container.appendChild(h3);
     }
-    container.appendChild(buildTable(group, selectedIds, onSelect, onDetail));
+    container.appendChild(buildTable(group, selectedIds, onSelect, onDetail, trends));
   }
 }
 
@@ -35,6 +36,7 @@ function buildTable(
   selectedIds: Set<number>,
   onSelect: SelectCallback,
   onDetail: DetailCallback,
+  trends: Map<number, Trend>,
 ): HTMLTableElement {
   const table = el("table", { class: "rider-table" });
   const thead = el("thead");
@@ -84,8 +86,16 @@ function buildTable(
     const flag = rider.country ? `${flagEmoji(rider.country)} ${rider.country}` : "—";
     tr.appendChild(el("td", { class: "country-cell" }, flag));
 
-    // UCI rank
-    tr.appendChild(el("td", { class: "rank-cell" }, rider.uci_rank != null ? `#${rider.uci_rank}` : "—"));
+    // UCI rank + trend
+    const rankCell = el("td", { class: "rank-cell" });
+    rankCell.textContent = rider.uci_rank != null ? `#${rider.uci_rank}` : "—";
+    const trend = trends.get(rider.id);
+    if (trend) {
+      const arrow = el("span", { class: `trend trend-${trend}` },
+        trend === "up" ? " ↑" : trend === "down" ? " ↓" : "");
+      if (trend !== "flat") rankCell.appendChild(arrow);
+    }
+    tr.appendChild(rankCell);
 
     // UCI pts
     tr.appendChild(el("td", { class: "pts-cell" }, rider.uci_points != null ? String(rider.uci_points) : "0"));
