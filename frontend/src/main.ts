@@ -4,6 +4,7 @@ import { renderStatsBar } from "./ui/StatsBar.js";
 import { renderCountryChart } from "./ui/CountryChart.js";
 import { renderRiderTable, filterRiderTable } from "./ui/RiderTable.js";
 import { renderH2H } from "./ui/H2H.js";
+import { renderRiderCard } from "./ui/RiderCard.js";
 import { $ } from "./utils.js";
 
 // ── State ──────────────────────────────────────────────────────────────────
@@ -20,9 +21,12 @@ const statsArea    = $<HTMLElement>("#stats-area");
 const searchInput  = $<HTMLInputElement>("#search-input");
 const tableArea    = $<HTMLElement>("#table-area");
 const countryArea  = $<HTMLElement>("#country-area");
-const h2hPanel     = $<HTMLElement>("#h2h-panel");
-const h2hBackdrop  = $<HTMLElement>("#h2h-backdrop");
-const h2hClose     = $<HTMLElement>("#h2h-close");
+const h2hPanel      = $<HTMLElement>("#h2h-panel");
+const h2hBackdrop   = $<HTMLElement>("#h2h-backdrop");
+const h2hClose      = $<HTMLElement>("#h2h-close");
+const riderCard     = $<HTMLElement>("#rider-card");
+const riderBackdrop = $<HTMLElement>("#rider-backdrop");
+const riderClose    = $<HTMLElement>("#rider-close");
 const loadingEl    = $<HTMLElement>("#loading");
 const appEl        = $<HTMLElement>("#app");
 const generatedAt  = $<HTMLElement>("#generated-at");
@@ -38,7 +42,7 @@ function loadRace(race: Race): void {
   raceCat.textContent  = `${race.category} · ${race.uci_category}`;
 
   renderStatsBar(statsArea, currentRiders);
-  renderRiderTable(tableArea, currentRiders, selectedIds, onSelect);
+  renderRiderTable(tableArea, currentRiders, selectedIds, onSelect, openRiderCard);
   renderCountryChart(countryArea, currentRiders);
   renderH2H(h2hPanel, currentRiders, currentResults, [...selectedIds]);
   searchInput.value = "";
@@ -81,8 +85,31 @@ h2hClose.addEventListener("click", closeModal);
 h2hBackdrop.addEventListener("click", (e) => {
   if (e.target === h2hBackdrop) closeModal();
 });
+
+// ── Rider detail modal ─────────────────────────────────────────────────────
+function openRiderCard(riderId: number): void {
+  const rider = currentRiders.find((r) => r.id === riderId);
+  if (!rider) return;
+  const results = getResults([riderId]);
+  renderRiderCard(riderCard, rider, results);
+  riderBackdrop.removeAttribute("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function closeRiderCard(): void {
+  riderBackdrop.setAttribute("hidden", "");
+  document.body.style.overflow = "";
+}
+
+riderClose.addEventListener("click", closeRiderCard);
+riderBackdrop.addEventListener("click", (e) => {
+  if (e.target === riderBackdrop) closeRiderCard();
+});
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeModal();
+  if (e.key === "Escape") {
+    if (!riderBackdrop.hasAttribute("hidden")) closeRiderCard();
+    else closeModal();
+  }
 });
 
 // ── Search ─────────────────────────────────────────────────────────────────

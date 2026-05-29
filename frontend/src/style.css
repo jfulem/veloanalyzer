@@ -140,6 +140,46 @@ body {
 }
 .xco-link:hover { opacity: 1; }
 
+.detail-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: .75rem;
+  margin-left: .35rem;
+  opacity: .5;
+  padding: 0;
+  line-height: 1;
+  vertical-align: middle;
+}
+.detail-btn:hover { opacity: 1; }
+
+/* Rider card modal */
+.rc-header { margin-bottom: 1rem; }
+.rc-name   { font-size: 1.2rem; font-weight: 700; margin-bottom: .25rem; }
+.rc-meta   { font-size: .85rem; color: #a0aec0; margin-bottom: .4rem; }
+.rc-uci    { font-size: .9rem; }
+.rc-rank   { font-weight: 700; }
+.rc-rank.tier-top50   { color: #68d391; }
+.rc-rank.tier-top200  { color: #9ae6b4; }
+.rc-rank.tier-ranked  { color: #f6e05e; }
+.rc-rank.tier-unranked { color: #718096; }
+.rc-pts    { color: #a0aec0; }
+
+.rc-stats {
+  display: flex;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.rc-chip {
+  background: #2d3748;
+  border-radius: 8px;
+  padding: .5rem .9rem;
+  text-align: center;
+  min-width: 60px;
+}
+.rc-chip-val { display: block; font-size: 1.1rem; font-weight: 700; color: #90cdf4; }
+.rc-chip-lbl { display: block; font-size: .7rem; color: #718096; text-transform: uppercase; letter-spacing: .05em; }
+
 /* Country chart */
 .section-title {
   font-size: .85rem;

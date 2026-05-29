@@ -2,12 +2,14 @@ import { Rider } from "../db.js";
 import { flagEmoji, tierClass, el } from "../utils.js";
 
 type SelectCallback = (riderId: number) => void;
+type DetailCallback = (riderId: number) => void;
 
 export function renderRiderTable(
   container: HTMLElement,
   riders: Rider[],
   selectedIds: Set<number>,
   onSelect: SelectCallback,
+  onDetail: DetailCallback,
 ): void {
   container.innerHTML = "";
 
@@ -24,7 +26,7 @@ export function renderRiderTable(
       const h3 = el("h3", { class: "subrace-label" }, label);
       container.appendChild(h3);
     }
-    container.appendChild(buildTable(group, selectedIds, onSelect));
+    container.appendChild(buildTable(group, selectedIds, onSelect, onDetail));
   }
 }
 
@@ -32,6 +34,7 @@ function buildTable(
   riders: Rider[],
   selectedIds: Set<number>,
   onSelect: SelectCallback,
+  onDetail: DetailCallback,
 ): HTMLTableElement {
   const table = el("table", { class: "rider-table" });
   const thead = el("thead");
@@ -72,6 +75,9 @@ function buildTable(
       link.addEventListener("click", (e) => e.stopPropagation());
       nameCell.appendChild(link);
     }
+    const detailBtn = el("button", { class: "detail-btn", title: "Rider profile" }, "👤");
+    detailBtn.addEventListener("click", (e) => { e.stopPropagation(); onDetail(rider.id); });
+    nameCell.appendChild(detailBtn);
     tr.appendChild(nameCell);
 
     // Country
