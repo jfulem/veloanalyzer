@@ -61,6 +61,35 @@ export function tierClass(rank: number | null): string {
   return "tier-ranked";
 }
 
+export type Trend = "up" | "down" | "flat";
+
+export function computeTrends(
+  results: { rider_id: number; date: string; rank: number | null }[],
+): Map<number, Trend> {
+  // Group ranked results by rider, sort ascending by date
+  const byRider = new Map<number, number[]>();
+  for (const r of results) {
+    if (r.rank == null) continue;
+    if (!byRider.has(r.rider_id)) byRider.set(r.rider_id, []);
+    byRider.get(r.rider_id)!.push(r.rank);
+  }
+
+  const out = new Map<number, Trend>();
+  for (const [id, ranks] of byRider) {
+    if (ranks.length < 2) continue;
+    const half = Math.max(1, Math.floor(ranks.length / 2));
+    const recent = ranks.slice(-half);
+    const older  = ranks.slice(0, half);
+    const avgRecent = recent.reduce((s, v) => s + v, 0) / recent.length;
+    const avgOlder  = older.reduce((s, v) => s + v, 0) / older.length;
+    const diff = avgOlder - avgRecent; // positive = improved (lower rank = better)
+    if (diff > 1.5) out.set(id, "up");
+    else if (diff < -1.5) out.set(id, "down");
+    else out.set(id, "flat");
+  }
+  return out;
+}
+
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K, attrs: Record<string, string> = {}, text = "",
 ): HTMLElementTagNameMap[K] {
