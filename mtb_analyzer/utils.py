@@ -61,11 +61,17 @@ def category_matches(category_text: str, filter_str: str) -> bool:
     Requires every word in filter_str to start at a word boundary in
     category_text, preventing 'Men Juniors' from matching 'Women Juniors'
     while still allowing 'Junior' to match 'Juniors'.
+
+    Also requires the category and filter to have the same word count so
+    that 'Men XCO UCI C3' does not accidentally match 'Men XCO UCI C3 Short'.
     """
     if not filter_str:
         return True
     haystack = re.sub(r"[^\w\s]", " ", category_text.lower())
-    for word in filter_str.lower().split():
+    filter_words = filter_str.lower().split()
+    if len(haystack.split()) != len(filter_words):
+        return False
+    for word in filter_words:
         if not re.search(rf"\b{re.escape(word)}", haystack):
             return False
     return True
