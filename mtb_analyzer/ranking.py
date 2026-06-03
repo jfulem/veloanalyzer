@@ -65,6 +65,7 @@ def save_cache(uci_cat: str, data: dict):
 
 
 _DATE_RE = re.compile(r'\d{2}(?:\s*-\s*\d{2})?\s+\w{3}\s+\d{4}')
+_DISC_RE = re.compile(r'\b(XCO|XCC|XCR|XCM)\b', re.IGNORECASE)
 
 
 def _strip_diacritics(s: str) -> str:
@@ -194,6 +195,7 @@ def fetch_rider_history(slug: str) -> list:
                 if m:
                     date_str = m.group(0).strip()
                     location = div_text[m.end():].strip()
+            disc_m = _DISC_RE.search(race_name)
             results.append({
                 "race_id":   race_id,
                 "race_name": race_name,
@@ -201,6 +203,7 @@ def fetch_rider_history(slug: str) -> list:
                 "location":  location,
                 "rank":      int(rank_text),
                 "cat":       cells[2].get_text(strip=True),
+                "disc":      disc_m.group(1).upper() if disc_m else "",
             })
         country = _country_from_soup(soup)
         with open(path, "w", encoding="utf-8") as f:
@@ -247,7 +250,12 @@ def fetch_race_page(race_id: str) -> dict:
     try:
         soup = fetch(f"{XCODATA_BASE}/race/{race_id}", retries=1, timeout=10)
         result: dict = {}
-        for table in soup.find_all("table"):
+
+        title = soup.find("title")
+        name = title.get_text(strip=True).split(" | ")[0].strip() if title else ""
+        result["_name"] = name
+
+        def _process_table(table, disc: str) -> None:
             for row in table.find_all("tr")[1:]:
                 cells = row.find_all("td")
                 if len(cells) < 2:
@@ -256,14 +264,47 @@ def fetch_race_page(race_id: str) -> dict:
                 if not rank_text.isdigit():
                     continue
                 link = cells[1].find("a", href=True)
-                if link:
-                    m = re.search(r"(/rider/[^/]+/)", link["href"])
+                if not link:
+                    continue
+                m = re.search(r"(/rider/[^/]+/)", link["href"])
+                if not m:
+                    continue
+                slug = m.group(1)
+                time_val = cell_direct_text(cells[2]).strip() if len(cells) > 2 else ""
+                entry = {"rank": int(rank_text), "time": time_val}
+                if disc:
+                    result[f"{slug}|{disc}"] = entry
+                if slug not in result:
+                    result[slug] = entry
+
+        # Strategy 1: Bootstrap tab-panes with IDs like "results_XCO_ME".
+        # The discipline is explicitly encoded in the pane ID — most reliable.
+        panes = soup.find_all("div", class_="tab-pane")
+        if panes:
+            for pane in panes:
+                pane_id = pane.get("id", "").upper()
+                # Pane IDs look like "results_XCO_ME" — use substring, not \b
+                if "XCC" in pane_id:
+                    disc = "xcc"
+                elif "XCO" in pane_id:
+                    disc = "xco"
+                elif "XCR" in pane_id:
+                    disc = "xcr"
+                else:
+                    disc = ""
+                for table in pane.find_all("table"):
+                    _process_table(table, disc)
+        else:
+            # Strategy 2: Fallback — walk headings and tables in document order.
+            title_disc = _DISC_RE.search(name)
+            current_disc = title_disc.group(1).lower() if title_disc else ""
+            for elem in soup.find_all(lambda t: t.name in ("h1","h2","h3","h4","h5","table")):
+                if elem.name != "table":
+                    m = _DISC_RE.search(elem.get_text(strip=True))
                     if m:
-                        time_val = cell_direct_text(cells[2]).strip() if len(cells) > 2 else ""
-                        result[m.group(1)] = {"rank": int(rank_text), "time": time_val}
-        # Metadata from the Info table (last table: location / date / Website)
-        title = soup.find("title")
-        result["_name"] = title.get_text(strip=True).split(" | ")[0].strip() if title else ""
+                        current_disc = m.group(1).lower()
+                else:
+                    _process_table(elem, current_disc)
         all_tables = soup.find_all("table")
         if all_tables:
             info_rows = all_tables[-1].find_all("tr")
@@ -317,7 +358,11 @@ def supplement_history_from_race_pages(riders: list) -> None:
         new_results = []
         for rid in missing_ids:
             page = fetch_race_page(rid)
-            slug_data = page.get(rider.xcodata_slug)
+            page_name = page.get("_name", "")
+            disc_m = _DISC_RE.search(page_name)
+            disc = disc_m.group(1).lower() if disc_m else ""
+            disc_key = f"{rider.xcodata_slug}|{disc}" if disc else ""
+            slug_data = (page.get(disc_key) if disc_key else None) or page.get(rider.xcodata_slug)
             if slug_data is not None:
                 info = all_known[rid]
                 rank = slug_data["rank"] if isinstance(slug_data, dict) else slug_data
@@ -330,6 +375,7 @@ def supplement_history_from_race_pages(riders: list) -> None:
                     "rank":      rank,
                     "time":      time_val,
                     "cat":       "",
+                    "disc":      disc.upper(),
                 })
         if new_results:
             rider.race_results = new_results + rider.race_results
@@ -356,7 +402,9 @@ def enrich_times_from_race_pages(riders: list) -> None:
             try:
                 with open(path, encoding="utf-8") as f:
                     page = json.load(f)
-                slug_data = page.get(rider.xcodata_slug)
+                disc = res.get("disc", "").lower()
+                disc_key = f"{rider.xcodata_slug}|{disc}" if disc else ""
+                slug_data = (page.get(disc_key) if disc_key else None) or page.get(rider.xcodata_slug)
                 if isinstance(slug_data, dict):
                     res["time"] = slug_data.get("time", "")
             except Exception:
