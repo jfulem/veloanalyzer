@@ -61,21 +61,36 @@ export function tierClass(rank: number | null): string {
   return "tier-ranked";
 }
 
+const _MONTHS: Record<string, number> = {
+  Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12,
+};
+
+/** Parse "01 - 02 Apr 2023" or "01 Jun 2024" → Unix ms (uses end date of ranges). Returns 0 on failure. */
+export function parseResultDate(s: string): number {
+  const hits = [...s.matchAll(/(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})/g)];
+  const m = hits[hits.length - 1]; // last match = end date for ranges
+  if (!m) return 0;
+  const month = _MONTHS[m[2]!] ?? 1;
+  return Date.UTC(Number(m[3]), month - 1, Number(m[1]));
+}
+
 export type Trend = "up" | "down" | "flat";
 
 export function computeTrends(
   results: { rider_id: number; date: string; rank: number | null }[],
 ): Map<number, Trend> {
-  // Group ranked results by rider, sort ascending by date
-  const byRider = new Map<number, number[]>();
+  // Group ranked results by rider, sorted chronologically ascending
+  const byRider = new Map<number, { rank: number; ms: number }[]>();
   for (const r of results) {
     if (r.rank == null) continue;
     if (!byRider.has(r.rider_id)) byRider.set(r.rider_id, []);
-    byRider.get(r.rider_id)!.push(r.rank);
+    byRider.get(r.rider_id)!.push({ rank: r.rank, ms: parseResultDate(r.date) });
   }
 
   const out = new Map<number, Trend>();
-  for (const [id, ranks] of byRider) {
+  for (const [id, entries] of byRider) {
+    const ranks = entries.sort((a, b) => a.ms - b.ms).map((e) => e.rank);
+
     if (ranks.length < 2) continue;
     const half = Math.max(1, Math.floor(ranks.length / 2));
     const recent = ranks.slice(-half);

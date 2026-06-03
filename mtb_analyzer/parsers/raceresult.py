@@ -10,33 +10,48 @@ from ..utils import category_matches, normalize_category_name
 
 def parse_raceresult(url: str, category_filter: str = None) -> list:
     """
-    Parses a my.raceresult.com participants page via the internal JSON API.
-    Fetches /RRPublish/data/config for the API key, then /RRPublish/data/list.
-    Data is grouped by category → gender subgroup.
-    Row layout: [BIB, ID, rank, "Lastname, Firstname", flag_img, year, club, ...]
-    Country is extracted from the flag SVG URL (ISO 2-letter → IOC 3-letter).
-    Gender comes from subgroup name: männlich/M = Men, weiblich/W = Women.
+    Parses a my.raceresult.com page via the internal JSON API.
+
+    Two modes are auto-detected via /RRPublish/data/config:
+
+    Results mode (showResults=true):
+      Fetches /RRPublish/data/list.  Data is grouped by category → gender
+      subgroup.  Row layout: [BIB, ID, rank, Name, flag_img, year, club, ...]
+      Gender comes from subgroup name: männlich/M = Men, weiblich/W = Women.
+
+    Participants mode (showParticipants=true, showResults=false):
+      Fetches /{event_id}/participants/config for the list name, then
+      /{event_id}/participants/list.  Data is grouped by contest name.
+      Row layout determined by DataFields; gender (M/W) is a per-row field.
+      Category is built as "{gender} {contest_name}" (e.g. "Men XCO UCI C1").
+
+    Country is extracted from flag SVG URL (ISO 2-letter → IOC 3-letter).
     """
     parsed   = urlparse(url)
     event_id = parsed.path.strip("/").split("/")[0]
-    base     = f"{parsed.scheme}://{parsed.netloc}/{event_id}/RRPublish/data"
+    origin   = f"{parsed.scheme}://{parsed.netloc}"
 
     try:
-        resp = requests.get(f"{base}/config", headers=HEADERS, timeout=20)
+        resp = requests.get(f"{origin}/{event_id}/RRPublish/data/config",
+                            headers=HEADERS, timeout=20)
         resp.raise_for_status()
         config = resp.json()
     except Exception as e:
         console.print(f"[red]Error fetching raceresult config: {e}[/red]")
         return []
 
-    key   = config.get("key", "")
+    key = config.get("key", "")
+
+    if config.get("showParticipants") and not config.get("showResults"):
+        return _parse_participants(origin, event_id, key, category_filter)
+
     lists = config.get("lists", [])
     if not lists:
         console.print("[red]No lists found in raceresult config[/red]")
         return []
 
     try:
-        resp = requests.get(f"{base}/list",
+        resp = requests.get(f"{origin}/{event_id}/RRPublish/data/list",
                             params={"listname": lists[0]["Name"], "contest": "0",
                                     "r": "all", "l": "en", "key": key},
                             headers=HEADERS, timeout=30)
@@ -87,6 +102,91 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
                     category=category,
                     start_nr=str(row[0]).strip(),
                 ))
+
+    return riders
+
+
+def _parse_participants(origin: str, event_id: str, key: str,
+                        category_filter: str = None) -> list:
+    """
+    Participants-mode parser for events that publish startlists but not results.
+    Uses /{event_id}/participants/config + /{event_id}/participants/list.
+    Data is grouped by contest (e.g. 'XCO UCI C1'); gender (M/W) is per row.
+    Column positions are read from the DataFields array in the list response.
+    """
+    base = f"{origin}/{event_id}/participants"
+
+    try:
+        resp = requests.get(f"{base}/config", params={"lang": "en"},
+                            headers=HEADERS, timeout=20)
+        resp.raise_for_status()
+        p_config = resp.json()
+    except Exception as e:
+        console.print(f"[red]Error fetching participants config: {e}[/red]")
+        return []
+
+    lists = p_config.get("TabConfig", {}).get("Lists", [])
+    if not lists:
+        console.print("[red]No lists found in participants config[/red]")
+        return []
+
+    try:
+        resp = requests.get(f"{base}/list",
+                            params={"lang": "en", "listname": lists[0]["Name"],
+                                    "contest": "0", "r": "all", "key": key},
+                            headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        console.print(f"[red]Error fetching participants list: {e}[/red]")
+        return []
+
+    fields     = data.get("DataFields", [])
+    name_col   = fields.index("AnzeigeName")  if "AnzeigeName"  in fields else 3
+    flag_col   = fields.index("NATION.FLAG")  if "NATION.FLAG"  in fields else 4
+    year_col   = fields.index("YEAR")         if "YEAR"         in fields else 5
+    gender_col = fields.index("GeschlechtMW") if "GeschlechtMW" in fields else None
+    team_col   = fields.index("CLUB")         if "CLUB"         in fields else 6
+
+    riders = []
+    for grp_key, rows in data.get("data", {}).items():
+        contest_name = normalize_category_name(re.sub(r"^#\d+_", "", grp_key))
+        if not isinstance(rows, list):
+            continue
+
+        for row in rows:
+            if not isinstance(row, list) or len(row) <= name_col:
+                continue
+            name_raw = str(row[name_col]).strip()
+            if not name_raw:
+                continue
+
+            if gender_col is not None and len(row) > gender_col:
+                g      = row[gender_col]
+                gender = "Men" if g == "M" else ("Women" if g == "W" else "")
+            else:
+                gender = ""
+
+            category = f"{gender} {contest_name}".strip() if gender else contest_name
+            if not category_matches(category, category_filter):
+                continue
+
+            if "," in name_raw:
+                last, first = (p.strip().title() for p in name_raw.split(",", 1))
+            else:
+                parts = name_raw.split(None, 1)
+                last  = parts[0].title()
+                first = parts[1].title() if len(parts) > 1 else ""
+
+            country = _flag_to_country(str(row[flag_col])) if len(row) > flag_col else ""
+            riders.append(Rider(
+                first_name=first, last_name=last,
+                country=country,
+                birth_year=str(row[year_col]) if len(row) > year_col else "",
+                team=str(row[team_col])       if len(row) > team_col else "",
+                category=category,
+                start_nr=str(row[0]).strip(),
+            ))
 
     return riders
 

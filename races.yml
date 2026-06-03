@@ -1,40 +1,4 @@
 races:
-- url: https://registrace.sportsoft.cz/mstartlist.aspx?m=478
-  name: Men Junior Series NMNM 2026
-  date: '2026-05-23'
-  category: Men Juniors
-  uci_category: MJ
-  output: nmnm-2026-mj.html
-- url: https://registrace.sportsoft.cz/mstartlist.aspx?m=478
-  name: Women Junior Series NMNM 2026
-  date: '2026-05-23'
-  category: Women Juniors
-  uci_category: WJ
-  output: nmnm-2026-wj.html
-- url: https://registrace.sportsoft.cz/startlist.aspx?e=3549
-  name: MČR XCC MTB PRAHA - Men Juniors CN 2026
-  date: '2026-06-01'
-  category: Men Juniors
-  uci_category: MJ
-  output: motol-xcc-2026-mj.html
-- url: https://registrace.sportsoft.cz/startlist.aspx?e=3549
-  name: MČR XCC MTB PRAHA - Women Juniors CN 2026
-  date: '2026-06-01'
-  category: Women Juniors
-  uci_category: WJ
-  output: motol-xcc-2026-wj.html
-- url: https://registrace.sportsoft.cz/startlist.aspx?e=3549
-  name: MČR XCC MTB PRAHA - Men Elite CN 2026
-  date: '2026-06-01'
-  category: Men Elite
-  uci_category: ME
-  output: motol-xcc-2026-me.html
-- url: https://registrace.sportsoft.cz/startlist.aspx?e=3549
-  name: MČR XCC MTB Praha - Women Elite CN 2026
-  date: '2026-06-01'
-  category: Women Elite
-  uci_category: WE
-  output: motol-xcc-2026-we.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
   name: ČP XCO MTB BEDŘICHOV - UCI C1 Men Juniors
   date: '2026-06-06'
@@ -59,30 +23,6 @@ races:
   category: Men Elite
   uci_category: ME
   output: bedrichov-xco-2026-me.html
-- url: https://registrace.sportsoft.cz/webstartlist.aspx?e=3551
-  name: MČR XCR Stupno 2026 — Men Juniors
-  date: '2026-07-17'
-  category: Men Juniors
-  uci_category: MJ
-  output: mcr-xcr-stupno-mj.html
-- url: https://registrace.sportsoft.cz/webstartlist.aspx?e=3551
-  name: MČR XCR Stupno 2026 — Women Juniors
-  date: '2026-07-17'
-  category: Women Juniors
-  uci_category: WJ
-  output: mcr-xcr-stupno-wj.html
-- url: https://registrace.sportsoft.cz/webstartlist.aspx?e=3551
-  name: MČR XCR Stupno 2026 — Men Elite
-  date: '2026-07-17'
-  category: Men Elite
-  uci_category: ME
-  output: mcr-xcr-stupno-me.html
-- url: https://registrace.sportsoft.cz/webstartlist.aspx?e=3551
-  name: MČR XCR Stupno 2026 — Women Elite
-  date: '2026-07-17'
-  category: Women Elite
-  uci_category: WE
-  output: mcr-xcr-stupno-we.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3548
   name: MČR XCO Stupno 2026 — Men Juniors
   date: '2026-07-19'
@@ -155,3 +95,51 @@ races:
   category: Women Elite
   uci_category: WE
   output: cp-xco-nmnm-we.html
+- url: https://my.raceresult.com/381877/participants
+  name: MTB Junior World Festival 2026 — XCO UCI C1 Men
+  date: '2026-07-07'
+  category: Men XCO UCI C1
+  uci_category: MJ
+  output: jwf-2026-xco-c1-mj.html
+- url: https://my.raceresult.com/381877/participants
+  name: MTB Junior World Festival 2026 — XCO UCI C1 Women
+  date: '2026-07-07'
+  category: Women XCO UCI C1
+  uci_category: WJ
+  output: jwf-2026-xco-c1-wj.html
+- url: https://my.raceresult.com/381877/participants
+  name: MTB Junior World Festival 2026 — XCO UCI C2 Men
+  date: '2026-07-11'
+  category: Men XCO UCI C2
+  uci_category: MJ
+  output: jwf-2026-xco-c2-mj.html
+- url: https://my.raceresult.com/381877/participants
+  name: MTB Junior World Festival 2026 — XCO UCI C2 Women
+  date: '2026-07-11'
+  category: Women XCO UCI C2
+  uci_category: WJ
+  output: jwf-2026-xco-c2-wj.html
+- url: https://my.raceresult.com/381877/participants
+  name: MTB Junior World Festival 2026 — XCO UCI C3 Men
+  date: '2026-07-08'
+  category: Men XCO UCI C3
+  uci_category: MJ
+  output: jwf-2026-xco-c3-mj.html
+- url: https://my.raceresult.com/381877/participants
+  name: MTB Junior World Festival 2026 — XCO UCI C3 Women
+  date: '2026-07-08'
+  category: Women XCO UCI C3
+  uci_category: WJ
+  output: jwf-2026-xco-c3-wj.html
+- url: https://my.raceresult.com/381877/participants
+  name: MTB Junior World Festival 2026 — XCO UCI C3 Short Men
+  date: '2026-07-10'
+  category: Men XCO UCI C3 Short
+  uci_category: MJ
+  output: jwf-2026-xco-c3-short-mj.html
+- url: https://my.raceresult.com/381877/participants
+  name: MTB Junior World Festival 2026 — XCO UCI C3 Short Women
+  date: '2026-07-10'
+  category: Women XCO UCI C3 Short
+  uci_category: WJ
+  output: jwf-2026-xco-c3-short-wj.html
