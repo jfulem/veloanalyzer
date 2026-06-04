@@ -41,6 +41,9 @@ jobs:
             echo "regen=true" >> $GITHUB_OUTPUT
           elif git diff --name-only HEAD~1 HEAD | grep -qE '^races\.yml$'; then
             echo "regen=true" >> $GITHUB_OUTPUT
+          elif git diff --name-only HEAD~1 HEAD | grep -qE '^docs/data\.db$'; then
+            # data.db was committed locally and races.yml is unchanged — deploy as-is
+            echo "regen=false" >> $GITHUB_OUTPUT
           else
             echo "regen=false" >> $GITHUB_OUTPUT
           fi
