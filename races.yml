@@ -4,24 +4,28 @@ races:
   date: '2026-06-06'
   category: Men Juniors
   uci_category: MJ
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   output: bedrichov-xco-2026-mj.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
   name: ČP XCO MTB BEDŘICHOV - UCI C1 Women Juniors
   date: '2026-06-06'
   category: Women Juniors
   uci_category: WJ
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   output: bedrichov-xco-2026-wj.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
   name: ČP XCO MTB BEDŘICHOV - UCI C1 Women Elite
   date: '2026-06-06'
   category: Women Elite
   uci_category: WE
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   output: bedrichov-xco-2026-we.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
   name: ČP XCO MTB BEDŘICHOV - UCI C1 Men Elite
   date: '2026-06-06'
   category: Men Elite
   uci_category: ME
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   output: bedrichov-xco-2026-me.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3548
   name: MČR XCO Stupno 2026 — Men Juniors
@@ -52,48 +56,56 @@ races:
   date: '2026-08-16'
   category: Men Juniors
   uci_category: MJ
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   output: cp-xco-ostrava-mj.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3546
   name: ČP XCO Ostrava 2026 — Women Juniors
   date: '2026-08-16'
   category: Women Juniors
   uci_category: WJ
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   output: cp-xco-ostrava-wj.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3546
   name: ČP XCO Ostrava 2026 — Men Elite
   date: '2026-08-16'
   category: Men Elite
   uci_category: ME
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   output: cp-xco-ostrava-me.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3546
   name: ČP XCO Ostrava 2026 — Women Elite
   date: '2026-08-16'
   category: Women Elite
   uci_category: WE
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   output: cp-xco-ostrava-we.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3547
   name: ČP XCO NMNM 2026 — Men Juniors
   date: '2026-09-06'
   category: Men Juniors
   uci_category: MJ
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   output: cp-xco-nmnm-mj.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3547
   name: ČP XCO NMNM 2026 — Women Juniors
   date: '2026-09-06'
   category: Women Juniors
   uci_category: WJ
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   output: cp-xco-nmnm-wj.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3547
   name: ČP XCO NMNM 2026 — Men Elite
   date: '2026-09-06'
   category: Men Elite
   uci_category: ME
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   output: cp-xco-nmnm-me.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3547
   name: ČP XCO NMNM 2026 — Women Elite
   date: '2026-09-06'
   category: Women Elite
   uci_category: WE
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   output: cp-xco-nmnm-we.html
 - url: https://my.raceresult.com/381877/participants
   name: MTB Junior World Festival 2026 — XCO UCI C1 Men

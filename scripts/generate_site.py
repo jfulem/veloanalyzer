@@ -14,7 +14,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mtb_analyzer.config import console
 from mtb_analyzer.export_db import export_db
 from mtb_analyzer.parsers import parse_start_list
-from mtb_analyzer.ranking import (enrich_times_from_race_pages, fetch_rider_country,
+from mtb_analyzer.ranking import (enrich_cp_xco_points, enrich_times_from_race_pages,
+                                   fetch_cp_xco_standings, fetch_rider_country,
                                    fetch_rider_history, get_uci_cache, infer_rider_slug,
                                    lookup_rider, supplement_history_from_race_pages)
 
@@ -57,6 +58,12 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
 
     supplement_history_from_race_pages(riders)
     enrich_times_from_race_pages(riders)
+
+    cp_url = race.get("cp_xco_standings_url")
+    if cp_url:
+        standings = fetch_cp_xco_standings(cp_url, uci_category)
+        enrich_cp_xco_points(riders, standings)
+
     return riders
 
 

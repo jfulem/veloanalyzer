@@ -5,6 +5,8 @@ import time
 import unicodedata
 from datetime import datetime, timedelta
 
+import requests
+from bs4 import BeautifulSoup
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from thefuzz import fuzz, process
 
@@ -557,3 +559,113 @@ def lookup_rider(rider: Rider, cache: dict) -> Rider:
             rider.match_confidence = score
 
     return rider
+
+
+# Czech Cup XCO (cpxcmtb.sportsoft.cz) category IDs used in the standings form
+_CP_XCO_CATEGORY_IDS: dict[str, str] = {
+    "MJ": "7",   # Junioři  (17–18)
+    "WJ": "8",   # Juniorky (17–18)
+    "ME": "9",   # Muži Elita / Pod 23
+    "WE": "10",  # Ženy
+}
+
+
+def _cp_xco_cache_path(standings_url: str, category_id: str) -> str:
+    m = re.search(r"/(\d{4})/", standings_url)
+    year = m.group(1) if m else "unknown"
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    return os.path.join(CACHE_DIR, f"cp_xco_{year}_{category_id}.json")
+
+
+def fetch_cp_xco_standings(standings_url: str, uci_cat: str) -> dict:
+    """
+    Fetches Czech Cup XCO standings for a UCI category from cpxcmtb.sportsoft.cz.
+
+    The site is ASP.NET WebForms: a GET retrieves the ViewState, then a POST
+    selects the desired category.  Points per race are summed; '---' means 0.
+
+    Returns {ascii_full_name: total_points} keyed by diacritic-stripped lowercase
+    'firstname lastname' so callers can do a direct dict lookup.
+    """
+    category_id = _CP_XCO_CATEGORY_IDS.get(uci_cat)
+    if not category_id:
+        return {}
+
+    cache_file = _cp_xco_cache_path(standings_url, category_id)
+    if os.path.exists(cache_file):
+        mtime = datetime.fromtimestamp(os.path.getmtime(cache_file))
+        if _rider_history_is_fresh(mtime):
+            with open(cache_file, encoding="utf-8") as f:
+                return json.load(f)
+
+    try:
+        resp = requests.get(standings_url, headers=HEADERS, timeout=20)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        def _field(name: str) -> str:
+            tag = soup.find("input", {"name": name})
+            return tag["value"] if tag else ""
+
+        resp2 = requests.post(
+            standings_url,
+            headers={**HEADERS, "Content-Type": "application/x-www-form-urlencoded"},
+            data={
+                "__EVENTTARGET":        "",
+                "__EVENTARGUMENT":      "",
+                "__VIEWSTATE":          _field("__VIEWSTATE"),
+                "__VIEWSTATEGENERATOR": _field("__VIEWSTATEGENERATOR"),
+                "__EVENTVALIDATION":    _field("__EVENTVALIDATION"),
+                "ctl00$ContentPlaceHolder1$Kategorie":    category_id,
+                "ctl00$ContentPlaceHolder1$BtnKategorie": "Zobrazit",
+            },
+            timeout=20,
+        )
+        resp2.raise_for_status()
+        soup2 = BeautifulSoup(resp2.text, "html.parser")
+
+        tables = soup2.find_all("table")
+        if not tables:
+            return {}
+
+        result: dict[str, int] = {}
+        for row in tables[0].find_all("tr")[1:]:
+            cells = row.find_all("td")
+            if len(cells) < 7:
+                continue
+            rank_text = cells[0].get_text(strip=True).rstrip(".")
+            if not rank_text.isdigit():
+                continue
+
+            name_raw = cells[1].get_text(strip=True)
+            normalized = normalize_rider_name(name_raw)
+            key = _strip_diacritics(normalized.lower())
+
+            total = sum(
+                int(c.get_text(strip=True))
+                for c in cells[6:]
+                if c.get_text(strip=True).isdigit()
+            )
+            result[key] = total
+
+        with open(cache_file, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False)
+        return result
+
+    except Exception as e:
+        console.print(f"[yellow]Could not fetch CP XCO standings: {e}[/yellow]")
+        return {}
+
+
+def enrich_cp_xco_points(riders: list, standings: dict) -> None:
+    """Assign cp_xco_points from Czech Cup standings to unranked riders."""
+    for rider in riders:
+        if rider.uci_rank is not None:
+            continue
+        key = _strip_diacritics(rider.full_name.lower())
+        if key in standings:
+            rider.cp_xco_points = standings[key]
+            continue
+        # Try reversed order (start list may have last–first vs first–last)
+        key_rev = _strip_diacritics(f"{rider.last_name} {rider.first_name}".lower())
+        rider.cp_xco_points = standings.get(key_rev, 0)
