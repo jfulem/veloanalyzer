@@ -16,8 +16,9 @@ from mtb_analyzer.export_db import export_db
 from mtb_analyzer.parsers import parse_start_list
 from mtb_analyzer.ranking import (enrich_cp_xco_points, enrich_times_from_race_pages,
                                    fetch_cp_xco_standings, fetch_rider_country,
-                                   fetch_rider_history, get_uci_cache, infer_rider_slug,
-                                   lookup_rider, supplement_history_from_race_pages)
+                                   fetch_rider_history, fetch_rider_history_uci,
+                                   get_uci_cache, infer_rider_slug, lookup_rider,
+                                   supplement_history_from_race_pages)
 
 REPO_ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RACES_FILE = os.path.join(REPO_ROOT, "races.yml")
@@ -49,12 +50,15 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
     console.print("[dim]  Looking up UCI rankings and fetching race histories...[/dim]")
     for rider in riders:
         lookup_rider(rider, cache)
-        if not rider.xcodata_slug:
-            rider.xcodata_slug = infer_rider_slug(rider.first_name, rider.last_name)
-        if rider.xcodata_slug:
-            rider.race_results = fetch_rider_history(rider.xcodata_slug)
-            if not rider.country:
-                rider.country = fetch_rider_country(rider.xcodata_slug)
+        if rider.uci_object_id:
+            rider.race_results = fetch_rider_history_uci(rider.uci_object_id, uci_category, cache)
+        else:
+            if not rider.xcodata_slug:
+                rider.xcodata_slug = infer_rider_slug(rider.first_name, rider.last_name)
+            if rider.xcodata_slug:
+                rider.race_results = fetch_rider_history(rider.xcodata_slug)
+                if not rider.country:
+                    rider.country = fetch_rider_country(rider.xcodata_slug)
 
     supplement_history_from_race_pages(riders)
     enrich_times_from_race_pages(riders)

@@ -1,32 +1,32 @@
 races:
-- url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
-  name: ČP XCO MTB BEDŘICHOV - UCI C1 Men Juniors
-  date: '2026-06-06'
-  category: Men Juniors
-  uci_category: MJ
-  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
-  output: bedrichov-xco-2026-mj.html
-- url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
-  name: ČP XCO MTB BEDŘICHOV - UCI C1 Women Juniors
-  date: '2026-06-06'
-  category: Women Juniors
-  uci_category: WJ
-  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
-  output: bedrichov-xco-2026-wj.html
-- url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
-  name: ČP XCO MTB BEDŘICHOV - UCI C1 Women Elite
-  date: '2026-06-06'
-  category: Women Elite
-  uci_category: WE
-  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
-  output: bedrichov-xco-2026-we.html
-- url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
-  name: ČP XCO MTB BEDŘICHOV - UCI C1 Men Elite
-  date: '2026-06-06'
-  category: Men Elite
-  uci_category: ME
-  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
-  output: bedrichov-xco-2026-me.html
+# - url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
+#   name: ČP XCO MTB BEDŘICHOV - UCI C1 Men Juniors
+#   date: '2026-06-06'
+#   category: Men Juniors
+#   uci_category: MJ
+#   cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
+#   output: bedrichov-xco-2026-mj.html
+# - url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
+#   name: ČP XCO MTB BEDŘICHOV - UCI C1 Women Juniors
+#   date: '2026-06-06'
+#   category: Women Juniors
+#   uci_category: WJ
+#   cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
+#   output: bedrichov-xco-2026-wj.html
+# - url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
+#   name: ČP XCO MTB BEDŘICHOV - UCI C1 Women Elite
+#   date: '2026-06-06'
+#   category: Women Elite
+#   uci_category: WE
+#   cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
+#   output: bedrichov-xco-2026-we.html
+# - url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
+#   name: ČP XCO MTB BEDŘICHOV - UCI C1 Men Elite
+#   date: '2026-06-06'
+#   category: Men Elite
+#   uci_category: ME
+#   cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
+#   output: bedrichov-xco-2026-me.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3607
   name: SP XCO MTB BYSTRIČANY- UCI C2 Men Juniors
   date: '2026-06-13'

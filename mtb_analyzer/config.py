@@ -7,7 +7,8 @@ console = Console()
 _HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE_DIR = os.path.normpath(os.path.join(_HERE, "..", ".mtb_cache"))
 CACHE_MAX_AGE_DAYS = 7
-XCODATA_BASE = "https://www.xcodata.com"
+XCODATA_BASE  = "https://www.xcodata.com"
+DATARIDE_BASE = "https://dataride.uci.ch"
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
 
 FLAG = {

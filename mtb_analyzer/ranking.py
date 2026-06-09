@@ -7,14 +7,26 @@ from datetime import datetime, timedelta
 
 import requests
 from bs4 import BeautifulSoup
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from thefuzz import fuzz, process
 
 from .config import (
-    CACHE_DIR, CACHE_MAX_AGE_DAYS, FLAG, HEADERS, ISO2_TO_IOC, XCODATA_BASE, console,
+    CACHE_DIR, CACHE_MAX_AGE_DAYS, DATARIDE_BASE, FLAG, HEADERS, ISO2_TO_IOC, XCODATA_BASE,
+    console,
 )
 from .models import Rider
 from .utils import cell_direct_text, fetch, normalize_country, normalize_rider_name
+
+
+_DATARIDE_DISC_ID      = 7    # MTB
+_DATARIDE_XCO_TYPE_ID  = 92   # Cross-country Olympic
+_DATARIDE_RANK_TYPE_ID = 1    # Individual ranking
+_DATARIDE_CATEGORY_IDS = {"MJ": 24, "WJ": 25, "ME": 22, "WE": 23}
+_DATARIDE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "Referer": f"{DATARIDE_BASE}/iframe/rankings/7",
+    "X-Requested-With": "XMLHttpRequest",
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+}
 
 
 def cache_path(uci_cat: str) -> str:
@@ -23,26 +35,6 @@ def cache_path(uci_cat: str) -> str:
     return os.path.join(CACHE_DIR, f"ranking_{uci_cat}_{year}.json")
 
 
-def get_latest_ranking_date(uci_cat: str) -> tuple:
-    """
-    Returns (year, date_slug) of the most recent ranking published on xcodata.com.
-    Falls back to the most recent Tuesday if the page can't be fetched.
-    """
-    try:
-        soup = fetch(f"{XCODATA_BASE}/rankings/{uci_cat}/")
-        for sel in soup.find_all("select"):
-            for opt in sel.find_all("option"):
-                href = opt.get("value", "")
-                m = re.search(r"/rankings/\w+/(\d{4})/(\d{4}-\d{2}-\d{2})/", href)
-                if m:
-                    return m.group(1), m.group(2)
-    except Exception:
-        pass
-    # Fallback: last Tuesday (xcodata publishes on Tuesdays)
-    today = datetime.now().date()
-    days_since_tuesday = (today.weekday() - 1) % 7
-    latest = today - timedelta(days=days_since_tuesday)
-    return str(latest.year), latest.strftime("%Y-%m-%d")
 
 
 def cache_is_fresh(uci_cat: str) -> bool:
@@ -231,6 +223,58 @@ def fetch_rider_country(slug: str) -> str:
     return ""
 
 
+def fetch_rider_history_uci(object_id: int, uci_cat: str, cache: dict) -> list:
+    """Fetch UCI race result history for a rider from dataride.uci.ch."""
+    if not object_id:
+        return []
+    path = _rider_cache_path(f"uci_{object_id}")
+    if os.path.exists(path):
+        mtime = datetime.fromtimestamp(os.path.getmtime(path))
+        if _rider_history_is_fresh(mtime):
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+    data = {
+        "individualId":       object_id,
+        "rankingId":          cache.get("ranking_id", 0),
+        "momentId":           cache.get("moment_id", 0),
+        "groupId":            cache.get("group_id", 0),
+        "baseRankingTypeId":  _DATARIDE_RANK_TYPE_ID,
+        "disciplineSeasonId": cache.get("season_id", 0),
+        "disciplineId":       _DATARIDE_DISC_ID,
+        "categoryId":         _DATARIDE_CATEGORY_IDS.get(uci_cat, 0),
+        "raceTypeId":         _DATARIDE_XCO_TYPE_ID,
+        "countryId": 0, "teamId": 0,
+        "take": 200, "skip": 0, "page": 1, "pageSize": 200,
+    }
+    try:
+        r = requests.post(
+            f"{DATARIDE_BASE}/iframe/IndividualEventRankings/",
+            data=data, headers=_DATARIDE_HEADERS, timeout=20,
+        )
+        r.raise_for_status()
+        items = r.json().get("data", [])
+        results = [
+            {
+                "race_id":   str(item.get("ResultId", "")),
+                "race_name": item.get("CompetitionName", ""),
+                "date":      item.get("Date", ""),
+                "location":  "",
+                "rank":      item.get("Rank"),
+                "time":      "",
+                "cat":       uci_cat,
+                "disc":      "XCO",
+            }
+            for item in items
+            if item.get("Rank") is not None
+        ]
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(results, f, ensure_ascii=False)
+        time.sleep(0.2)
+        return results
+    except Exception:
+        return []
+
+
 def _race_page_cache_path(race_id: str) -> str:
     race_dir = os.path.join(CACHE_DIR, "race_pages")
     os.makedirs(race_dir, exist_ok=True)
@@ -413,76 +457,154 @@ def enrich_times_from_race_pages(riders: list) -> None:
                 pass
 
 
+def _parse_dataride_name(display_name: str) -> str:
+    """Convert 'LASTNAME Firstname' (dataride.uci.ch format) to 'Firstname Lastname' title case."""
+    parts = display_name.split()
+    i = next(
+        (j for j, p in enumerate(parts) if p != p.upper() or not any(c.isalpha() for c in p)),
+        len(parts),
+    )
+    if i == 0 or i == len(parts):
+        return display_name.title()
+    lastname  = " ".join(p.title() for p in parts[:i])
+    firstname = " ".join(parts[i:])
+    return f"{firstname} {lastname}"
+
+
+def _dataride_get_ranking_params(uci_cat: str) -> tuple:
+    """Return (season_id, ranking_id, moment_id) for the given UCI category."""
+    year = datetime.now().year
+    r = requests.get(
+        f"{DATARIDE_BASE}/iframe/GetDisciplineSeasons/",
+        params={"disciplineId": _DATARIDE_DISC_ID},
+        headers=_DATARIDE_HEADERS,
+        timeout=15,
+    )
+    r.raise_for_status()
+    seasons = r.json()
+    season_id = next((s["Id"] for s in seasons if s["Year"] == year), None)
+    if not season_id:
+        raise RuntimeError(f"No dataride season found for year {year}")
+
+    cat_id = _DATARIDE_CATEGORY_IDS[uci_cat]
+    data = {
+        "disciplineId": _DATARIDE_DISC_ID,
+        "take": 10, "skip": 0, "page": 1, "pageSize": 10,
+        "filter[logic]": "and",
+        "filter[filters][0][field]": "RaceTypeId",
+        "filter[filters][0][value]": _DATARIDE_XCO_TYPE_ID,
+        "filter[filters][1][field]": "CategoryId",
+        "filter[filters][1][value]": cat_id,
+        "filter[filters][2][field]": "SeasonId",
+        "filter[filters][2][value]": season_id,
+    }
+    r = requests.post(
+        f"{DATARIDE_BASE}/iframe/RankingsDiscipline/",
+        data=data,
+        headers=_DATARIDE_HEADERS,
+        timeout=15,
+    )
+    r.raise_for_status()
+    result = r.json()
+    ranking = result[0]["Rankings"][0]
+    return season_id, ranking["Id"], ranking["MomentId"], result[0]["GroupId"]
+
+
+def _dataride_fetch_all_riders(season_id: int, ranking_id: int, moment_id: int,
+                                cat_id: int) -> list:
+    """Fetch the complete paginated rider list from dataride.uci.ch."""
+    riders: list = []
+    skip = 0
+    page_size = 100
+    while True:
+        data = {
+            "rankingId": ranking_id,
+            "disciplineId": _DATARIDE_DISC_ID,
+            "rankingTypeId": _DATARIDE_RANK_TYPE_ID,
+            "take": page_size,
+            "skip": skip,
+            "page": (skip // page_size) + 1,
+            "pageSize": page_size,
+            "filter[logic]": "and",
+            "filter[filters][0][field]": "RaceTypeId",
+            "filter[filters][0][value]": _DATARIDE_XCO_TYPE_ID,
+            "filter[filters][1][field]": "CategoryId",
+            "filter[filters][1][value]": cat_id,
+            "filter[filters][2][field]": "SeasonId",
+            "filter[filters][2][value]": season_id,
+            "filter[filters][3][field]": "MomentId",
+            "filter[filters][3][value]": moment_id,
+            "filter[filters][4][field]": "CountryId",
+            "filter[filters][4][value]": 0,
+            "filter[filters][5][field]": "IndividualName",
+            "filter[filters][5][value]": "",
+            "filter[filters][6][field]": "TeamName",
+            "filter[filters][6][value]": "",
+        }
+        r = requests.post(
+            f"{DATARIDE_BASE}/iframe/ObjectRankings/",
+            data=data,
+            headers=_DATARIDE_HEADERS,
+            timeout=30,
+        )
+        r.raise_for_status()
+        result = r.json()
+        total = result.get("total", 0)
+        items = result.get("data", [])
+        riders.extend(items)
+        skip += len(items)
+        if skip >= total or not items:
+            break
+        time.sleep(0.2)
+    return riders
+
+
 def build_uci_cache(uci_cat: str) -> dict:
-    """Downloads all pages of the UCI ranking from xcodata.com and saves to cache."""
-    year, date = get_latest_ranking_date(uci_cat)
-    console.print(f"\n[cyan]Downloading UCI ranking ({uci_cat}, {date}) from xcodata.com...[/cyan]")
-    cache = {"by_name": {}, "by_id": {}, "fetched_at": datetime.now().isoformat(), "ranking_date": date}
+    """Downloads the full UCI XCO ranking from dataride.uci.ch and saves to cache."""
+    console.print(f"\n[cyan]Downloading UCI ranking ({uci_cat}) from dataride.uci.ch...[/cyan]")
+    cat_id = _DATARIDE_CATEGORY_IDS.get(uci_cat)
+    if not cat_id:
+        console.print(f"[yellow]Unknown UCI category: {uci_cat}[/yellow]")
+        return load_cache(uci_cat)
 
-    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                  console=console) as progress:
-        task = progress.add_task("Loading ranking pages...", total=None)
-        page = 1
-        while True:
-            url = f"{XCODATA_BASE}/rankings/{uci_cat}/{year}/{date}/{page}/?country="
-            try:
-                soup = fetch(url)
-            except Exception:
-                break
+    try:
+        season_id, ranking_id, moment_id, group_id = _dataride_get_ranking_params(uci_cat)
+        raw_riders = _dataride_fetch_all_riders(season_id, ranking_id, moment_id, cat_id)
+    except Exception as e:
+        console.print(f"[yellow]Failed to fetch UCI ranking ({uci_cat}): {e}[/yellow]")
+        return load_cache(uci_cat)
 
-            rows = soup.find_all("tr")
-            found_any = False
-            for row in rows:
-                cols = row.find_all("td")
-                if len(cols) < 4:
-                    continue
-                circle      = cols[0].find("div", class_="circle")
-                rank_text   = circle.get_text(strip=True) if circle else cell_direct_text(cols[0])
-                rider_cell  = cols[1].get_text(strip=True)
-                points_text = cell_direct_text(cols[3])
+    by_name: dict = {}
+    for item in raw_riders:
+        name = _parse_dataride_name(item.get("DisplayName", ""))
+        if not name:
+            continue
+        country = item.get("NationName", "").strip()
+        by_name[name.lower()] = {
+            "rank":      item["Rank"],
+            "points":    item.get("Points", 0),
+            "name":      name,
+            "slug":      "",
+            "country":   country,
+            "object_id": item.get("ObjectId", 0),
+        }
 
-                rank_match = re.match(r"^(\d+)", rank_text)
-                if not rank_match:
-                    continue
-                rank = int(rank_match.group(1))
+    if not by_name:
+        console.print(f"[yellow]No riders found for {uci_cat}, keeping existing cache[/yellow]")
+        return load_cache(uci_cat)
 
-                pts_match = re.match(r"^(\d+)", points_text)
-                points = int(pts_match.group(1)) if pts_match else 0
-
-                link = cols[1].find("a")
-                if link:
-                    name_raw = link.get_text(strip=True)
-                    slug     = link.get("href", "")
-                else:
-                    parts    = rider_cell.split(None, 1)
-                    name_raw = parts[1] if len(parts) > 1 else rider_cell
-                    slug     = ""
-
-                country = _flag_img_to_ioc(cols[2].find("img")) if cols[2].find("img") else ""
-
-                name_normalized = normalize_rider_name(name_raw)
-                name_key = name_normalized.lower()
-                cache["by_name"][name_key] = {
-                    "rank": rank, "points": points, "name": name_normalized,
-                    "slug": slug, "country": country,
-                }
-                found_any = True
-
-            if not found_any:
-                break
-
-            next_links = soup.find_all("a", href=True)
-            has_next = any(f"/{page + 1}/" in a["href"] for a in next_links)
-            if not has_next:
-                break
-
-            progress.update(task, description=f"Page {page} done, continuing...")
-            page += 1
-            time.sleep(0.3)
-
-    total = len(cache["by_name"])
-    console.print(f"[green]✓ Loaded {total} riders from UCI ranking ({uci_cat})[/green]")
+    cache = {
+        "by_name":      by_name,
+        "by_id":        {},
+        "fetched_at":   datetime.now().isoformat(),
+        "ranking_date": datetime.now().strftime("%Y-%m-%d"),
+        "ranking_id":   ranking_id,
+        "moment_id":    moment_id,
+        "group_id":     group_id,
+        "season_id":    season_id,
+    }
     save_cache(uci_cat, cache)
+    console.print(f"[green]✓ Loaded {len(by_name)} riders ({uci_cat})[/green]")
     return cache
 
 
@@ -528,6 +650,7 @@ def lookup_rider(rider: Rider, cache: dict) -> Rider:
         rider.uci_rank         = entry["rank"]
         rider.uci_points       = entry["points"]
         rider.xcodata_slug     = entry.get("slug", "")
+        rider.uci_object_id    = entry.get("object_id", 0)
         rider.match_confidence = confidence
         if not rider.country and entry.get("country"):
             rider.country = entry["country"]

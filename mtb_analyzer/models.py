@@ -21,6 +21,7 @@ class Rider:
     corrected_name: str = ""    # set when fuzzy match reveals a non-diacritic typo
     race_name: str = ""         # set for riders from multi-race meeting pages
     xcodata_slug: str = ""
+    uci_object_id: int = 0         # dataride.uci.ch ObjectId; 0 = not in UCI ranking
     race_results: list = field(default_factory=list)  # [{race_id, race_name, date, location, rank, cat}]
 
     @property
