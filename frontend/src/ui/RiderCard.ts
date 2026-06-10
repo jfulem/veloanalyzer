@@ -4,7 +4,7 @@ import { flagEmoji, posLabel, tierClass, el, parseResultDate } from "../utils.js
 type SortCol = "date" | "race" | "cat" | "rank" | "time";
 type SortDir = "asc" | "desc";
 
-const COL_HEADERS: { key: SortCol; label: string }[] = [
+const ALL_COL_HEADERS: { key: SortCol; label: string }[] = [
   { key: "date",  label: "Date" },
   { key: "race",  label: "Race" },
   { key: "cat",   label: "Cat" },
@@ -88,8 +88,11 @@ export function renderRiderCard(
   }
 
   // ── Race history table ─────────────────────────────────────────────────────
+  const historyNote = (!rider.xcodata_slug && rider.uci_rank != null)
+    ? " · UCI scored races only"
+    : "";
   container.appendChild(el("p", { class: "section-title" },
-    `Race history (${results.length} result${results.length !== 1 ? "s" : ""})`));
+    `Race history (${results.length} result${results.length !== 1 ? "s" : ""}${historyNote})`));
 
   if (results.length === 0) {
     container.appendChild(el("p", { class: "h2h-empty" }, "No race history found."));
@@ -99,6 +102,9 @@ export function renderRiderCard(
   // Sort state
   let sortCol: SortCol = "date";
   let sortDir: SortDir = "desc";
+
+  const hasTimes = results.some((r) => !!r.time);
+  const COL_HEADERS = hasTimes ? ALL_COL_HEADERS : ALL_COL_HEADERS.filter((c) => c.key !== "time");
 
   const table = el("table", { class: "h2h-table" });
   const thead = el("thead");
@@ -143,7 +149,7 @@ export function renderRiderCard(
       posTd.appendChild(posSpan);
       tr.appendChild(posTd);
 
-      tr.appendChild(el("td", { style: "font-size:.82rem; color:#a0aec0" }, res.time || "—"));
+      if (hasTimes) tr.appendChild(el("td", { style: "font-size:.82rem; color:#a0aec0" }, res.time || "—"));
       tbody.appendChild(tr);
     }
   }
