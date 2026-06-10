@@ -18,6 +18,7 @@ from mtb_analyzer.ranking import (enrich_cp_xco_points, enrich_times_from_race_p
                                    fetch_cp_xco_standings, fetch_rider_country,
                                    fetch_rider_history, fetch_rider_history_uci,
                                    get_uci_cache, infer_rider_slug, lookup_rider,
+                                   supplement_from_uci_competition,
                                    supplement_history_from_race_pages)
 
 REPO_ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -62,6 +63,11 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
 
     supplement_history_from_race_pages(riders)
     enrich_times_from_race_pages(riders)
+
+    uci_comp_id = race.get("uci_competition_id")
+    if uci_comp_id:
+        race_year = int(race.get("date", "2026")[:4])
+        supplement_from_uci_competition(riders, str(uci_comp_id), race_year, uci_category)
 
     cp_url = race.get("cp_xco_standings_url")
     if cp_url:

@@ -72,15 +72,22 @@ function buildRacesTable(
   const n1 = r1.corrected_name || `${r1.first_name} ${r1.last_name}`.trim();
   const n2 = r2.corrected_name || `${r2.first_name} ${r2.last_name}`.trim();
 
+  const byDate = [...shared].sort((a, b) => b.date.localeCompare(a.date));
+  const hasTimes = byDate.some((r2res) => {
+    const r1res = map1.get(r2res.xco_race_id)!;
+    return !!(r1res.time || r2res.time);
+  });
+
   const table = el("table", { class: "h2h-table" });
   const thead = el("thead");
   const hRow = el("tr");
-  for (const h of ["Race", "Date", n1, n2, "Gap"]) hRow.appendChild(el("th", {}, h));
+  const headers = ["Race", "Date", n1, n2];
+  if (hasTimes) headers.push("Gap");
+  for (const h of headers) hRow.appendChild(el("th", {}, h));
   thead.appendChild(hRow);
   table.appendChild(thead);
 
   const tbody = el("tbody");
-  const byDate = [...shared].sort((a, b) => b.date.localeCompare(a.date));
   for (const r2res of byDate) {
     const r1res = map1.get(r2res.xco_race_id)!;
     const rank1 = r1res.rank;
@@ -103,8 +110,10 @@ function buildRacesTable(
       tr.appendChild(td);
     }
 
-    const gap = timeGap(r1res.time, r2res.time);
-    tr.appendChild(el("td", { class: "gap-cell" }, gap));
+    if (hasTimes) {
+      const gap = timeGap(r1res.time, r2res.time);
+      tr.appendChild(el("td", { class: "gap-cell" }, gap));
+    }
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);

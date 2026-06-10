@@ -28,6 +28,14 @@ _DATARIDE_HEADERS = {
     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
 }
 
+# UCI public website API (https://www.uci.org/api/...)
+_UCI_BASE = "https://www.uci.org"
+_UCI_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json",
+}
+_UCI_CATEGORY_LABELS = {"MJ": "Men Junior", "WJ": "Women Junior", "ME": "Men Elite", "WE": "Women Elite"}
+
 
 def cache_path(uci_cat: str) -> str:
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -80,7 +88,7 @@ def infer_rider_slug(first_name: str, last_name: str) -> str:
     for order in (f"{first_name} {last_name}", f"{last_name} {first_name}"):
         slug = to_slug(order)
         try:
-            fetch(f"{XCODATA_BASE}{slug}")
+            fetch(f"{XCODATA_BASE}{slug}", retries=1, timeout=5)
             return slug
         except Exception:
             pass
@@ -223,6 +231,337 @@ def fetch_rider_country(slug: str) -> str:
     return ""
 
 
+def _uci_catalog_cache_path(year: int) -> str:
+    return os.path.join(CACHE_DIR, f"uci_calendar_{year}.json")
+
+
+def _uci_comp_dir() -> str:
+    d = os.path.join(CACHE_DIR, "uci_comps")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def _uci_event_dir() -> str:
+    d = os.path.join(CACHE_DIR, "uci_events")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def _parse_year_month(date_str: str) -> tuple:
+    """Extract (year, month_int) from strings like '08 May 2026' or '08 May - 10 May 2026'."""
+    _months = {"jan":1,"feb":2,"mar":3,"apr":4,"may":5,"jun":6,
+               "jul":7,"aug":8,"sep":9,"oct":10,"nov":11,"dec":12}
+    m = re.search(r'([A-Za-z]{3})\w*\s+(\d{4})', date_str)
+    if not m:
+        return (0, 0)
+    return (int(m.group(2)), _months.get(m.group(1).lower(), 0))
+
+
+def _get_uci_competition_catalog(year: int) -> dict:
+    """
+    Returns:
+      {
+        "by_id":   {comp_id: {"name": str, "year": int, "dates": str}},
+        "by_name": {name_lower: [comp_id, ...]},   ← multiple rounds same name
+      }
+    Fetched from the UCI calendar API and cached weekly.
+    """
+    path = _uci_catalog_cache_path(year)
+    if os.path.exists(path):
+        mtime = datetime.fromtimestamp(os.path.getmtime(path))
+        if datetime.now() - mtime < timedelta(days=7):
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+
+    by_id: dict = {}
+    by_name: dict = {}
+    seen: set = set()
+
+    for endpoint in ("past", "upcoming"):
+        try:
+            r = requests.get(
+                f"{_UCI_BASE}/api/calendar/{endpoint}",
+                params={"discipline": "MTB", "raceType": "XCO", "year": year},
+                headers=_UCI_HEADERS,
+                timeout=20,
+            )
+            r.raise_for_status()
+            for month_group in r.json().get("items", []):
+                for day_group in month_group.get("items", []):
+                    for comp in day_group.get("items", []):
+                        name = comp.get("name", "")
+                        url = comp.get("detailsLink", {}).get("url", "")
+                        m = re.search(r"/competition-details/(\d+)/\w+/(\d+)", url)
+                        if not m or not name:
+                            continue
+                        comp_id = m.group(2)
+                        if comp_id in seen:
+                            continue
+                        seen.add(comp_id)
+                        comp_year = int(m.group(1))
+                        by_id[comp_id] = {
+                            "name": name,
+                            "year": comp_year,
+                            "dates": comp.get("dates", ""),
+                            "venue": comp.get("venue", ""),
+                        }
+                        by_name.setdefault(name.lower(), [])
+                        if comp_id not in by_name[name.lower()]:
+                            by_name[name.lower()].append(comp_id)
+        except Exception:
+            pass
+
+    catalog = {"by_id": by_id, "by_name": by_name}
+    if by_id:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(catalog, f, ensure_ascii=False)
+    return catalog
+
+
+def _get_competition_event_codes(competition_id: str, year: int) -> dict:
+    """
+    Returns {uci_cat: event_code} for a competition by parsing its UCI detail page.
+    Cached per competition (file in uci_comps/).
+    """
+    path = os.path.join(_uci_comp_dir(), f"{competition_id}.json")
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+
+    try:
+        r = requests.get(
+            f"{_UCI_BASE}/competition-details/{year}/MTB/{competition_id}",
+            headers={**_UCI_HEADERS, "Accept": "text/html"},
+            timeout=15,
+        )
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text, "html.parser")
+        el = soup.find(attrs={"data-component": "CompetitionDetailsModule"})
+        if not el:
+            return {}
+        props = json.loads(el["data-props"])
+        event_codes: dict = {}
+        label_to_cat = {v.lower(): k for k, v in _UCI_CATEGORY_LABELS.items()}
+        # Sort longest first so "women elite" is tried before "men elite" (substring of it)
+        sorted_labels = sorted(label_to_cat, key=len, reverse=True)
+        for group in props.get("results", {}).get("accordion", []):
+            label = group.get("label", "").lower()
+            cat = next((label_to_cat[lbl] for lbl in sorted_labels if lbl in label), None)
+            if not cat:
+                continue
+            for result in group.get("results", []):
+                code = result.get("eventCode", "")
+                if code:
+                    event_codes[cat] = code
+                    break
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(event_codes, f, ensure_ascii=False)
+        time.sleep(0.3)
+        return event_codes
+    except Exception:
+        return {}
+
+
+def _normalize_race_time(raw: str) -> str:
+    """Convert UCI time values to HH:MM:SS. Handles Excel fraction-of-day format."""
+    if not raw:
+        return ""
+    try:
+        val = float(raw)
+        total_sec = round(val * 86400)
+        h, rem = divmod(total_sec, 3600)
+        m, s = divmod(rem, 60)
+        return f"{h:02d}:{m:02d}:{s:02d}"
+    except ValueError:
+        return raw
+
+
+def _get_uci_event_results(event_code: str) -> list:
+    """
+    Returns the full result list for an event from the UCI website.
+    Each item: {rank, first_name, last_name, time, nationality, points}.
+    Cached per event_code (file in uci_events/).
+    """
+    path = os.path.join(_uci_event_dir(), f"{event_code}.json")
+    if os.path.exists(path):
+        mtime = datetime.fromtimestamp(os.path.getmtime(path))
+        if _rider_history_is_fresh(mtime):
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+
+    try:
+        r = requests.get(
+            f"{_UCI_BASE}/api/calendar/results/{event_code}",
+            params={"discipline": "MTB", "raceType": "A", "raceName": "General Classification"},
+            headers=_UCI_HEADERS,
+            timeout=15,
+        )
+        r.raise_for_status()
+        raw = r.json().get("results", [])
+        results = [
+            {
+                "rank":        item["values"].get("rank"),
+                "first_name":  item["values"].get("firstname", ""),
+                "last_name":   item["values"].get("lastname", ""),
+                "time":        _normalize_race_time(item["values"].get("result", "")),
+                "nationality": item["values"].get("nationality", ""),
+                "points":      item["values"].get("points", ""),
+            }
+            for item in raw
+            if item.get("headerType") == "rider"
+        ]
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(results, f, ensure_ascii=False)
+        time.sleep(0.2)
+        return results
+    except Exception:
+        return []
+
+
+def _enrich_results_with_times(results: list, uci_cat: str, catalog: dict) -> None:
+    """
+    For each result, look up the UCI event code from the competition catalog,
+    then fetch the full event results to fill in 'time'. Modifies results in-place.
+    """
+    by_id = catalog.get("by_id", {})
+    by_name = catalog.get("by_name", {})
+    default_year = datetime.now().year
+
+    for res in results:
+        if res.get("time"):
+            continue
+        comp_name = res.get("race_name", "")
+        result_date = res.get("date", "")
+        result_ym = _parse_year_month(result_date)
+
+        comp_ids = by_name.get(comp_name.lower(), [])
+        if not comp_ids:
+            continue
+
+        # When multiple rounds share the same name, pick by year+month of the result date
+        comp_id = None
+        comp_year = default_year
+        if len(comp_ids) == 1:
+            comp_id = comp_ids[0]
+            comp_year = by_id.get(comp_id, {}).get("year", default_year)
+        else:
+            for cid in comp_ids:
+                entry = by_id.get(cid, {})
+                if result_ym != (0, 0) and _parse_year_month(entry.get("dates", "")) == result_ym:
+                    comp_id = cid
+                    comp_year = entry.get("year", default_year)
+                    break
+            if not comp_id:
+                # Fallback: first entry whose year matches
+                for cid in comp_ids:
+                    if by_id.get(cid, {}).get("year") == result_ym[0]:
+                        comp_id = cid
+                        comp_year = result_ym[0]
+                        break
+
+        if not comp_id:
+            continue
+
+        event_codes = _get_competition_event_codes(comp_id, comp_year)
+        event_code = event_codes.get(uci_cat)
+        if not event_code:
+            continue
+        event_results = _get_uci_event_results(event_code)
+        if not event_results:
+            continue
+
+        rank = res.get("rank")
+        time_val = ""
+        if rank is not None:
+            for er in event_results:
+                try:
+                    if int(er.get("rank", -1)) == int(rank):
+                        time_val = er.get("time", "")
+                        break
+                except (ValueError, TypeError):
+                    pass
+        res["time"] = time_val
+
+
+def supplement_from_uci_competition(
+    riders: list, competition_id: str, year: int, uci_cat: str
+) -> None:
+    """
+    Fetch the full event results for a specific UCI competition and supplement
+    each rider's race history with their result if it isn't already present.
+    Used for races where the rider may have placed outside the points-scoring zone
+    (so their result won't appear in IndividualEventRankings).
+    Modifies rider.race_results in-place.
+    """
+    event_codes = _get_competition_event_codes(competition_id, year)
+    event_code = event_codes.get(uci_cat)
+    if not event_code:
+        return
+
+    event_results = _get_uci_event_results(event_code)
+    if not event_results:
+        return
+
+    # Build name → event result map (lowercase, both orders)
+    name_map: dict = {}
+    for er in event_results:
+        fn = er.get("first_name", "").strip()
+        ln = er.get("last_name", "").strip()
+        for key in (
+            f"{fn} {ln}".lower(),
+            f"{ln} {fn}".lower(),
+            f"{fn.upper()} {ln.upper()}",   # UCI all-caps variant
+        ):
+            name_map[key] = er
+
+    # Derive race metadata from the competition catalog (already cached)
+    catalog = _get_uci_competition_catalog(year)
+    comp_entry = catalog.get("by_id", {}).get(competition_id, {})
+    comp_name = comp_entry.get("name", f"UCI Competition {competition_id}")
+    comp_dates = comp_entry.get("dates", "")
+    # Use end date of range as the canonical date for the race_id key
+    comp_date = comp_dates.split(" - ")[-1] if " - " in comp_dates else comp_dates
+
+    existing_key = f"{comp_date}|{comp_name}"
+
+    for rider in riders:
+        fn = rider.first_name.strip()
+        ln = rider.last_name.strip()
+        er = None
+        for key in (
+            f"{fn} {ln}".lower(),
+            f"{ln} {fn}".lower(),
+            f"{fn.upper()} {ln.upper()}",
+            f"{fn.lower()} {ln.upper()}",
+        ):
+            er = name_map.get(key)
+            if er:
+                break
+
+        if not er:
+            continue
+
+        # Skip if this race is already in the rider's history (by race_id)
+        already_there = any(
+            r.get("race_id") == existing_key
+            for r in getattr(rider, "race_results", [])
+        )
+        if already_there:
+            continue
+
+        rider.race_results = list(getattr(rider, "race_results", []))
+        rider.race_results.append({
+            "race_id":   existing_key,
+            "race_name": comp_name,
+            "date":      comp_date,
+            "location":  comp_entry.get("venue", ""),
+            "rank":      int(er["rank"]) if er.get("rank") and str(er["rank"]).isdigit() else None,
+            "time":      er.get("time", ""),
+            "cat":       uci_cat,
+            "disc":      "XCO",
+        })
+
+
 def fetch_rider_history_uci(object_id: int, uci_cat: str, cache: dict) -> list:
     """Fetch UCI race result history for a rider from dataride.uci.ch."""
     if not object_id:
@@ -255,7 +594,8 @@ def fetch_rider_history_uci(object_id: int, uci_cat: str, cache: dict) -> list:
         items = r.json().get("data", [])
         results = [
             {
-                "race_id":   str(item.get("ResultId", "")),
+                # Shared race key: same for all riders in the same competition
+                "race_id":   f"{item.get('Date', '')}|{item.get('CompetitionName', '')}",
                 "race_name": item.get("CompetitionName", ""),
                 "date":      item.get("Date", ""),
                 "location":  "",
@@ -267,6 +607,9 @@ def fetch_rider_history_uci(object_id: int, uci_cat: str, cache: dict) -> list:
             for item in items
             if item.get("Rank") is not None
         ]
+        # Enrich with times from UCI calendar API
+        catalog = _get_uci_competition_catalog(datetime.now().year)
+        _enrich_results_with_times(results, uci_cat, catalog)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False)
         time.sleep(0.2)

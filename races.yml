@@ -32,24 +32,28 @@ races:
   date: '2026-06-13'
   category: Men Juniors
   uci_category: MJ
+  uci_competition_id: 77488
   output: bystricany-xco-2026-mj.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3607
   name: SP XCO MTB BYSTRIČANY- UCI C2 Women Juniors
   date: '2026-06-13'
   category: Women Juniors
   uci_category: WJ
+  uci_competition_id: 77488
   output: bystricany-xco-2026-wj.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3607
   name: SP XCO MTB BYSTRIČANY- UCI C2 Women Elite
   date: '2026-06-13'
   category: Women Elite
   uci_category: WE
+  uci_competition_id: 77488
   output: bystricany-xco-2026-we.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3607
   name: SP XCO MTB BYSTRIČANY- UCI C2 Men Elite
   date: '2026-06-13'
   category: Men Elite
   uci_category: ME
+  uci_competition_id: 77488
   output: bystricany-xco-2026-me.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3548
   name: MČR XCO Stupno 2026 — Men Juniors
