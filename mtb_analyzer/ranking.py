@@ -363,9 +363,15 @@ def _get_competition_event_codes(competition_id: str, year: int) -> dict:
 
 
 def _normalize_race_time(raw: str) -> str:
-    """Convert UCI time values to HH:MM:SS. Handles Excel fraction-of-day format."""
+    """
+    Normalize UCI time values to HH:MM:SS.
+    Handles: Excel fraction-of-day floats, sub-second decimals (1:07:05.75),
+    and stray period separators (1.03:20 → 1:03:20).
+    Non-time strings (OVL, DNF, …) are returned as-is.
+    """
     if not raw:
         return ""
+    # Excel fraction-of-day
     try:
         val = float(raw)
         total_sec = round(val * 86400)
@@ -373,7 +379,12 @@ def _normalize_race_time(raw: str) -> str:
         m, s = divmod(rem, 60)
         return f"{h:02d}:{m:02d}:{s:02d}"
     except ValueError:
-        return raw
+        pass
+    # Strip sub-second precision: "1:07:05.75" → "1:07:05"
+    t = re.sub(r"(\d{2})\.\d+$", r"\1", raw)
+    # Fix stray period used as separator: "1.03:20" → "1:03:20"
+    t = re.sub(r"^(\d+)\.(\d{2}:\d{2})$", r"\1:\2", t)
+    return t
 
 
 def _get_uci_event_results(event_code: str) -> list:
@@ -541,9 +552,10 @@ def supplement_from_uci_competition(
         if not er:
             continue
 
-        # Skip if this race is already in the rider's history (by race_id)
+        # Skip if the rider already has a result for this competition in their history.
+        # Check by name (not race_id) because dataride and UCI may use different dates.
         already_there = any(
-            r.get("race_id") == existing_key
+            r.get("race_name") == comp_name
             for r in getattr(rider, "race_results", [])
         )
         if already_there:

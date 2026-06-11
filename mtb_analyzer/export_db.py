@@ -7,9 +7,14 @@ def export_db(race_configs: list, rider_groups: list, output_path: str) -> None:
     con = sqlite3.connect(output_path)
     con.execute("PRAGMA journal_mode=WAL")
     con.executescript("""
-        CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+        DROP TABLE IF EXISTS race_results;
+        DROP TABLE IF EXISTS riders;
+        DROP TABLE IF EXISTS races;
+        DROP TABLE IF EXISTS meta;
 
-        CREATE TABLE IF NOT EXISTS races (
+        CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
+
+        CREATE TABLE races (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             slug         TEXT UNIQUE,
             name         TEXT NOT NULL,
@@ -18,7 +23,7 @@ def export_db(race_configs: list, rider_groups: list, output_path: str) -> None:
             category     TEXT
         );
 
-        CREATE TABLE IF NOT EXISTS riders (
+        CREATE TABLE riders (
             id               INTEGER PRIMARY KEY AUTOINCREMENT,
             race_id          INTEGER NOT NULL REFERENCES races(id),
             first_name       TEXT,
@@ -38,7 +43,7 @@ def export_db(race_configs: list, rider_groups: list, output_path: str) -> None:
             race_name        TEXT
         );
 
-        CREATE TABLE IF NOT EXISTS race_results (
+        CREATE TABLE race_results (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             rider_id    INTEGER NOT NULL REFERENCES riders(id),
             xco_race_id TEXT,
@@ -50,16 +55,9 @@ def export_db(race_configs: list, rider_groups: list, output_path: str) -> None:
             cat         TEXT
         );
 
-        CREATE INDEX IF NOT EXISTS idx_riders_race    ON riders(race_id);
-        CREATE INDEX IF NOT EXISTS idx_results_rider  ON race_results(rider_id);
+        CREATE INDEX idx_riders_race    ON riders(race_id);
+        CREATE INDEX idx_results_rider  ON race_results(rider_id);
     """)
-
-    # Add columns introduced after the initial schema (idempotent)
-    for col, typedef in [("cp_xco_points", "INTEGER")]:
-        try:
-            con.execute(f"ALTER TABLE riders ADD COLUMN {col} {typedef}")
-        except sqlite3.OperationalError:
-            pass  # already exists
 
     con.execute("INSERT OR REPLACE INTO meta VALUES ('generated_at', ?)",
                 (datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),))
@@ -67,7 +65,7 @@ def export_db(race_configs: list, rider_groups: list, output_path: str) -> None:
     for race_cfg, riders in zip(race_configs, rider_groups):
         slug = race_cfg.get("output", "").removesuffix(".html")
         cur = con.execute(
-            "INSERT OR REPLACE INTO races (slug, name, date, uci_category, category) VALUES (?,?,?,?,?)",
+            "INSERT INTO races (slug, name, date, uci_category, category) VALUES (?,?,?,?,?)",
             (slug, race_cfg.get("name", ""), race_cfg.get("date", ""),
              race_cfg.get("uci_category", ""), race_cfg.get("category", "")),
         )
