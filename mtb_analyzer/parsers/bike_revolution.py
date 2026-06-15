@@ -13,11 +13,10 @@ def _find_raceresult_event_id(url: str) -> str | None:
     Fetch the bike-revolution.ch startlisten page and look for an embedded
     RaceResult event ID.  Returns the event ID string if found, else None.
 
-    The RaceResult widget is embedded by Storyblok CMS once the start list is
-    officially published.  The event ID appears in the DOM as:
-      - A data attribute:  data-event-id="NNNNNN"
-      - A JS variable:     RREventId = NNNNNN  or  eventId: NNNNNN
-      - An iframe src:     my.raceresult.com/NNNNNN/...
+    The event ID is configured via Storyblok CMS and rendered into the Nuxt.js
+    component as `this.blok.eventId || <fallback>`.  It may appear in:
+      - The initial HTML:   iframe src, data-event-id attribute, JS variable
+      - Preloaded JS chunks: eventId||NNNNNN pattern in the Nuxt component
     """
     try:
         resp = requests.get(url, headers=HEADERS, timeout=20)
@@ -42,6 +41,21 @@ def _find_raceresult_event_id(url: str) -> str | None:
     m = re.search(r'\bRREventId\s*[=:]\s*(\d{5,6})\b', html)
     if m:
         return m.group(1)
+
+    # 4. Search preloaded Nuxt.js chunks for the Storyblok component default:
+    #    this.blok.eventId||NNNNNN
+    base = re.sub(r'/[^/]*$', '', url.rstrip('/'))  # base URL of the site
+    base = f"https://{requests.utils.urlparse(url).netloc}"
+    chunk_urls = re.findall(r'href=["\']([^"\']+\.js)["\']', html)
+    for chunk_path in chunk_urls:
+        chunk_url = chunk_path if chunk_path.startswith('http') else base + chunk_path
+        try:
+            cr = requests.get(chunk_url, headers=HEADERS, timeout=10)
+            cm = re.search(r'eventId\s*\|\|\s*(\d{5,6})', cr.text)
+            if cm:
+                return cm.group(1)
+        except Exception:
+            continue
 
     return None
 

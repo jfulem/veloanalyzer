@@ -88,6 +88,7 @@ CATEGORY_ALIASES = {
     "elit":     "Elite",
     "junior":   "Juniors",
     "amateur":  "Amateur",
+    "u19":      "Juniors",   # RaceResult / bike-revolution.ch
 }
 
 # ISO 3166-1 alpha-2 → IOC alpha-3 (used by raceresult flag URLs)
