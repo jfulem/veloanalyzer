@@ -27,33 +27,99 @@ races:
 #   uci_category: ME
 #   cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
 #   output: bedrichov-xco-2026-me.html
+- url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&langtext=&swordssapll=&rebmunyavd=2#vysledky
+  name: AŠ XCO UCI C1 2026 — Men Juniors
+  date: '2026-06-27'
+  category: Men Juniors
+  uci_category: MJ
+  output: as-uci-c1-2026-mj.html
+- url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&langtext=&swordssapll=&rebmunyavd=2#vysledky
+  name: AŠ XCO UCI C1 2026 — Women Juniors
+  date: '2026-06-27'
+  category: Women Juniors
+  uci_category: WJ
+  output: as-uci-c1-2026-wj.html
+- url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&langtext=&swordssapll=&rebmunyavd=2#vysledky
+  name: AŠ XCO UCI C1 2026 — Men Elite
+  date: '2026-06-27'
+  category: Men Elite
+  uci_category: ME
+  output: as-uci-c1-2026-me.html
+- url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&langtext=&swordssapll=&rebmunyavd=2#vysledky
+  name: AŠ XCO UCI C1 2026 — Women Elite
+  date: '2026-06-27'
+  category: Women Elite
+  uci_category: WE
+  output: as-uci-c1-2026-we.html
+- url: https://bike-revolution.ch/en/events/davos/startlisten/
+  name: Bike Revolution Davos 2026 — Men Juniors
+  date: '2026-06-26'
+  category: Men Juniors
+  uci_category: MJ
+  output: bike-revolution-davos-2026-mj.html
+- url: https://bike-revolution.ch/en/events/davos/startlisten/
+  name: Bike Revolution Davos 2026 — Women Juniors
+  date: '2026-06-26'
+  category: Women Juniors
+  uci_category: WJ
+  output: bike-revolution-davos-2026-wj.html
+- url: https://bike-revolution.ch/en/events/davos/startlisten/
+  name: Bike Revolution Davos 2026 — Men Elite
+  date: '2026-06-26'
+  category: Men Elite
+  uci_category: ME
+  output: bike-revolution-davos-2026-me.html
+- url: https://bike-revolution.ch/en/events/davos/startlisten/
+  name: Bike Revolution Davos 2026 — Women Elite
+  date: '2026-06-26'
+  category: Women Elite
+  uci_category: WE
+  output: bike-revolution-davos-2026-we.html
+- url: https://www.temposport.hu/odin/rendezvenyek/varolista?list=420
+  name: Greenzone Zalaegerszeg XCO 2026 — Men Juniors
+  date: '2026-06-28'
+  category: Men Juniors
+  uci_category: MJ
+  output: greenzone-xco-2026-mj.html
+- url: https://www.temposport.hu/odin/rendezvenyek/varolista?list=420
+  name: Greenzone Zalaegerszeg XCO 2026 — Women Juniors
+  date: '2026-06-28'
+  category: Women Juniors
+  uci_category: WJ
+  output: greenzone-xco-2026-wj.html
+- url: https://www.temposport.hu/odin/rendezvenyek/varolista?list=420
+  name: Greenzone Zalaegerszeg XCO 2026 — Men Elite
+  date: '2026-06-28'
+  category: Men Elite
+  uci_category: ME
+  output: greenzone-xco-2026-me.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3607
   name: SP XCO MTB BYSTRIČANY- UCI C2 Men Juniors
   date: '2026-06-13'
   category: Men Juniors
   uci_category: MJ
-  uci_competition_id: 77488
+  uci_competition_id: 77726
   output: bystricany-xco-2026-mj.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3607
   name: SP XCO MTB BYSTRIČANY- UCI C2 Women Juniors
   date: '2026-06-13'
   category: Women Juniors
   uci_category: WJ
-  uci_competition_id: 77488
+  uci_competition_id: 77726
   output: bystricany-xco-2026-wj.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3607
   name: SP XCO MTB BYSTRIČANY- UCI C2 Women Elite
   date: '2026-06-13'
   category: Women Elite
   uci_category: WE
-  uci_competition_id: 77488
+  uci_competition_id: 77726
   output: bystricany-xco-2026-we.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3607
   name: SP XCO MTB BYSTRIČANY- UCI C2 Men Elite
   date: '2026-06-13'
   category: Men Elite
   uci_category: ME
-  uci_competition_id: 77488
+  uci_competition_id: 77726
   output: bystricany-xco-2026-me.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3548
   name: MČR XCO Stupno 2026 — Men Juniors

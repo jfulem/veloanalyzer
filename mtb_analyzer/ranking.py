@@ -247,6 +247,104 @@ def _uci_event_dir() -> str:
     return d
 
 
+def _parse_comp_end_date(dates_str: str) -> "datetime | None":
+    """Parse the end date from a UCI competition dates string.
+    Handles '13 Jun 2026' and '12 Jun - 13 Jun 2026' formats."""
+    last = dates_str.split(" - ")[-1].strip()
+    for fmt in ("%d %b %Y", "%d %B %Y"):
+        try:
+            return datetime.strptime(last, fmt)
+        except ValueError:
+            pass
+    return None
+
+
+_uci_xco_history_cache: dict = {}
+
+
+def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
+    """
+    Return {name_key: [race_result, ...]} for all UCI XCO competitions in the
+    past months_back months.  Includes ALL finishers with finish times
+    (not just point-scorers like IndividualEventRankings).
+
+    name_key is 'firstname lastname' lowercased.  Results are cached in memory
+    for the duration of the process so multiple races of the same category
+    only trigger one build.
+    """
+    if uci_cat in _uci_xco_history_cache:
+        return _uci_xco_history_cache[uci_cat]
+
+    cutoff = datetime.now() - timedelta(days=months_back * 30)
+    now    = datetime.now()
+    by_name: dict = {}
+
+    for year in sorted({cutoff.year, now.year}):
+        catalog = _get_uci_competition_catalog(year)
+        for comp_id, entry in catalog.get("by_id", {}).items():
+            end_dt = _parse_comp_end_date(entry.get("dates", ""))
+            if end_dt is None or end_dt < cutoff or end_dt > now:
+                continue
+
+            event_codes = _get_competition_event_codes(comp_id, year)
+            event_code = event_codes.get(uci_cat)
+            if not event_code:
+                continue
+
+            event_results = _get_uci_event_results(event_code)
+            if not event_results:
+                continue
+
+            comp_name  = entry.get("name", "")
+            dates_str  = entry.get("dates", "")
+            race_date  = dates_str.split(" - ")[-1].strip() if " - " in dates_str else dates_str
+
+            for er in event_results:
+                fn = er.get("first_name", "").strip()
+                ln = er.get("last_name",  "").strip()
+                if not fn or not ln:
+                    continue
+
+                result = {
+                    "race_id":   f"{race_date}|{comp_name}",
+                    "race_name": comp_name,
+                    "date":      race_date,
+                    "location":  entry.get("venue", ""),
+                    "rank":      int(er["rank"]) if er.get("rank") and str(er["rank"]).isdigit() else None,
+                    "time":      er.get("time", ""),
+                    "cat":       uci_cat,
+                    "disc":      "XCO",
+                }
+                key = f"{fn} {ln}".lower()
+                by_name.setdefault(key, []).append(result)
+                # Also index without diacritics so start-list spellings always match
+                stripped = f"{_strip_diacritics(fn)} {_strip_diacritics(ln)}".lower()
+                if stripped != key:
+                    by_name.setdefault(stripped, []).append(result)
+
+    _uci_xco_history_cache[uci_cat] = by_name
+    return by_name
+
+
+def _lookup_rider_history(history_db: dict, first_name: str, last_name: str) -> list:
+    """Find a rider's results in the UCI XCO history database.
+    Tries name in both orders, with and without diacritics."""
+    fn = first_name.strip()
+    ln = last_name.strip()
+    sfn = _strip_diacritics(fn)
+    sln = _strip_diacritics(ln)
+    for key in (
+        f"{fn} {ln}".lower(),
+        f"{ln} {fn}".lower(),
+        f"{sfn} {sln}".lower(),
+        f"{sln} {sfn}".lower(),
+    ):
+        results = history_db.get(key)
+        if results:
+            return list(results)
+    return []
+
+
 def _parse_year_month(date_str: str) -> tuple:
     """Extract (year, month_int) from strings like '08 May 2026' or '08 May - 10 May 2026'."""
     _months = {"jan":1,"feb":2,"mar":3,"apr":4,"may":5,"jun":6,
@@ -572,6 +670,43 @@ def supplement_from_uci_competition(
             "cat":       uci_cat,
             "disc":      "XCO",
         })
+
+
+def supplement_from_rider_histories(riders: list, uci_cat: str) -> None:
+    """
+    Supplement all riders with zero-point results from every competition that
+    appears in any rider's IndividualEventRankings history.
+
+    IndividualEventRankings only returns point-scoring results.  If Rider A
+    scored points at competition X but Rider B got zero points, Rider B's
+    result is absent from their history — breaking H2H comparisons.  This
+    function closes that gap by re-fetching full event results for each
+    competition any rider in the list is known to have attended.
+    """
+    # Collect unique (race_name, year) pairs from all riders' histories
+    pairs: set = set()
+    for rider in riders:
+        for res in getattr(rider, "race_results", []):
+            rn = res.get("race_name", "")
+            rd = res.get("date", "")
+            if not rn:
+                continue
+            ym = _parse_year_month(rd)
+            year = ym[0] if ym[0] else datetime.now().year
+            pairs.add((rn, year))
+
+    if not pairs:
+        return
+
+    catalogs = {y: _get_uci_competition_catalog(y) for y in {y for _, y in pairs}}
+
+    supplemented_ids: set = set()
+    for race_name, year in pairs:
+        comp_ids = catalogs[year].get("by_name", {}).get(race_name.lower(), [])
+        for comp_id in comp_ids:
+            if comp_id not in supplemented_ids:
+                supplement_from_uci_competition(riders, comp_id, year, uci_cat)
+                supplemented_ids.add(comp_id)
 
 
 def fetch_rider_history_uci(object_id: int, uci_cat: str, cache: dict) -> list:

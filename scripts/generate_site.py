@@ -14,9 +14,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mtb_analyzer.config import console
 from mtb_analyzer.export_db import export_db
 from mtb_analyzer.parsers import parse_start_list
-from mtb_analyzer.ranking import (enrich_cp_xco_points, fetch_cp_xco_standings,
-                                   fetch_rider_history_uci, get_uci_cache, lookup_rider,
-                                   supplement_from_uci_competition)
+from mtb_analyzer.ranking import (build_uci_xco_history, enrich_cp_xco_points,
+                                   fetch_cp_xco_standings, get_uci_cache, lookup_rider,
+                                   supplement_from_uci_competition,
+                                   _lookup_rider_history)
 
 REPO_ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RACES_FILE = os.path.join(REPO_ROOT, "races.yml")
@@ -45,11 +46,12 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
         return []
 
     console.print(f"[green]  ✓ {len(riders)} riders[/green]")
-    console.print("[dim]  Looking up UCI rankings and fetching race histories...[/dim]")
+    console.print("[dim]  Looking up UCI rankings and building race histories...[/dim]")
+
+    history_db = build_uci_xco_history(uci_category)
     for rider in riders:
         lookup_rider(rider, cache)
-        if rider.uci_object_id:
-            rider.race_results = fetch_rider_history_uci(rider.uci_object_id, uci_category, cache)
+        rider.race_results = _lookup_rider_history(history_db, rider.first_name, rider.last_name)
 
     uci_comp_id = race.get("uci_competition_id")
     if uci_comp_id:
