@@ -1,5 +1,5 @@
 import { Rider, RaceResult } from "../db.js";
-import { flagEmoji, posLabel, timeGap, tierClass, el } from "../utils.js";
+import { flagEmoji, posLabel, timeGap, tierClass, el, parseResultDate } from "../utils.js";
 
 export function renderH2H(
   container: HTMLElement,
@@ -72,7 +72,7 @@ function buildRacesTable(
   const n1 = r1.corrected_name || `${r1.first_name} ${r1.last_name}`.trim();
   const n2 = r2.corrected_name || `${r2.first_name} ${r2.last_name}`.trim();
 
-  const byDate = [...shared].sort((a, b) => b.date.localeCompare(a.date));
+  const byDate = [...shared].sort((a, b) => parseResultDate(b.date) - parseResultDate(a.date));
   const hasTimes = byDate.some((r2res) => {
     const r1res = map1.get(r2res.xco_race_id)!;
     return !!(r1res.time || r2res.time);
