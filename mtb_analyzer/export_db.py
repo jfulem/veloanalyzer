@@ -52,7 +52,8 @@ def export_db(race_configs: list, rider_groups: list, output_path: str) -> None:
             location    TEXT,
             rank        INTEGER,
             time        TEXT,
-            cat         TEXT
+            cat         TEXT,
+            uci_pts     INTEGER
         );
 
         CREATE INDEX idx_riders_race    ON riders(race_id);
@@ -89,11 +90,12 @@ def export_db(race_configs: list, rider_groups: list, output_path: str) -> None:
             for res in rider.race_results:
                 con.execute(
                     """INSERT INTO race_results
-                       (rider_id, xco_race_id, race_name, date, location, rank, time, cat)
-                       VALUES (?,?,?,?,?,?,?,?)""",
+                       (rider_id, xco_race_id, race_name, date, location, rank, time, cat, uci_pts)
+                       VALUES (?,?,?,?,?,?,?,?,?)""",
                     (rider_id, str(res.get("race_id", "")), res.get("race_name", ""),
                      res.get("date", ""), res.get("location", ""),
-                     res.get("rank"), res.get("time", ""), res.get("cat", "")),
+                     res.get("rank"), res.get("time", ""), res.get("cat", ""),
+                     res.get("uci_pts")),
                 )
 
     con.commit()

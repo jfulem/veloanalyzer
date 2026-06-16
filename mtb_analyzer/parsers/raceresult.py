@@ -61,6 +61,19 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
         console.print(f"[red]Error fetching raceresult data: {e}[/red]")
         return []
 
+    fields   = data.get("DataFields", [])
+    name_col = next((i for i, f in enumerate(fields) if "AnzeigeName" in f), 3)
+    team_col = fields.index("CLUB") if "CLUB" in fields else 6
+    year_col = fields.index("YEAR") if "YEAR" in fields else None
+    # NATION.UCINAME contains the IOC alpha-3 code directly (e.g. "GER").
+    # NATION.FLAG contains an img tag/URL that needs _flag_to_country() parsing.
+    if "NATION.UCINAME" in fields:
+        nat_col, nat_direct = fields.index("NATION.UCINAME"), True
+    elif "NATION.FLAG" in fields:
+        nat_col, nat_direct = fields.index("NATION.FLAG"), False
+    else:
+        nat_col, nat_direct = 4, False
+
     riders = []
     for grp_key, grp_val in data.get("data", {}).items():
         category_base = normalize_category_name(re.sub(r"^#\d+_", "", grp_key))
@@ -81,9 +94,9 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
                 continue
 
             for row in rows:
-                if not isinstance(row, list) or len(row) < 4:
+                if not isinstance(row, list) or len(row) <= name_col:
                     continue
-                name_raw = str(row[3]).strip()
+                name_raw = str(row[name_col]).strip()
                 if not name_raw:
                     continue
                 if "," in name_raw:
@@ -93,12 +106,14 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
                     last  = parts[0].title()
                     first = parts[1].title() if len(parts) > 1 else ""
 
-                country = _flag_to_country(str(row[4])) if len(row) > 4 else ""
+                raw_nat = str(row[nat_col]) if len(row) > nat_col else ""
+                country = raw_nat.strip() if nat_direct else _flag_to_country(raw_nat)
+                birth_year = str(row[year_col]) if year_col is not None and len(row) > year_col else ""
                 riders.append(Rider(
                     first_name=first, last_name=last,
                     country=country,
-                    birth_year=str(row[5]) if len(row) > 5 else "",
-                    team=str(row[6])       if len(row) > 6 else "",
+                    birth_year=birth_year,
+                    team=str(row[team_col]) if len(row) > team_col else "",
                     category=category,
                     start_nr=str(row[0]).strip(),
                 ))

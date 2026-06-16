@@ -1,7 +1,7 @@
 import { Rider, RaceResult } from "../db.js";
 import { flagEmoji, posLabel, tierClass, el, parseResultDate } from "../utils.js";
 
-type SortCol = "date" | "race" | "cat" | "rank" | "time";
+type SortCol = "date" | "race" | "cat" | "rank" | "time" | "pts";
 type SortDir = "asc" | "desc";
 
 const ALL_COL_HEADERS: { key: SortCol; label: string }[] = [
@@ -10,6 +10,7 @@ const ALL_COL_HEADERS: { key: SortCol; label: string }[] = [
   { key: "cat",   label: "Cat" },
   { key: "rank",  label: "Pos" },
   { key: "time",  label: "Time" },
+  { key: "pts",   label: "Pts" },
 ];
 
 function sortResults(results: RaceResult[], col: SortCol, dir: SortDir): RaceResult[] {
@@ -21,9 +22,103 @@ function sortResults(results: RaceResult[], col: SortCol, dir: SortDir): RaceRes
       case "cat":  cmp = (a.cat ?? "").localeCompare(b.cat ?? ""); break;
       case "rank": cmp = (a.rank ?? 9999) - (b.rank ?? 9999); break;
       case "time": cmp = (a.time ?? "").localeCompare(b.time ?? ""); break;
+      case "pts":  cmp = (b.uci_pts ?? -1) - (a.uci_pts ?? -1); break;
     }
     return dir === "asc" ? cmp : -cmp;
   });
+}
+
+function buildPointsChart(results: RaceResult[]): HTMLElement | null {
+  const sorted = [...results]
+    .filter((r) => r.uci_pts != null)
+    .sort((a, b) => parseResultDate(a.date) - parseResultDate(b.date));
+
+  if (sorted.length < 2) return null;
+
+  const NS = "http://www.w3.org/2000/svg";
+  const mk = (tag: string, attrs: Record<string, string | number> = {}): Element => {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+    return e;
+  };
+
+  const W = 460, H = 110;
+  const PL = 28, PR = 8, PT = 8, PB = 22;
+  const CW = W - PL - PR, CH = H - PT - PB;
+
+  const maxVal = Math.max(...sorted.map((r) => r.uci_pts!));
+  const yMax   = maxVal > 0 ? Math.ceil(maxVal / 5) * 5 : 10;
+  const n      = sorted.length;
+  const xOf    = (i: number) => PL + (n > 1 ? (i / (n - 1)) * CW : CW / 2);
+  const yOf    = (v: number) => PT + CH - (v / yMax) * CH;
+
+  const svg = mk("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%" });
+
+  // Gridlines + Y labels at 0, mid, max
+  for (const frac of [0, 0.5, 1]) {
+    const val = frac * yMax;
+    const y   = yOf(val);
+    svg.appendChild(mk("line", {
+      x1: PL, y1: y, x2: W - PR, y2: y,
+      stroke: frac === 0 ? "#4a5568" : "#2d3748", "stroke-width": 1,
+    }));
+    const lbl = mk("text", {
+      x: PL - 4, y: y + 4,
+      "text-anchor": "end", "font-size": 9, fill: "#718096",
+    });
+    lbl.textContent = String(Math.round(val));
+    svg.appendChild(lbl);
+  }
+
+  // Area fill under line
+  const areaCoords = [
+    `${xOf(0)},${PT + CH}`,
+    ...sorted.map((r, i) => `${xOf(i)},${yOf(r.uci_pts!)}`),
+    `${xOf(n - 1)},${PT + CH}`,
+  ].join(" ");
+  svg.appendChild(mk("polygon", { points: areaCoords, fill: "rgba(99,179,237,0.10)" }));
+
+  // Line
+  svg.appendChild(mk("polyline", {
+    points: sorted.map((r, i) => `${xOf(i)},${yOf(r.uci_pts!)}`).join(" "),
+    fill: "none", stroke: "#63b3ed", "stroke-width": 2,
+    "stroke-linejoin": "round", "stroke-linecap": "round",
+  }));
+
+  // Dots — filled if points scored, hollow-ish if zero
+  for (let i = 0; i < n; i++) {
+    const r = sorted[i]!;
+    const g = mk("g");
+    const title = mk("title");
+    title.textContent = `${r.race_name} · ${r.date}: ${r.uci_pts} pts`;
+    g.appendChild(title);
+    g.appendChild(mk("circle", {
+      cx: xOf(i), cy: yOf(r.uci_pts!), r: 4,
+      fill: (r.uci_pts ?? 0) > 0 ? "#90cdf4" : "#4a5568",
+      stroke: "#1a202c", "stroke-width": 1.5,
+    }));
+    svg.appendChild(g);
+  }
+
+  // X axis: labels at first, last and (if many races) midpoint
+  const labelIdx = new Set<number>([0, n - 1]);
+  if (n > 4) labelIdx.add(Math.round((n - 1) / 2));
+  for (const i of labelIdx) {
+    const r = sorted[i]!;
+    const anchor = i === 0 ? "start" : i === n - 1 ? "end" : "middle";
+    const parts  = r.date.split(" ");
+    const label  = parts.length === 3 ? `${parts[1]} '${parts[2]!.slice(2)}` : r.date;
+    const lbl = mk("text", {
+      x: xOf(i), y: H - 5,
+      "text-anchor": anchor, "font-size": 9, fill: "#718096",
+    });
+    lbl.textContent = label;
+    svg.appendChild(lbl);
+  }
+
+  const wrap = el("div", { class: "rc-chart" });
+  wrap.appendChild(svg as unknown as HTMLElement);
+  return wrap;
 }
 
 export function renderRiderCard(
@@ -73,11 +168,13 @@ export function renderRiderCard(
 
   // ── Stats chips ────────────────────────────────────────────────────────────
   if (results.length > 0) {
+    const totalPts = results.reduce((s, r) => s + (r.uci_pts ?? 0), 0);
     const stats = el("div", { class: "rc-stats" });
     for (const [label, value] of [
-      ["Races", String(results.length)],
-      ["Best",  bestRank != null ? posLabel(bestRank) : "—"],
+      ["Races",  String(results.length)],
+      ["Best",   bestRank != null ? posLabel(bestRank) : "—"],
       ["Top 10", String(top10)],
+      ["UCI pts", String(totalPts)],
     ] as [string, string][]) {
       const chip = el("div", { class: "rc-chip" });
       chip.appendChild(el("span", { class: "rc-chip-val" }, value));
@@ -86,6 +183,10 @@ export function renderRiderCard(
     }
     container.appendChild(stats);
   }
+
+  // ── Form chart ─────────────────────────────────────────────────────────────
+  const chart = buildPointsChart(results);
+  if (chart) container.appendChild(chart);
 
   // ── Race history table ─────────────────────────────────────────────────────
   const historyNote = (!rider.xcodata_slug && rider.uci_rank != null)
@@ -104,7 +205,10 @@ export function renderRiderCard(
   let sortDir: SortDir = "desc";
 
   const hasTimes = results.some((r) => !!r.time);
-  const COL_HEADERS = hasTimes ? ALL_COL_HEADERS : ALL_COL_HEADERS.filter((c) => c.key !== "time");
+  const hasPts   = results.some((r) => r.uci_pts != null);
+  const COL_HEADERS = ALL_COL_HEADERS.filter((c) =>
+    (c.key !== "time" || hasTimes) && (c.key !== "pts" || hasPts),
+  );
 
   const table = el("table", { class: "h2h-table" });
   const thead = el("thead");
@@ -150,6 +254,8 @@ export function renderRiderCard(
       tr.appendChild(posTd);
 
       if (hasTimes) tr.appendChild(el("td", { style: "font-size:.82rem; color:#a0aec0" }, res.time || "—"));
+      if (hasPts) tr.appendChild(el("td", { style: "font-size:.82rem; color:#68d391" },
+        res.uci_pts != null ? String(res.uci_pts) : "—"));
       tbody.appendChild(tr);
     }
   }

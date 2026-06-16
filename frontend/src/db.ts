@@ -50,6 +50,7 @@ export interface RaceResult {
   rank: number | null;
   time: string;
   cat: string;
+  uci_pts: number | null;
 }
 
 function rowsOf<T>(sql: string, params: (string | number | null)[] = []): T[] {

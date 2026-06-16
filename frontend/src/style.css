@@ -184,6 +184,14 @@ body {
 .rc-chip-val { display: block; font-size: 1.1rem; font-weight: 700; color: #90cdf4; }
 .rc-chip-lbl { display: block; font-size: .7rem; color: #718096; text-transform: uppercase; letter-spacing: .05em; }
 
+.rc-chart {
+  margin: .75rem 0 1.25rem;
+  background: #1a202c;
+  border-radius: 6px;
+  padding: 8px 6px 4px;
+  overflow: hidden;
+}
+
 /* Country chart */
 .section-title {
   font-size: .85rem;

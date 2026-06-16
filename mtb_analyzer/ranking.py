@@ -305,6 +305,7 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
                 if not fn or not ln:
                     continue
 
+                pts_raw = er.get("points", "")
                 result = {
                     "race_id":   f"{race_date}|{comp_name}",
                     "race_name": comp_name,
@@ -312,6 +313,7 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
                     "location":  entry.get("venue", ""),
                     "rank":      int(er["rank"]) if er.get("rank") and str(er["rank"]).isdigit() else None,
                     "time":      er.get("time", ""),
+                    "uci_pts":   int(pts_raw) if str(pts_raw).isdigit() else None,
                     "cat":       uci_cat,
                     "disc":      "XCO",
                 }
