@@ -61,7 +61,8 @@ function buildTable(
     // Name
     const nameCell = el("td", { class: "name-cell" });
     const displayName = rider.corrected_name || `${rider.first_name} ${rider.last_name}`.trim();
-    const nameSpan = el("span", {}, displayName);
+    const nameSpan = el("span", { class: "rider-name-link" }, displayName);
+    nameSpan.addEventListener("click", (e) => { e.stopPropagation(); onDetail(rider.id); });
     nameCell.appendChild(nameSpan);
 
     if (rider.match_confidence < 100 && rider.uci_rank != null) {
@@ -77,9 +78,6 @@ function buildTable(
       link.addEventListener("click", (e) => e.stopPropagation());
       nameCell.appendChild(link);
     }
-    const detailBtn = el("button", { class: "detail-btn", title: "Rider profile" }, "👤");
-    detailBtn.addEventListener("click", (e) => { e.stopPropagation(); onDetail(rider.id); });
-    nameCell.appendChild(detailBtn);
     tr.appendChild(nameCell);
 
     // Country

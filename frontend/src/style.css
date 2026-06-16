@@ -144,18 +144,13 @@ body {
 }
 .xco-link:hover { opacity: 1; }
 
-.detail-btn {
-  background: transparent;
-  border: none;
+.rider-name-link {
   cursor: pointer;
-  font-size: .75rem;
-  margin-left: .35rem;
-  opacity: .5;
-  padding: 0;
-  line-height: 1;
-  vertical-align: middle;
 }
-.detail-btn:hover { opacity: 1; }
+.rider-name-link:hover {
+  color: #90cdf4;
+  text-decoration: underline;
+}
 
 /* Rider card modal */
 .rc-header { margin-bottom: 1rem; }
@@ -171,6 +166,7 @@ body {
 
 .rc-stats {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   margin: 1rem 0;
 }

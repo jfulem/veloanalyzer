@@ -131,7 +131,6 @@ export function renderRiderCard(
   const displayName = rider.corrected_name || `${rider.first_name} ${rider.last_name}`.trim();
   const ranked = results.filter((r) => r.rank != null);
   const bestRank = ranked.length ? Math.min(...ranked.map((r) => r.rank!)) : null;
-  const top10 = ranked.filter((r) => r.rank! <= 10).length;
 
   // ── Header ─────────────────────────────────────────────────────────────────
   const header = el("div", { class: "rc-header" });
@@ -168,13 +167,23 @@ export function renderRiderCard(
 
   // ── Stats chips ────────────────────────────────────────────────────────────
   if (results.length > 0) {
-    const totalPts = results.reduce((s, r) => s + (r.uci_pts ?? 0), 0);
+    const totalPts   = results.reduce((s, r) => s + (r.uci_pts ?? 0), 0);
+    const finishers  = results.filter((r) => r.rank != null);
+    const wins       = finishers.filter((r) => r.rank === 1).length;
+    const podiums    = finishers.filter((r) => r.rank! <= 3).length;
+    const ptsResults = results.filter((r) => r.uci_pts != null);
+    const avgPts     = ptsResults.length
+      ? (totalPts / ptsResults.length).toFixed(1)
+      : "—";
+
     const stats = el("div", { class: "rc-stats" });
     for (const [label, value] of [
-      ["Races",  String(results.length)],
-      ["Best",   bestRank != null ? posLabel(bestRank) : "—"],
-      ["Top 10", String(top10)],
-      ["UCI pts", String(totalPts)],
+      ["Starts",   String(results.length)],
+      ["Best",     bestRank != null ? posLabel(bestRank) : "—"],
+      ["Wins",     String(wins)],
+      ["Podiums",  String(podiums)],
+      ["Avg pts",  avgPts],
+      ["UCI pts",  String(totalPts)],
     ] as [string, string][]) {
       const chip = el("div", { class: "rc-chip" });
       chip.appendChild(el("span", { class: "rc-chip-val" }, value));
@@ -189,11 +198,8 @@ export function renderRiderCard(
   if (chart) container.appendChild(chart);
 
   // ── Race history table ─────────────────────────────────────────────────────
-  const historyNote = (!rider.xcodata_slug && rider.uci_rank != null)
-    ? " · UCI scored races only"
-    : "";
   container.appendChild(el("p", { class: "section-title" },
-    `Race history (${results.length} result${results.length !== 1 ? "s" : ""}${historyNote})`));
+    `Race history (${results.length} result${results.length !== 1 ? "s" : ""})`));
 
   if (results.length === 0) {
     container.appendChild(el("p", { class: "h2h-empty" }, "No race history found."));
