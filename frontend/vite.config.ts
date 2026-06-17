@@ -6,10 +6,11 @@ export default defineConfig({
     outDir: "../docs",
     emptyOutDir: false,  // preserve data.db written by Python
     rollupOptions: {
+      input: "app.html",
       output: {
         entryFileNames: "index.js",
         chunkFileNames: "[name].js",
-        assetFileNames: "[name][extname]",
+        assetFileNames: (info) => info.name?.endsWith(".css") ? "index.css" : "[name][extname]",
       },
     },
   },
