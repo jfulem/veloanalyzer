@@ -3,8 +3,10 @@ __pycache__/
 *.py[codz]
 *$py.class
 .mtb_cache/
-!docs/
-!docs/**
+
+# Generated site — rebuilt by `npm run build` (frontend/) + `python scripts/generate_site.py`
+docs/*
+!docs/.gitkeep
 
 # C extensions
 *.so

@@ -52,17 +52,25 @@ races:
 
 ## Running the pipeline
 
+`docs/` is generated and gitignored — on a fresh clone it's empty until you build it:
+
 ```bash
 # Install dependencies
 pip install -e .          # or: uv sync
+cd frontend && npm install && cd ..
 
-# Rebuild docs/data.db from races.yml
+# Build the frontend (docs/app.html, docs/app-[hash].js, docs/index.css, docs/index.html)
+cd frontend && npm run build && cd ..
+
+# Rebuild docs/data.db and docs/races.html from races.yml
 python scripts/generate_site.py
 ```
 
 The script fetches each start list, looks up UCI rankings, downloads the last 12 months of XCO race results from the UCI (all finishers, including zero-point), and writes everything to `docs/data.db`. A `.mtb_cache/` folder caches all network responses so re-runs are fast.
 
 **First run** fetches event codes for all UCI XCO competitions in the past 12 months (~2–3 minutes). Subsequent runs are near-instant since all results are cached.
+
+In production, CI (`.github/workflows/generate-reports.yml`) runs both steps on every push and deploys the result to GitHub Pages — there's no need to commit `docs/` manually.
 
 ---
 
@@ -229,11 +237,19 @@ mtb_analyzer/
     ├── raceresult.py
     └── generic.py               # generic table fallback
 frontend/                        # TypeScript SPA
-docs/
-├── data.db                      # generated SQLite database
-└── index.js                     # compiled frontend bundle
+├── public/index.html            # landing page (copied as-is into docs/)
+├── app.html                     # SPA entry template (built into docs/app.html)
+└── src/
+docs/                            # generated — not committed to git
+├── data.db                      # SQLite database (generate_site.py)
+├── races.html                   # race calendar overview (generate_site.py)
+├── index.html                   # landing page (copied from frontend/public/)
+├── app.html                     # SPA (built from frontend/app.html)
+└── app-[hash].js                # compiled frontend bundle (content-hashed)
 .mtb_cache/                      # auto-created network cache
 ```
+
+`docs/` is rebuilt from scratch by CI on every push (see `.github/workflows/generate-reports.yml`) and is gitignored locally — there's no need to commit it. To preview locally, run both build steps (`npm run build` in `frontend/`, then `python scripts/generate_site.py`) and serve the `docs/` folder.
 
 To add a new website parser: create a file in `mtb_analyzer/parsers/`, register it in `parsers/__init__.py` (`detect_site` + `parse_start_list`).
 

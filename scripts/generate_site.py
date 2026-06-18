@@ -6,8 +6,6 @@ for the TypeScript SPA frontend to query via sql.js.
 
 import os
 import sys
-import unicodedata
-from collections import defaultdict
 from datetime import datetime, timezone
 
 import yaml
@@ -74,17 +72,32 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
     return riders
 
 
-def _sd(s: str) -> str:
-    """Strip diacritics for cross-race name matching."""
-    return "".join(c for c in unicodedata.normalize("NFD", s)
-                   if unicodedata.category(c) != "Mn")
-
-
 def _esc(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+_UCI_CAT_COLOR = {
+    "ME": "#68d391",  # green
+    "MJ": "#90cdf4",  # blue
+    "WE": "#f6ad55",  # orange
+    "WJ": "#f687b3",  # pink
+}
+_UCI_CAT_LABEL = {
+    "ME": "Men Elite", "MJ": "Men Juniors",
+    "WE": "Women Elite", "WJ": "Women Juniors",
+}
+
+
+def _cat_badge(uci_cat: str) -> str:
+    color = _UCI_CAT_COLOR.get(uci_cat, "#a0aec0")
+    label = _esc(uci_cat or "—")
+    return (f"<span class='cat-badge' style='background:{color}22; "
+            f"color:{color}; border:1px solid {color}66'>{label}</span>")
+
+
 def generate_races_html(race_configs: list, rider_groups: list, docs_dir: str) -> None:
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
     # Per-race stats
     stats = []
     for rc, riders in zip(race_configs, rider_groups):
@@ -92,70 +105,52 @@ def generate_races_html(race_configs: list, rider_groups: list, docs_dir: str) -
         best   = min((r.uci_rank for r in ranked), default=None)
         avg    = round(sum(r.uci_rank for r in ranked) / len(ranked)) if ranked else None
         stats.append({"name": rc.get("name", ""), "date": rc.get("date", ""),
-                      "cat": rc.get("category", ""), "total": len(riders),
-                      "ranked": len(ranked), "best": best, "avg": avg})
+                      "cat": rc.get("category", ""), "uci_cat": rc.get("uci_category", ""),
+                      "slug": rc.get("output", "").removesuffix(".html"),
+                      "total": len(riders), "ranked": len(ranked),
+                      "best": best, "avg": avg})
 
-    # Rider → race appearances
-    appearances: dict = defaultdict(list)
-    for i, riders in enumerate(rider_groups):
-        for rider in riders:
-            name = (rider.corrected_name or
-                    f"{rider.first_name} {rider.last_name}").strip()
-            appearances[_sd(name).lower()].append((i, rider, name))
-
-    overlap = sorted(
-        ((k, v) for k, v in appearances.items() if len(v) >= 2),
-        key=lambda x: (-len(x[1]),
-                       min((e[1].uci_rank or 9999 for e in x[1]), default=9999)),
-    )
-
-    n = len(race_configs)
+    upcoming = sorted((s for s in stats if s["date"] >= today), key=lambda s: s["date"])
+    past     = sorted((s for s in stats if s["date"] < today), key=lambda s: s["date"], reverse=True)
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
-    # ── Race table ──────────────────────────────────────────────────────────
-    race_rows = "".join(
-        f"<tr>"
-        f"<td>{_esc(s['date'])}</td><td>{_esc(s['name'])}</td>"
-        f"<td>{_esc(s['cat'])}</td>"
-        f"<td class='num'>{s['total']}</td><td class='num'>{s['ranked']}</td>"
-        f"<td class='num'>{'#'+str(s['best']) if s['best'] else '—'}</td>"
-        f"<td class='num'>{'#'+str(s['avg']) if s['avg'] else '—'}</td>"
-        f"</tr>"
-        for s in stats
-    )
+    def rows_html(rows: list) -> str:
+        return "".join(
+            f"<tr>"
+            f"<td>{_esc(s['date'])}</td>"
+            f"<td><a href='./app.html#race={_esc(s['slug'])}'>{_esc(s['name'])}</a></td>"
+            f"<td>{_cat_badge(s['uci_cat'])} {_esc(s['cat'])}</td>"
+            f"<td class='num'>{s['total']}</td><td class='num'>{s['ranked']}</td>"
+            f"<td class='num'>{'#'+str(s['best']) if s['best'] else '—'}</td>"
+            f"<td class='num'>{'#'+str(s['avg']) if s['avg'] else '—'}</td>"
+            f"</tr>"
+            for s in rows
+        )
 
-    # ── Overlap table ────────────────────────────────────────────────────────
-    def short_name(rc: dict) -> str:
-        n = rc.get("name", "")
-        return _esc(n.split(" — ")[-1] if " — " in n else n[:24])
-
-    race_th = "".join(f"<th>{short_name(rc)}</th>" for rc in race_configs)
-
-    overlap_rows = ""
-    for _, entries in overlap:
-        em = {idx: rider for idx, rider, _ in entries}
-        _, first, display = entries[0]
-        country = _esc(first.country or "")
-        cells = f"<td>{country} {_esc(display)}</td>"
-        for idx in range(n):
-            if idx in em:
-                r = em[idx]
-                cells += f"<td class='num'>{'#'+str(r.uci_rank) if r.uci_rank else '—'}</td>"
-            else:
-                cells += "<td class='num muted'>–</td>"
-        overlap_rows += f"<tr>{cells}</tr>"
-
-    if overlap:
-        overlap_section = f"""
+    def table_section(title: str, rows: list) -> str:
+        if not rows:
+            body = '<p class="h2h-empty">None.</p>'
+        else:
+            body = f"""<table class="h2h-table">
+      <thead>
+        <tr>
+          <th>Date</th><th>Race</th><th>Category</th>
+          <th class="num">Riders</th><th class="num">Ranked</th>
+          <th class="num">Best</th><th class="num">Avg rank</th>
+        </tr>
+      </thead>
+      <tbody>{rows_html(rows)}</tbody>
+    </table>"""
+        return f"""
   <div class="races-section">
-    <p class="section-title">Riders in multiple races ({len(overlap)})</p>
-    <table class="h2h-table">
-      <thead><tr><th>Rider</th>{race_th}</tr></thead>
-      <tbody>{overlap_rows}</tbody>
-    </table>
+    <p class="section-title">{title} ({len(rows)})</p>
+    {body}
   </div>"""
-    else:
-        overlap_section = '<p class="h2h-empty">No riders appear in multiple races.</p>'
+
+    legend = "".join(
+        f"<span class='legend-item'>{_cat_badge(c)} {label}</span>"
+        for c, label in _UCI_CAT_LABEL.items()
+    )
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -165,12 +160,12 @@ def generate_races_html(race_configs: list, rider_groups: list, docs_dir: str) -
   <title>VeloAnalyzer — Race Comparison</title>
   <link rel="stylesheet" href="./index.css">
   <style>
-    .back-link {{ display:inline-block; margin-bottom:1.5rem; color:#90cdf4;
-                  text-decoration:none; font-size:.9rem; }}
-    .back-link:hover {{ text-decoration:underline; }}
     .races-section {{ margin-bottom:2.5rem; }}
     .num {{ text-align:right; font-variant-numeric:tabular-nums; }}
-    .muted {{ color:#4a5568; }}
+    .cat-badge {{ display:inline-block; border-radius:4px; padding:1px 6px;
+                  font-size:.72rem; font-weight:600; white-space:nowrap; }}
+    .cat-legend {{ margin-bottom:1.5rem; display:flex; gap:1.2rem; flex-wrap:wrap; }}
+    .legend-item {{ font-size:.82rem; color:#a0aec0; display:flex; align-items:center; gap:.4rem; }}
   </style>
 </head>
 <body>
@@ -182,21 +177,10 @@ def generate_races_html(race_configs: list, rider_groups: list, docs_dir: str) -
 
   <a class="back-link" href="./index.html">&larr; Home</a>
 
-  <div class="races-section">
-    <p class="section-title">Races ({n})</p>
-    <table class="h2h-table">
-      <thead>
-        <tr>
-          <th>Date</th><th>Race</th><th>Category</th>
-          <th class="num">Riders</th><th class="num">Ranked</th>
-          <th class="num">Best</th><th class="num">Avg rank</th>
-        </tr>
-      </thead>
-      <tbody>{race_rows}</tbody>
-    </table>
-  </div>
+  <div class="cat-legend">{legend}</div>
 
-  {overlap_section}
+  {table_section("Upcoming races", upcoming)}
+  {table_section("Past races", past)}
 
   <footer class="site-footer">
     <a href="./app.html">Start list viewer</a> &nbsp;&middot;&nbsp;

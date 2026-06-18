@@ -15,6 +15,15 @@ body {
 .site-header h1 { font-size: 1.6rem; color: #90cdf4; margin-bottom: .25rem; }
 .header-sub { color: #718096; font-size: .85rem; }
 
+.back-link {
+  display: inline-block;
+  margin-bottom: 1.5rem;
+  color: #90cdf4;
+  text-decoration: none;
+  font-size: .9rem;
+}
+.back-link:hover { text-decoration: underline; }
+
 /* Race selector */
 .race-selector { margin-bottom: 1.5rem; }
 .race-selector select {

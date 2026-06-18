@@ -139,6 +139,20 @@ searchInput.addEventListener("input", () => {
     return new Date() <= cutoff;
   });
 
+  // Deep-link support: #race=<slug> (e.g. linked from races.html) jumps
+  // straight to that race, even if it's a past race not in the upcoming list.
+  // A hash fragment is used instead of a query string because static file
+  // servers (e.g. `serve`'s clean-URLs redirect from /app.html -> /app) can
+  // drop query strings on redirect; fragments are client-side only and
+  // always survive.
+  const requestedSlug = new URLSearchParams(window.location.hash.replace(/^#/, "")).get("race");
+  const requestedRace = requestedSlug
+    ? allRaces.find((r) => r.slug === requestedSlug)
+    : undefined;
+  if (requestedRace && !races.some((r) => r.id === requestedRace.id)) {
+    races.unshift(requestedRace);
+  }
+
   generatedAt.textContent = meta["generated_at"] ?? "";
 
   for (const race of races) {
@@ -158,7 +172,9 @@ searchInput.addEventListener("input", () => {
   appEl.style.display     = "block";
 
   if (races.length > 0) {
-    loadRace(races[0]!);
+    const initial = requestedRace ?? races[0]!;
+    raceSelect.value = String(initial.id);
+    loadRace(initial);
   } else {
     $<HTMLElement>("#race-name").textContent = "No upcoming races";
   }

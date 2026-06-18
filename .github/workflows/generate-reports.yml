@@ -3,7 +3,7 @@ name: Generate Race Reports
 on:
   push:
     branches: [main]
-    paths: ['docs/**', 'races.yml']
+    paths: ['races.yml', 'mtb_analyzer/**', 'scripts/**', 'frontend/**']
   schedule:
     - cron: "0 12 * * *"      # every day at 12:00 UTC (fresh rankings)
   workflow_dispatch:
@@ -28,39 +28,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2   # needed for git diff below
 
-      # Decide whether to regenerate data.db.
-      # On push: regenerate only if races.yml changed (not just docs/ assets pushed).
-      # On schedule / workflow_dispatch: always regenerate.
-      - name: Check if regeneration needed
-        id: check
-        run: |
-          if [ "${{ github.event_name }}" != "push" ]; then
-            echo "regen=true" >> $GITHUB_OUTPUT
-          elif git diff --name-only HEAD~1 HEAD | grep -qE '^races\.yml$'; then
-            echo "regen=true" >> $GITHUB_OUTPUT
-          elif git diff --name-only HEAD~1 HEAD | grep -qE '^docs/data\.db$'; then
-            # data.db was committed locally and races.yml is unchanged — deploy as-is
-            echo "regen=false" >> $GITHUB_OUTPUT
-          else
-            echo "regen=false" >> $GITHUB_OUTPUT
-          fi
-
-      # ── Full regeneration ────────────────────────────────────────────────
       - name: Set up uv
-        if: steps.check.outputs.regen == 'true'
         uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
 
       - name: Install Python dependencies
-        if: steps.check.outputs.regen == 'true'
         run: uv sync
 
       - name: Set up Node
-        if: steps.check.outputs.regen == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -68,22 +45,21 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
-        if: steps.check.outputs.regen == 'true'
         run: npm ci
         working-directory: frontend
 
       - name: Build frontend
-        if: steps.check.outputs.regen == 'true'
         run: npm run build
         working-directory: frontend
 
       - name: Get current ISO week
-        if: steps.check.outputs.regen == 'true'
         id: week
         run: echo "week=$(date +%G-W%V)" >> $GITHUB_OUTPUT
 
+      # docs/ is no longer committed — this repo always rebuilds the site
+      # on every trigger. The .mtb_cache cache (keyed by week + races.yml
+      # hash) keeps this fast by avoiding redundant UCI network calls.
       - name: Cache UCI ranking data
-        if: steps.check.outputs.regen == 'true'
         uses: actions/cache@v4
         with:
           path: .mtb_cache
@@ -93,10 +69,8 @@ jobs:
             mtb-cache-${{ runner.os }}-
 
       - name: Generate data.db
-        if: steps.check.outputs.regen == 'true'
         run: uv run python scripts/generate_site.py
 
-      # ── Always: deploy whatever is in docs/ ─────────────────────────────
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
