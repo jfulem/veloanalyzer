@@ -27,25 +27,25 @@ races:
 #   uci_category: ME
 #   cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
 #   output: bedrichov-xco-2026-me.html
-- url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&langtext=&swordssapll=&rebmunyavd=2#vysledky
+- url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&rebmunyavd=2&dohzormhenyh=1&swordssapll=&langtext=
   name: AŠ XCO UCI C1 2026 — Men Juniors
   date: '2026-06-27'
   category: Men Juniors
   uci_category: MJ
   output: as-uci-c1-2026-mj.html
-- url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&langtext=&swordssapll=&rebmunyavd=2#vysledky
+- url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&rebmunyavd=2&dohzormhenyh=1&swordssapll=&langtext=
   name: AŠ XCO UCI C1 2026 — Women Juniors
   date: '2026-06-27'
   category: Women Juniors
   uci_category: WJ
   output: as-uci-c1-2026-wj.html
-- url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&langtext=&swordssapll=&rebmunyavd=2#vysledky
+- url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&rebmunyavd=2&dohzormhenyh=1&swordssapll=&langtext=
   name: AŠ XCO UCI C1 2026 — Men Elite
   date: '2026-06-27'
   category: Men Elite
   uci_category: ME
   output: as-uci-c1-2026-me.html
-- url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&langtext=&swordssapll=&rebmunyavd=2#vysledky
+- url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&rebmunyavd=2&dohzormhenyh=1&swordssapll=&langtext=
   name: AŠ XCO UCI C1 2026 — Women Elite
   date: '2026-06-27'
   category: Women Elite
