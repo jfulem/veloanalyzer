@@ -1,6 +1,15 @@
 import os
+import socket
 
+import urllib3.util.connection as _urllib3_conn
 from rich.console import Console
+
+# GitHub Actions runners often can't route outbound IPv6, but some target
+# sites (e.g. hynekmusil.cz) publish an AAAA record alongside their A record.
+# requests/urllib3 may then try the IPv6 address and fail with
+# "OSError: [Errno 101] Network is unreachable". Force IPv4-only resolution
+# process-wide to sidestep this rather than depending on each site's DNS.
+_urllib3_conn.allowed_gai_family = lambda: socket.AF_INET
 
 console = Console()
 
