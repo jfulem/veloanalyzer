@@ -405,6 +405,7 @@ def _get_uci_competition_catalog(year: int) -> dict:
                             "year": comp_year,
                             "dates": comp.get("dates", ""),
                             "venue": comp.get("venue", ""),
+                            "country": comp.get("country", ""),
                         }
                         by_name.setdefault(name.lower(), [])
                         if comp_id not in by_name[name.lower()]:

@@ -50,33 +50,64 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
         console.print("[red]No lists found in raceresult config[/red]")
         return []
 
-    try:
-        resp = requests.get(f"{origin}/{event_id}/RRPublish/data/list",
-                            params={"listname": lists[0]["Name"], "contest": "0",
-                                    "r": "all", "l": "en", "key": key},
-                            headers=HEADERS, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as e:
-        console.print(f"[red]Error fetching raceresult data: {e}[/red]")
+    # Try each list in order and use the first one with actual data — for
+    # races that haven't started yet, earlier lists (e.g. live timing) can be
+    # present but empty while a later one already has the category groups.
+    data = None
+    for lst in lists:
+        try:
+            resp = requests.get(f"{origin}/{event_id}/RRPublish/data/list",
+                                params={"listname": lst["Name"], "contest": "0",
+                                        "r": "all", "l": "en", "key": key},
+                                headers=HEADERS, timeout=30)
+            resp.raise_for_status()
+            candidate = resp.json()
+        except Exception as e:
+            console.print(f"[red]Error fetching raceresult data: {e}[/red]")
+            continue
+        if candidate.get("data"):
+            data = candidate
+            break
+
+    if data is None:
+        console.print("[yellow]No populated list found in raceresult data[/yellow]")
         return []
 
-    fields   = data.get("DataFields", [])
-    name_col = next((i for i, f in enumerate(fields) if "AnzeigeName" in f), 3)
-    team_col = fields.index("CLUB") if "CLUB" in fields else 6
-    year_col = fields.index("YEAR") if "YEAR" in fields else None
-    # NATION.UCINAME contains the IOC alpha-3 code directly (e.g. "GER").
-    # NATION.FLAG contains an img tag/URL that needs _flag_to_country() parsing.
-    if "NATION.UCINAME" in fields:
-        nat_col, nat_direct = fields.index("NATION.UCINAME"), True
-    elif "NATION.FLAG" in fields:
-        nat_col, nat_direct = fields.index("NATION.FLAG"), False
+    fields = data.get("DataFields", [])
+    # DataFields entries aren't always plain field names — some lists (e.g.
+    # combined age-group rankings) emit full RaceResult formula expressions
+    # like "if([CONTEST]=1 AND ...;[TS6.P1.YEAR];[TS1.P1.YEAR])" instead of a
+    # bare "YEAR". Substring search finds the right column either way; an
+    # exact-equality check would silently miss it and fall back to a wrong
+    # hardcoded index.
+    def _find_col(*needles: str) -> int | None:
+        return next((i for i, f in enumerate(fields) if any(n in f for n in needles)), None)
+
+    name_col = _find_col("AnzeigeName")
+    name_col = name_col if name_col is not None else 3
+    team_col = _find_col("CLUB")
+    team_col = team_col if team_col is not None else 6
+    year_col = _find_col("YEAR")
+    # NATION.UCINAME / NATION.IOCNAME contain the IOC alpha-3 code directly
+    # (e.g. "GER"). NATION.FLAG contains an img tag/URL that needs
+    # _flag_to_country() parsing.
+    nat_col = _find_col("NATION.UCINAME", "NATION.IOCNAME")
+    if nat_col is not None:
+        nat_direct = True
     else:
-        nat_col, nat_direct = 4, False
+        nat_col = _find_col("NATION.FLAG")
+        nat_direct = False
+        if nat_col is None:
+            nat_col = 4
 
     riders = []
     for grp_key, grp_val in data.get("data", {}).items():
-        category_base = normalize_category_name(re.sub(r"^#\d+_", "", grp_key))
+        # Groups with no gender subgroup (grp_val is a list) carry a trailing
+        # rider-count suffix in their name, e.g. "Elite Men (2)" — strip it so
+        # category_matches() isn't thrown off by the extra word.
+        name_no_prefix = re.sub(r"^#\d+_", "", grp_key)
+        name_no_count  = re.sub(r"\s*\(\d+\)\s*$", "", name_no_prefix)
+        category_base  = normalize_category_name(name_no_count)
         subgroups = grp_val.items() if isinstance(grp_val, dict) else [(grp_key, grp_val)]
 
         for sub_key, rows in subgroups:
@@ -145,15 +176,24 @@ def _parse_participants(origin: str, event_id: str, key: str,
         console.print("[red]No lists found in participants config[/red]")
         return []
 
-    try:
-        resp = requests.get(f"{base}/list",
-                            params={"lang": "en", "listname": lists[0]["Name"],
-                                    "contest": "0", "r": "all", "key": key},
-                            headers=HEADERS, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as e:
-        console.print(f"[red]Error fetching participants list: {e}[/red]")
+    data = None
+    for lst in lists:
+        try:
+            resp = requests.get(f"{base}/list",
+                                params={"lang": "en", "listname": lst["Name"],
+                                        "contest": "0", "r": "all", "key": key},
+                                headers=HEADERS, timeout=30)
+            resp.raise_for_status()
+            candidate = resp.json()
+        except Exception as e:
+            console.print(f"[red]Error fetching participants list: {e}[/red]")
+            continue
+        if candidate.get("data"):
+            data = candidate
+            break
+
+    if data is None:
+        console.print("[yellow]No populated list found in participants data[/yellow]")
         return []
 
     fields     = data.get("DataFields", [])

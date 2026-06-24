@@ -95,10 +95,7 @@ def _cat_badge(uci_cat: str) -> str:
             f"color:{color}; border:1px solid {color}66'>{label}</span>")
 
 
-def generate_races_html(race_configs: list, rider_groups: list, docs_dir: str) -> None:
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-    # Per-race stats
+def _compute_race_stats(race_configs: list, rider_groups: list) -> list:
     stats = []
     for rc, riders in zip(race_configs, rider_groups):
         ranked = [r for r in riders if r.uci_rank is not None]
@@ -109,6 +106,12 @@ def generate_races_html(race_configs: list, rider_groups: list, docs_dir: str) -
                       "slug": rc.get("output", "").removesuffix(".html"),
                       "total": len(riders), "ranked": len(ranked),
                       "best": best, "avg": avg})
+    return stats
+
+
+def generate_races_html(race_configs: list, rider_groups: list, docs_dir: str) -> None:
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    stats = _compute_race_stats(race_configs, rider_groups)
 
     upcoming = sorted((s for s in stats if s["date"] >= today), key=lambda s: s["date"])
     past     = sorted((s for s in stats if s["date"] < today), key=lambda s: s["date"], reverse=True)
@@ -218,6 +221,121 @@ def generate_races_html(race_configs: list, rider_groups: list, docs_dir: str) -
     console.print(f"[green]✓ Races page → {out}[/green]")
 
 
+def generate_index_html(race_configs: list, rider_groups: list, docs_dir: str) -> None:
+    now   = datetime.now(timezone.utc)
+    today = now.strftime("%Y-%m-%d")
+    stats = _compute_race_stats(race_configs, rider_groups)
+    upcoming = sorted((s for s in stats if s["date"] >= today), key=lambda s: s["date"])
+
+    total_races  = len(race_configs)
+    total_riders = sum(len(riders) for riders in rider_groups)
+    generated_at = now.strftime("%Y-%m-%d %H:%M UTC")
+
+    next_race_label = "—"
+    if upcoming:
+        next_date = datetime.strptime(upcoming[0]["date"], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        days = (next_date - now).days
+        next_race_label = "Today" if days <= 0 else f"{days}d"
+
+    stat_chips = "".join(
+        f"<div class='hero-chip'><span class='hero-chip-val'>{val}</span>"
+        f"<span class='hero-chip-lbl'>{lbl}</span></div>"
+        for val, lbl in [
+            (str(total_races), "Races tracked"),
+            (str(total_riders), "Riders tracked"),
+            (next_race_label, "Next race"),
+        ]
+    )
+
+    preview_cards = "".join(
+        f"<a class='preview-card' href='./app.html#race={_esc(s['slug'])}'>"
+        f"<div class='preview-date'>{_esc(s['date'])}</div>"
+        f"<div class='preview-name'>{_esc(s['name'])}</div>"
+        f"<div>{_cat_badge(s['uci_cat'])}</div>"
+        f"</a>"
+        for s in upcoming[:5]
+    )
+    if not preview_cards:
+        preview_cards = "<p class='h2h-empty'>No upcoming races scheduled.</p>"
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VeloAnalyzer</title>
+  <link rel="stylesheet" href="./index.css">
+  <style>
+    .hero-stats {{ display:flex; gap:1rem; flex-wrap:wrap; margin:1.25rem 0 2rem; }}
+    .hero-chip {{
+      background:#2d3748; border-radius:10px; padding:.9rem 1.4rem;
+      text-align:center; min-width:130px;
+    }}
+    .hero-chip-val {{ display:block; font-size:1.5rem; font-weight:700; color:#90cdf4; }}
+    .hero-chip-lbl {{
+      display:block; font-size:.72rem; color:#718096; text-transform:uppercase;
+      letter-spacing:.05em; margin-top:.25rem;
+    }}
+    .preview-grid {{
+      display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr));
+      gap:1rem; margin:1rem 0 .5rem;
+    }}
+    .preview-card {{
+      display:block; background:#2d3748; border:1px solid #4a5568; border-radius:10px;
+      padding:1rem 1.1rem; text-decoration:none; color:inherit; transition:border-color .15s;
+    }}
+    .preview-card:hover {{ border-color:#63b3ed; }}
+    .preview-date {{ font-size:.75rem; color:#718096; margin-bottom:.3rem; }}
+    .preview-name {{ font-size:.92rem; font-weight:600; margin-bottom:.5rem; line-height:1.3; }}
+    .see-all {{ display:inline-block; margin-bottom:2rem; font-size:.85rem; }}
+    .nav-section {{ display:flex; gap:1.5rem; flex-wrap:wrap; margin-top:1rem; }}
+    .nav-card {{
+      flex:1; min-width:220px; background:#2d3748; border:2px solid #4a5568; border-radius:12px;
+      padding:1.6rem 1.4rem; text-decoration:none; color:inherit; display:block;
+      transition:border-color .15s;
+    }}
+    .nav-card:hover {{ border-color:#63b3ed; }}
+    .nav-card h2 {{ color:#90cdf4; margin:0 0 .5rem; font-size:1.05rem; }}
+    .nav-card p {{ color:#a0aec0; margin:0; font-size:.85rem; line-height:1.5; }}
+  </style>
+</head>
+<body>
+<div class="container">
+  <header class="site-header">
+    <h1>&#x1F6B5; VeloAnalyzer</h1>
+    <p class="header-sub">UCI-enriched MTB XCO start list analysis &nbsp;&middot;&nbsp; Updated: {generated_at}</p>
+  </header>
+
+  <div class="hero-stats">{stat_chips}</div>
+
+  <p class="section-title">Next up</p>
+  <div class="preview-grid">{preview_cards}</div>
+  <a class="see-all" href="./races.html">See all races &rarr;</a>
+
+  <div class="nav-section">
+    <a class="nav-card" href="./app.html">
+      <h2>Start list viewer &rarr;</h2>
+      <p>Browse and search start lists. UCI rankings, race history, rider profiles, and head-to-head comparison.</p>
+    </a>
+    <a class="nav-card" href="./races.html">
+      <h2>Race comparison &rarr;</h2>
+      <p>Overview of all races in the calendar. Field strength stats and riders competing across multiple events.</p>
+    </a>
+  </div>
+
+  <footer class="site-footer">
+    Generated by <a href="https://github.com/jfulem/veloanalyzer" target="_blank">veloanalyzer</a>
+  </footer>
+</div>
+</body>
+</html>"""
+
+    out = os.path.join(docs_dir, "index.html")
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(html)
+    console.print(f"[green]✓ Landing page → {out}[/green]")
+
+
 def main():
     os.makedirs(DOCS_DIR, exist_ok=True)
     races = load_races()
@@ -239,6 +357,7 @@ def main():
     console.print(f"\n[green]✓ Database written to {db_path}[/green]")
 
     generate_races_html(race_configs, rider_groups, DOCS_DIR)
+    generate_index_html(race_configs, rider_groups, DOCS_DIR)
     console.print("\n[bold green]Done.[/bold green]")
 
 

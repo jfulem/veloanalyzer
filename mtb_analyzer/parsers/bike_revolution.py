@@ -13,10 +13,16 @@ def _find_raceresult_event_id(url: str) -> str | None:
     Fetch the bike-revolution.ch startlisten page and look for an embedded
     RaceResult event ID.  Returns the event ID string if found, else None.
 
-    The event ID is configured via Storyblok CMS and rendered into the Nuxt.js
-    component as `this.blok.eventId || <fallback>`.  It may appear in:
-      - The initial HTML:   iframe src, data-event-id attribute, JS variable
-      - Preloaded JS chunks: eventId||NNNNNN pattern in the Nuxt component
+    The event ID is configured per-year via Storyblok CMS. The live value for
+    this exact page is in its prerendered Nuxt static payload
+    (/_nuxt/static/<buildId>/<path>/payload.js, preloaded via a <link> tag in
+    the HTML) as `eventId:"NNNNNN"`.
+
+    NB: the Nuxt component source also has a hardcoded fallback default
+    (`this.blok.eventId || NNNNNN`) baked into its JS chunk — that fallback is
+    whatever event ID existed when the component was last built (e.g. last
+    year's), so it must NOT be used as a discovery source: it silently returns
+    a plausible-looking but stale event ID instead of the current one.
     """
     try:
         resp = requests.get(url, headers=HEADERS, timeout=20)
@@ -26,36 +32,33 @@ def _find_raceresult_event_id(url: str) -> str | None:
         return None
 
     html = resp.text
+    base = f"https://{requests.utils.urlparse(url).netloc}"
 
-    # 1. Iframe src  my.raceresult.com/NNNNN/...
+    # 1. Nuxt static payload for this page — the actual current Storyblok
+    #    content, including this year's eventId.
+    for path in re.findall(r'href="(/_nuxt/static/[^"]+/payload\.js)"', html):
+        try:
+            pr = requests.get(base + path, headers=HEADERS, timeout=10)
+            m = re.search(r'eventId:"(\d{5,6})"', pr.text)
+            if m:
+                return m.group(1)
+        except Exception:
+            continue
+
+    # 2. Iframe src  my.raceresult.com/NNNNN/...
     m = re.search(r'my\.raceresult\.com/(\d{5,6})/', html)
     if m:
         return m.group(1)
 
-    # 2. data-event-id or data-rr-event-id attribute
+    # 3. data-event-id or data-rr-event-id attribute
     m = re.search(r'data-(?:rr-)?event-id=["\'](\d{5,6})["\']', html, re.I)
     if m:
         return m.group(1)
 
-    # 3. JS variable RREventId = NNNNNN
+    # 4. JS variable RREventId = NNNNNN
     m = re.search(r'\bRREventId\s*[=:]\s*(\d{5,6})\b', html)
     if m:
         return m.group(1)
-
-    # 4. Search preloaded Nuxt.js chunks for the Storyblok component default:
-    #    this.blok.eventId||NNNNNN
-    base = re.sub(r'/[^/]*$', '', url.rstrip('/'))  # base URL of the site
-    base = f"https://{requests.utils.urlparse(url).netloc}"
-    chunk_urls = re.findall(r'href=["\']([^"\']+\.js)["\']', html)
-    for chunk_path in chunk_urls:
-        chunk_url = chunk_path if chunk_path.startswith('http') else base + chunk_path
-        try:
-            cr = requests.get(chunk_url, headers=HEADERS, timeout=10)
-            cm = re.search(r'eventId\s*\|\|\s*(\d{5,6})', cr.text)
-            if cm:
-                return cm.group(1)
-        except Exception:
-            continue
 
     return None
 

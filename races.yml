@@ -1,3 +1,10 @@
+discovery_countries:
+  - Czech Republic
+  - Slovakia
+  - Austria
+  - Hungary
+  - Switzerland
+
 races:
 # - url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
 #   name: ČP XCO MTB BEDŘICHOV - UCI C1 Men Juniors
@@ -249,3 +256,529 @@ races:
   category: Women XCO UCI C3 Short
   uci_category: WJ
   output: jwf-2026-xco-c3-short-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# - url: ""  # TODO: find start list URL
+#   name: Grandprix Fichtelgerbirge 2026 — Men Elite
+#   date: '2026-06-27'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 77490
+#   output: grandprix-fichtelgerbirge-me.html
+# - url: ""  # TODO: find start list URL
+#   name: Grandprix Fichtelgerbirge 2026 — Men Juniors
+#   date: '2026-06-27'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 77490
+#   output: grandprix-fichtelgerbirge-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: Grandprix Fichtelgerbirge 2026 — Women Elite
+#   date: '2026-06-27'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 77490
+#   output: grandprix-fichtelgerbirge-we.html
+# - url: ""  # TODO: find start list URL
+#   name: Grandprix Fichtelgerbirge 2026 — Women Juniors
+#   date: '2026-06-27'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 77490
+#   output: grandprix-fichtelgerbirge-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://www.nocksteintrophy.at
+# - url: ""  # TODO: find start list URL
+#   name: Nockstein Trophy 2026 — Men Elite
+#   date: '2026-06-28'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 77409
+#   output: nockstein-trophy-me.html
+# - url: ""  # TODO: find start list URL
+#   name: Nockstein Trophy 2026 — Men Juniors
+#   date: '2026-06-28'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 77409
+#   output: nockstein-trophy-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: Nockstein Trophy 2026 — Women Elite
+#   date: '2026-06-28'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 77409
+#   output: nockstein-trophy-we.html
+# - url: ""  # TODO: find start list URL
+#   name: Nockstein Trophy 2026 — Women Juniors
+#   date: '2026-06-28'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 77409
+#   output: nockstein-trophy-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://www.rv-dornbirn.at
+# - url: ""  # TODO: find start list URL
+#   name: Austrian National Championships - XCO 2026 — Men Elite
+#   date: '2026-07-18'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 77414
+#   output: austrian-national-championships-xco-me.html
+# - url: ""  # TODO: find start list URL
+#   name: Austrian National Championships - XCO 2026 — Men Juniors
+#   date: '2026-07-18'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 77414
+#   output: austrian-national-championships-xco-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: Austrian National Championships - XCO 2026 — Women Elite
+#   date: '2026-07-18'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 77414
+#   output: austrian-national-championships-xco-we.html
+# - url: ""  # TODO: find start list URL
+#   name: Austrian National Championships - XCO 2026 — Women Juniors
+#   date: '2026-07-18'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 77414
+#   output: austrian-national-championships-xco-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://www.swissbikecup.ch/etappe/leysin
+# - url: ""  # TODO: find start list URL
+#   name: Swiss National Championships - XCO/XCC 2026 — Men Elite
+#   date: '2026-07-19'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 79383
+#   output: swiss-national-championships-xco-xcc-me.html
+# - url: ""  # TODO: find start list URL
+#   name: Swiss National Championships - XCO/XCC 2026 — Men Juniors
+#   date: '2026-07-19'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 79383
+#   output: swiss-national-championships-xco-xcc-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: Swiss National Championships - XCO/XCC 2026 — Women Elite
+#   date: '2026-07-19'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 79383
+#   output: swiss-national-championships-xco-xcc-we.html
+# - url: ""  # TODO: find start list URL
+#   name: Swiss National Championships - XCO/XCC 2026 — Women Juniors
+#   date: '2026-07-19'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 79383
+#   output: swiss-national-championships-xco-xcc-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://www.bringasport.hu
+# - url: ""  # TODO: find start list URL
+#   name: Hungarian National Championships - XCO/XCC 2026 — Men Elite
+#   date: '2026-07-19'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 79451
+#   output: hungarian-national-championships-xco-xcc-me.html
+# - url: ""  # TODO: find start list URL
+#   name: Hungarian National Championships - XCO/XCC 2026 — Men Juniors
+#   date: '2026-07-19'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 79451
+#   output: hungarian-national-championships-xco-xcc-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: Hungarian National Championships - XCO/XCC 2026 — Women Elite
+#   date: '2026-07-19'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 79451
+#   output: hungarian-national-championships-xco-xcc-we.html
+# - url: ""  # TODO: find start list URL
+#   name: Hungarian National Championships - XCO/XCC 2026 — Women Juniors
+#   date: '2026-07-19'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 79451
+#   output: hungarian-national-championships-xco-xcc-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://www.cyklistikaszc.sk
+# - url: ""  # TODO: find start list URL
+#   name: Slovak National Championships - XCO/XCC 2026 — Men Elite
+#   date: '2026-07-19'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 77731
+#   output: slovak-national-championships-xco-xcc-me.html
+# - url: ""  # TODO: find start list URL
+#   name: Slovak National Championships - XCO/XCC 2026 — Men Juniors
+#   date: '2026-07-19'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 77731
+#   output: slovak-national-championships-xco-xcc-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: Slovak National Championships - XCO/XCC 2026 — Women Elite
+#   date: '2026-07-19'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 77731
+#   output: slovak-national-championships-xco-xcc-we.html
+# - url: ""  # TODO: find start list URL
+#   name: Slovak National Championships - XCO/XCC 2026 — Women Juniors
+#   date: '2026-07-19'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 77731
+#   output: slovak-national-championships-xco-xcc-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://www.cbasport.cz
+# - url: ""  # TODO: find start list URL
+#   name: CBA Paprsek XCO 2026 — Men Elite
+#   date: '2026-08-01'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 78637
+#   output: cba-paprsek-xco-me.html
+# - url: ""  # TODO: find start list URL
+#   name: CBA Paprsek XCO 2026 — Men Juniors
+#   date: '2026-08-01'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 78637
+#   output: cba-paprsek-xco-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: CBA Paprsek XCO 2026 — Women Elite
+#   date: '2026-08-01'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 78637
+#   output: cba-paprsek-xco-we.html
+# - url: ""  # TODO: find start list URL
+#   name: CBA Paprsek XCO 2026 — Women Juniors
+#   date: '2026-08-01'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 78637
+#   output: cba-paprsek-xco-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://www.uec.ch
+# - url: ""  # TODO: find start list URL
+#   name: UEC Mountainbike European Continental Championships - XCO/XCC/XCR 2026 — Men Elite
+#   date: '2026-08-02'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 76229
+#   output: uec-mountainbike-european-continental-championships-xco-xcc-xcr-me.html
+# - url: ""  # TODO: find start list URL
+#   name: UEC Mountainbike European Continental Championships - XCO/XCC/XCR 2026 — Men Juniors
+#   date: '2026-08-02'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 76229
+#   output: uec-mountainbike-european-continental-championships-xco-xcc-xcr-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: UEC Mountainbike European Continental Championships - XCO/XCC/XCR 2026 — Women Elite
+#   date: '2026-08-02'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 76229
+#   output: uec-mountainbike-european-continental-championships-xco-xcc-xcr-we.html
+# - url: ""  # TODO: find start list URL
+#   name: UEC Mountainbike European Continental Championships - XCO/XCC/XCR 2026 — Women Juniors
+#   date: '2026-08-02'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 76229
+#   output: uec-mountainbike-european-continental-championships-xco-xcc-xcr-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://mtb-cup.ch
+# - url: ""  # TODO: find start list URL
+#   name: Vittoria-Fischer MTB Cup 2026 — Men Elite
+#   date: '2026-08-09'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 79662
+#   output: vittoria-fischer-mtb-cup-me.html
+# - url: ""  # TODO: find start list URL
+#   name: Vittoria-Fischer MTB Cup 2026 — Men Juniors
+#   date: '2026-08-09'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 79662
+#   output: vittoria-fischer-mtb-cup-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: Vittoria-Fischer MTB Cup 2026 — Women Elite
+#   date: '2026-08-09'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 79662
+#   output: vittoria-fischer-mtb-cup-we.html
+# - url: ""  # TODO: find start list URL
+#   name: Vittoria-Fischer MTB Cup 2026 — Women Juniors
+#   date: '2026-08-09'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 79662
+#   output: vittoria-fischer-mtb-cup-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://www.poharmtb.cz
+# - url: ""  # TODO: find start list URL
+#   name: Czech MTB Cup 2026 — Men Elite
+#   date: '2026-08-16'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 77492
+#   output: czech-mtb-cup-me.html
+# - url: ""  # TODO: find start list URL
+#   name: Czech MTB Cup 2026 — Men Juniors
+#   date: '2026-08-16'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 77492
+#   output: czech-mtb-cup-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: Czech MTB Cup 2026 — Women Elite
+#   date: '2026-08-16'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 77492
+#   output: czech-mtb-cup-we.html
+# - url: ""  # TODO: find start list URL
+#   name: Czech MTB Cup 2026 — Women Juniors
+#   date: '2026-08-16'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 77492
+#   output: czech-mtb-cup-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://mtb-cup.ch
+# - url: ""  # TODO: find start list URL
+#   name: Vittoria-Fischer MTB Cup 2026 — Men Elite
+#   date: '2026-08-16'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 78644
+#   output: vittoria-fischer-mtb-cup-me.html
+# - url: ""  # TODO: find start list URL
+#   name: Vittoria-Fischer MTB Cup 2026 — Men Juniors
+#   date: '2026-08-16'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 78644
+#   output: vittoria-fischer-mtb-cup-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: Vittoria-Fischer MTB Cup 2026 — Women Elite
+#   date: '2026-08-16'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 78644
+#   output: vittoria-fischer-mtb-cup-we.html
+# - url: ""  # TODO: find start list URL
+#   name: Vittoria-Fischer MTB Cup 2026 — Women Juniors
+#   date: '2026-08-16'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 78644
+#   output: vittoria-fischer-mtb-cup-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://mtb-cup.ch
+# - url: ""  # TODO: find start list URL
+#   name: Vittoria-Fischer MTB Cup 2026 — Men Elite
+#   date: '2026-08-23'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 78645
+#   output: vittoria-fischer-mtb-cup-me.html
+# - url: ""  # TODO: find start list URL
+#   name: Vittoria-Fischer MTB Cup 2026 — Men Juniors
+#   date: '2026-08-23'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 78645
+#   output: vittoria-fischer-mtb-cup-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: Vittoria-Fischer MTB Cup 2026 — Women Elite
+#   date: '2026-08-23'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 78645
+#   output: vittoria-fischer-mtb-cup-we.html
+# - url: ""  # TODO: find start list URL
+#   name: Vittoria-Fischer MTB Cup 2026 — Women Juniors
+#   date: '2026-08-23'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 78645
+#   output: vittoria-fischer-mtb-cup-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://www.poharmtb.cz
+# - url: ""  # TODO: find start list URL
+#   name: Czech MTB Cup 2026 — Men Elite
+#   date: '2026-09-06'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 77493
+#   output: czech-mtb-cup-me.html
+# - url: ""  # TODO: find start list URL
+#   name: Czech MTB Cup 2026 — Men Juniors
+#   date: '2026-09-06'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 77493
+#   output: czech-mtb-cup-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: Czech MTB Cup 2026 — Women Elite
+#   date: '2026-09-06'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 77493
+#   output: czech-mtb-cup-we.html
+# - url: ""  # TODO: find start list URL
+#   name: Czech MTB Cup 2026 — Women Juniors
+#   date: '2026-09-06'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 77493
+#   output: czech-mtb-cup-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://www.swissbikecup.ch
+# - url: ""  # TODO: find start list URL
+#   name: Skoda Swiss Bike Cup - XCO 2026 — Men Elite
+#   date: '2026-09-06'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 77719
+#   output: skoda-swiss-bike-cup-xco-me.html
+# - url: ""  # TODO: find start list URL
+#   name: Skoda Swiss Bike Cup - XCO 2026 — Men Juniors
+#   date: '2026-09-06'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 77719
+#   output: skoda-swiss-bike-cup-xco-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: Skoda Swiss Bike Cup - XCO 2026 — Women Elite
+#   date: '2026-09-06'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 77719
+#   output: skoda-swiss-bike-cup-xco-we.html
+# - url: ""  # TODO: find start list URL
+#   name: Skoda Swiss Bike Cup - XCO 2026 — Women Juniors
+#   date: '2026-09-06'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 77719
+#   output: skoda-swiss-bike-cup-xco-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://www.swissbikecup.ch
+# - url: ""  # TODO: find start list URL
+#   name: Skoda Swiss Bike Cup Gränichen 2026 — Men Elite
+#   date: '2026-09-12'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 77722
+#   output: skoda-swiss-bike-cup-granichen-me.html
+# - url: ""  # TODO: find start list URL
+#   name: Skoda Swiss Bike Cup Gränichen 2026 — Men Juniors
+#   date: '2026-09-12'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 77722
+#   output: skoda-swiss-bike-cup-granichen-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: Skoda Swiss Bike Cup Gränichen 2026 — Women Elite
+#   date: '2026-09-12'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 77722
+#   output: skoda-swiss-bike-cup-granichen-we.html
+# - url: ""  # TODO: find start list URL
+#   name: Skoda Swiss Bike Cup Gränichen 2026 — Women Juniors
+#   date: '2026-09-12'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 77722
+#   output: skoda-swiss-bike-cup-granichen-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://www.cyklistikaszc.sk
+# - url: ""  # TODO: find start list URL
+#   name: Sp XCO Poracpark 2026 — Men Elite
+#   date: '2026-09-12'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 77728
+#   output: sp-xco-poracpark-me.html
+# - url: ""  # TODO: find start list URL
+#   name: Sp XCO Poracpark 2026 — Men Juniors
+#   date: '2026-09-12'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 77728
+#   output: sp-xco-poracpark-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: Sp XCO Poracpark 2026 — Women Elite
+#   date: '2026-09-12'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 77728
+#   output: sp-xco-poracpark-we.html
+# - url: ""  # TODO: find start list URL
+#   name: Sp XCO Poracpark 2026 — Women Juniors
+#   date: '2026-09-12'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 77728
+#   output: sp-xco-poracpark-wj.html
+
+# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
+# organizer site: https://www.rc-arboe-linz.at
+# - url: ""  # TODO: find start list URL
+#   name: 29. MTB Cross Country "Rund Um Den Roadlberg" 2026 — Men Elite
+#   date: '2026-09-20'
+#   category: Men Elite
+#   uci_category: ME
+#   uci_competition_id: 77334
+#   output: 29-mtb-cross-country-rund-um-den-roadlberg-me.html
+# - url: ""  # TODO: find start list URL
+#   name: 29. MTB Cross Country "Rund Um Den Roadlberg" 2026 — Men Juniors
+#   date: '2026-09-20'
+#   category: Men Juniors
+#   uci_category: MJ
+#   uci_competition_id: 77334
+#   output: 29-mtb-cross-country-rund-um-den-roadlberg-mj.html
+# - url: ""  # TODO: find start list URL
+#   name: 29. MTB Cross Country "Rund Um Den Roadlberg" 2026 — Women Elite
+#   date: '2026-09-20'
+#   category: Women Elite
+#   uci_category: WE
+#   uci_competition_id: 77334
+#   output: 29-mtb-cross-country-rund-um-den-roadlberg-we.html
+# - url: ""  # TODO: find start list URL
+#   name: 29. MTB Cross Country "Rund Um Den Roadlberg" 2026 — Women Juniors
+#   date: '2026-09-20'
+#   category: Women Juniors
+#   uci_category: WJ
+#   uci_competition_id: 77334
+#   output: 29-mtb-cross-country-rund-um-den-roadlberg-wj.html
