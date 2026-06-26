@@ -12,8 +12,10 @@ Usage:
   python main.py --refresh-cache --uci-category MJ
 
 UCI categories (--uci-category):
-  MJ = Men Juniors   WJ = Women Juniors
-  ME = Men Elite     WE = Women Elite
+  MJ   = Men Juniors    WJ   = Women Juniors
+  ME   = Men Elite      WE   = Women Elite
+  MU23 = Men U23         WU23 = Women U23
+  (U23 has no standalone UCI ranking; rank/points lookup falls back to Elite)
 
 Export formats:
   --export results.html   → rich HTML report (auto-detected by extension)
@@ -46,7 +48,7 @@ def main():
     parser.add_argument("--category", "-c", default=None,
                         help="Category filter, e.g. 'Men Juniors', 'Junior', 'Elite'")
     parser.add_argument("--uci-category", "-u", default="MJ",
-                        choices=["MJ", "WJ", "ME", "WE"],
+                        choices=["MJ", "WJ", "ME", "WE", "MU23", "WU23"],
                         help="UCI ranking category to use (default: MJ = Men Juniors)")
     parser.add_argument("--refresh-cache", action="store_true",
                         help="Force re-download of UCI ranking (ignores local cache)")

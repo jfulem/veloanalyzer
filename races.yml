@@ -58,6 +58,18 @@ races:
   category: Women Elite
   uci_category: WE
   output: as-uci-c1-2026-we.html
+- url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&rebmunyavd=2&dohzormhenyh=1&swordssapll=&langtext=
+  name: AŠ XCO UCI C1 2026 — Men U23
+  date: '2026-06-27'
+  category: Men U23
+  uci_category: MU23
+  output: as-uci-c1-2026-u23.html
+- url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&rebmunyavd=2&dohzormhenyh=1&swordssapll=&langtext=
+  name: AŠ XCO UCI C1 2026 — Women U23
+  date: '2026-06-27'
+  category: Women U23
+  uci_category: WU23
+  output: as-uci-c1-2026-u23.html
 - url: https://bike-revolution.ch/en/events/davos/startlisten/
   name: Bike Revolution Davos 2026 — Men Juniors
   date: '2026-06-28'

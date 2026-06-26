@@ -36,6 +36,18 @@ _UCI_HEADERS = {
 }
 _UCI_CATEGORY_LABELS = {"MJ": "Men Junior", "WJ": "Women Junior", "ME": "Men Elite", "WE": "Women Elite"}
 
+# U23 has no standalone official UCI ranking — U23-eligible riders are
+# officially ranked (and their UCI-published results recorded) under Elite.
+# "MU23"/"WU23" remain valid uci_category values everywhere else (start-list
+# filtering, display, races.yml) since many start lists do register U23 as
+# its own field, distinct from Elite. Only official-UCI-data lookups
+# (ranking cache, race history, competition results) resolve through here.
+_RANKING_CATEGORY_ALIAS = {"MU23": "ME", "WU23": "WE"}
+
+
+def _ranking_category(uci_cat: str) -> str:
+    return _RANKING_CATEGORY_ALIAS.get(uci_cat, uci_cat)
+
 
 def cache_path(uci_cat: str) -> str:
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -272,6 +284,7 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
     for the duration of the process so multiple races of the same category
     only trigger one build.
     """
+    uci_cat = _ranking_category(uci_cat)
     if uci_cat in _uci_xco_history_cache:
         return _uci_xco_history_cache[uci_cat]
 
@@ -606,6 +619,7 @@ def supplement_from_uci_competition(
     (so their result won't appear in IndividualEventRankings).
     Modifies rider.race_results in-place.
     """
+    uci_cat = _ranking_category(uci_cat)
     event_codes = _get_competition_event_codes(competition_id, year)
     event_code = event_codes.get(uci_cat)
     if not event_code:
@@ -1103,6 +1117,7 @@ def build_uci_cache(uci_cat: str) -> dict:
 
 
 def get_uci_cache(uci_cat: str, force_refresh: bool = False) -> dict:
+    uci_cat = _ranking_category(uci_cat)
     if not force_refresh and cache_is_fresh(uci_cat):
         console.print(f"[dim]Using cached UCI ranking ({uci_cat})[/dim]")
         return load_cache(uci_cat)

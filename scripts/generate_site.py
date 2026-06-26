@@ -77,14 +77,17 @@ def _esc(s: str) -> str:
 
 
 _UCI_CAT_COLOR = {
-    "ME": "#68d391",  # green
-    "MJ": "#90cdf4",  # blue
-    "WE": "#f6ad55",  # orange
-    "WJ": "#f687b3",  # pink
+    "ME": "#68d391",   # green
+    "MJ": "#90cdf4",   # blue
+    "WE": "#f6ad55",   # orange
+    "WJ": "#f687b3",   # pink
+    "MU23": "#76e4f7", # cyan
+    "WU23": "#b794f4", # purple
 }
 _UCI_CAT_LABEL = {
     "ME": "Men Elite", "MJ": "Men Juniors",
     "WE": "Women Elite", "WJ": "Women Juniors",
+    "MU23": "Men U23", "WU23": "Women U23",
 }
 
 
