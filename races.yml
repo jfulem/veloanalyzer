@@ -60,25 +60,25 @@ races:
   output: as-uci-c1-2026-we.html
 - url: https://bike-revolution.ch/en/events/davos/startlisten/
   name: Bike Revolution Davos 2026 — Men Juniors
-  date: '2026-06-26'
+  date: '2026-06-28'
   category: Men Juniors
   uci_category: MJ
   output: bike-revolution-davos-2026-mj.html
 - url: https://bike-revolution.ch/en/events/davos/startlisten/
   name: Bike Revolution Davos 2026 — Women Juniors
-  date: '2026-06-26'
+  date: '2026-06-28'
   category: Women Juniors
   uci_category: WJ
   output: bike-revolution-davos-2026-wj.html
 - url: https://bike-revolution.ch/en/events/davos/startlisten/
   name: Bike Revolution Davos 2026 — Men Elite
-  date: '2026-06-26'
+  date: '2026-06-28'
   category: Men Elite
   uci_category: ME
   output: bike-revolution-davos-2026-me.html
 - url: https://bike-revolution.ch/en/events/davos/startlisten/
   name: Bike Revolution Davos 2026 — Women Elite
-  date: '2026-06-26'
+  date: '2026-06-28'
   category: Women Elite
   uci_category: WE
   output: bike-revolution-davos-2026-we.html

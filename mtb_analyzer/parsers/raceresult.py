@@ -8,6 +8,25 @@ from ..models import Rider
 from ..utils import category_matches, normalize_category_name
 
 
+def _total_rows(payload: dict) -> int:
+    """Count entries across all groups/subgroups in a RRPublish list payload.
+    Used to pick the actual full-roster list over a same-event live-commentary
+    "preview" feed (e.g. RaceResult's LIVE-SPEAKER lists), which can be
+    non-empty but only contain a tiny highlight subset of riders."""
+    d = payload.get("data")
+    if isinstance(d, list):
+        return len(d)
+    if not isinstance(d, dict):
+        return 0
+    total = 0
+    for grp_val in d.values():
+        if isinstance(grp_val, dict):
+            total += sum(len(rows) for rows in grp_val.values() if isinstance(rows, list))
+        elif isinstance(grp_val, list):
+            total += len(grp_val)
+    return total
+
+
 def parse_raceresult(url: str, category_filter: str = None) -> list:
     """
     Parses a my.raceresult.com page via the internal JSON API.
@@ -50,10 +69,10 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
         console.print("[red]No lists found in raceresult config[/red]")
         return []
 
-    # Try each list in order and use the first one with actual data — for
-    # races that haven't started yet, earlier lists (e.g. live timing) can be
-    # present but empty while a later one already has the category groups.
-    data = None
+    # Check every list and use whichever has the most total rows — the full
+    # roster list, not e.g. a same-event LIVE-SPEAKER feed that's technically
+    # non-empty but only carries a small live-commentary highlight subset.
+    data, best_count = None, 0
     for lst in lists:
         try:
             resp = requests.get(f"{origin}/{event_id}/RRPublish/data/list",
@@ -65,9 +84,9 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
         except Exception as e:
             console.print(f"[red]Error fetching raceresult data: {e}[/red]")
             continue
-        if candidate.get("data"):
-            data = candidate
-            break
+        count = _total_rows(candidate)
+        if count > best_count:
+            data, best_count = candidate, count
 
     if data is None:
         console.print("[yellow]No populated list found in raceresult data[/yellow]")
@@ -176,7 +195,7 @@ def _parse_participants(origin: str, event_id: str, key: str,
         console.print("[red]No lists found in participants config[/red]")
         return []
 
-    data = None
+    data, best_count = None, 0
     for lst in lists:
         try:
             resp = requests.get(f"{base}/list",
@@ -188,9 +207,9 @@ def _parse_participants(origin: str, event_id: str, key: str,
         except Exception as e:
             console.print(f"[red]Error fetching participants list: {e}[/red]")
             continue
-        if candidate.get("data"):
-            data = candidate
-            break
+        count = _total_rows(candidate)
+        if count > best_count:
+            data, best_count = candidate, count
 
     if data is None:
         console.print("[yellow]No populated list found in participants data[/yellow]")
