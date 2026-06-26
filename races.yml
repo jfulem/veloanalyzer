@@ -63,13 +63,13 @@ races:
   date: '2026-06-27'
   category: Men U23
   uci_category: MU23
-  output: as-uci-c1-2026-u23.html
+  output: as-uci-c1-2026-mu23.html
 - url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&rebmunyavd=2&dohzormhenyh=1&swordssapll=&langtext=
   name: AŠ XCO UCI C1 2026 — Women U23
   date: '2026-06-27'
   category: Women U23
   uci_category: WU23
-  output: as-uci-c1-2026-u23.html
+  output: as-uci-c1-2026-wu23.html
 - url: https://bike-revolution.ch/en/events/davos/startlisten/
   name: Bike Revolution Davos 2026 — Men Juniors
   date: '2026-06-28'
@@ -95,24 +95,28 @@ races:
   uci_category: WE
   output: bike-revolution-davos-2026-we.html
 - url: https://www.temposport.hu/odin/rendezvenyek/varolista?list=420
+  extra_url: https://docs.google.com/spreadsheets/d/e/2PACX-1vRkeLdMAR-ln7lmB5mL-YmC8SQaDOoCpxamXa5k6VBgm5tcJXxvrjP9mALA28mDL7pUO2CAQYt-wMB2/pubhtml?gid=0&single=true
   name: Greenzone Zalaegerszeg XCO 2026 — Men Juniors C1
   date: '2026-06-28'
   category: Men Juniors
   uci_category: MJ
   output: greenzone-xco-2026-mj.html
 - url: https://www.temposport.hu/odin/rendezvenyek/varolista?list=420
+  extra_url: https://docs.google.com/spreadsheets/d/e/2PACX-1vRkeLdMAR-ln7lmB5mL-YmC8SQaDOoCpxamXa5k6VBgm5tcJXxvrjP9mALA28mDL7pUO2CAQYt-wMB2/pubhtml?gid=0&single=true
   name: Greenzone Zalaegerszeg XCO 2026 — Women Juniors C1
   date: '2026-06-28'
   category: Women Juniors
   uci_category: WJ
   output: greenzone-xco-2026-wj.html
 - url: https://www.temposport.hu/odin/rendezvenyek/varolista?list=420
+  extra_url: https://docs.google.com/spreadsheets/d/e/2PACX-1vRkeLdMAR-ln7lmB5mL-YmC8SQaDOoCpxamXa5k6VBgm5tcJXxvrjP9mALA28mDL7pUO2CAQYt-wMB2/pubhtml?gid=0&single=true
   name: Greenzone Zalaegerszeg XCO 2026 — Men Elite C1
   date: '2026-06-28'
   category: Men Elite
   uci_category: ME
   output: greenzone-xco-2026-me.html
 - url: https://www.temposport.hu/odin/rendezvenyek/varolista?list=420
+  extra_url: https://docs.google.com/spreadsheets/d/e/2PACX-1vRkeLdMAR-ln7lmB5mL-YmC8SQaDOoCpxamXa5k6VBgm5tcJXxvrjP9mALA28mDL7pUO2CAQYt-wMB2/pubhtml?gid=0&single=true
   name: Greenzone Zalaegerszeg XCO 2026 — Women Elite C1
   date: '2026-06-28'
   category: Women Elite

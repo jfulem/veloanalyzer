@@ -37,9 +37,10 @@ races:
   name: ČP XCO Bedřichov 2026 — Men Juniors
   date: '2026-06-06'
   category: Men Juniors           # passed to the parser as a filter
-  uci_category: MJ                # which UCI ranking to use (MJ/WJ/ME/WE)
+  uci_category: MJ                # which UCI ranking to use (MJ/WJ/ME/WE/MU23/WU23)
   cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx  # optional
   uci_competition_id: 77488       # optional — forces supplement for very recent races
+  extra_url: https://...          # optional — second start list, merged with url
   output: bedrichov-2026-mj.html  # slug for the frontend
 ```
 
@@ -47,6 +48,9 @@ races:
 
 - `cp_xco_standings_url` — when set, unranked riders are sorted by Czech Cup XCO standings instead of alphabetically.
 - `uci_competition_id` — UCI competition ID (from the URL on uci.org). Only needed for races that finished within the past week, before the catalog cache has refreshed. Older completed races are picked up automatically.
+- `extra_url` — a second start-list URL to merge in, for races that split entries across two sources (e.g. a domestic registration site for local riders plus a separate Google Sheet for foreign entries). Parsed with the same `category` filter as `url`; riders already present (matched by name) aren't duplicated.
+
+`MU23`/`WU23` (Men/Women U23) have no standalone official UCI ranking — UCI rank/points lookup for these automatically falls back to the Elite (ME/WE) ranking, since U23-eligible riders are officially ranked there. Start-list filtering still works normally, since many start lists do register U23 as its own field.
 
 ---
 

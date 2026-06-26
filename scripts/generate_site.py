@@ -18,7 +18,7 @@ from mtb_analyzer.parsers import parse_start_list
 from mtb_analyzer.ranking import (build_uci_xco_history, enrich_cp_xco_points,
                                    fetch_cp_xco_standings, get_uci_cache, lookup_rider,
                                    supplement_from_uci_competition,
-                                   _lookup_rider_history)
+                                   _lookup_rider_history, _strip_diacritics)
 
 REPO_ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RACES_FILE = os.path.join(REPO_ROOT, "races.yml")
@@ -28,6 +28,22 @@ DOCS_DIR   = os.path.join(REPO_ROOT, "docs")
 def load_races() -> list:
     with open(RACES_FILE, encoding="utf-8") as f:
         return yaml.safe_load(f).get("races", [])
+
+
+def _merge_riders(primary: list, extra: list) -> list:
+    """Append riders from a second start list, skipping anyone already present
+    (matched by diacritic-stripped first+last name)."""
+    def key(r):
+        return (_strip_diacritics(r.first_name).lower(), _strip_diacritics(r.last_name).lower())
+
+    seen = {key(r) for r in primary}
+    merged = list(primary)
+    for r in extra:
+        k = key(r)
+        if k not in seen:
+            merged.append(r)
+            seen.add(k)
+    return merged
 
 
 def fetch_riders(race: dict, uci_caches: dict) -> list:
@@ -41,6 +57,12 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
 
     console.print(f"\n[cyan]Processing:[/cyan] {race.get('name', url)}")
     riders, _ = parse_start_list(url, category)
+
+    extra_url = race.get("extra_url")
+    if extra_url:
+        console.print(f"[dim]  Merging extra start list: {extra_url}[/dim]")
+        extra_riders, _ = parse_start_list(extra_url, category)
+        riders = _merge_riders(riders, extra_riders)
 
     if not riders:
         console.print("[yellow]  No riders found — skipping[/yellow]")
