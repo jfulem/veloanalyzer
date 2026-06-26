@@ -83,23 +83,29 @@ races:
   uci_category: WE
   output: bike-revolution-davos-2026-we.html
 - url: https://www.temposport.hu/odin/rendezvenyek/varolista?list=420
-  name: Greenzone Zalaegerszeg XCO 2026 — Men Juniors
+  name: Greenzone Zalaegerszeg XCO 2026 — Men Juniors C1
   date: '2026-06-28'
   category: Men Juniors
   uci_category: MJ
   output: greenzone-xco-2026-mj.html
 - url: https://www.temposport.hu/odin/rendezvenyek/varolista?list=420
-  name: Greenzone Zalaegerszeg XCO 2026 — Women Juniors
+  name: Greenzone Zalaegerszeg XCO 2026 — Women Juniors C1
   date: '2026-06-28'
   category: Women Juniors
   uci_category: WJ
   output: greenzone-xco-2026-wj.html
 - url: https://www.temposport.hu/odin/rendezvenyek/varolista?list=420
-  name: Greenzone Zalaegerszeg XCO 2026 — Men Elite
+  name: Greenzone Zalaegerszeg XCO 2026 — Men Elite C1
   date: '2026-06-28'
   category: Men Elite
   uci_category: ME
   output: greenzone-xco-2026-me.html
+- url: https://www.temposport.hu/odin/rendezvenyek/varolista?list=420
+  name: Greenzone Zalaegerszeg XCO 2026 — Women Elite C1
+  date: '2026-06-28'
+  category: Women Elite
+  uci_category: WE
+  output: greenzone-xco-2026-we.html
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3607
   name: SP XCO MTB BYSTRIČANY- UCI C2 Men Juniors
   date: '2026-06-13'
