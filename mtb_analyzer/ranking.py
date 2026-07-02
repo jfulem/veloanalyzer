@@ -291,10 +291,14 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
     cutoff = datetime.now() - timedelta(days=months_back * 30)
     now    = datetime.now()
     by_name: dict = {}
+    seen_comp_ids: set = set()
 
     for year in sorted({cutoff.year, now.year}):
         catalog = _get_uci_competition_catalog(year)
         for comp_id, entry in catalog.get("by_id", {}).items():
+            if comp_id in seen_comp_ids:
+                continue
+            seen_comp_ids.add(comp_id)
             end_dt = _parse_comp_end_date(entry.get("dates", ""))
             if end_dt is None or end_dt < cutoff or end_dt > now:
                 continue
