@@ -459,20 +459,32 @@ def _get_competition_event_codes(competition_id: str, year: int) -> dict:
         if not el:
             return {}
         props = json.loads(el["data-props"])
-        event_codes: dict = {}
         label_to_cat = {v.lower(): k for k, v in _UCI_CATEGORY_LABELS.items()}
         # Sort longest first so "women elite" is tried before "men elite" (substring of it)
         sorted_labels = sorted(label_to_cat, key=len, reverse=True)
+        # Non-XCO disciplines to skip (XCE=endurance, XCR=relay, XCC=short track,
+        # DHI=downhill, EDR=enduro, XCM=marathon).  We want XCO only.
+        _NON_XCO = frozenset({"xce", "xcr", "xcc", "edr", "enduro", "dhi", "dhp", "dho", "downhill", "xcm"})
+        # Two-pass: XCO-labelled groups win over plain (no-discipline) groups.
+        xco_codes: dict = {}
+        plain_codes: dict = {}
         for group in props.get("results", {}).get("accordion", []):
             label = group.get("label", "").lower()
+            label_words = set(re.findall(r"[a-z]+", label))
+            if label_words & _NON_XCO:
+                continue
             cat = next((label_to_cat[lbl] for lbl in sorted_labels if lbl in label), None)
             if not cat:
                 continue
             for result in group.get("results", []):
                 code = result.get("eventCode", "")
                 if code:
-                    event_codes[cat] = code
+                    if "xco" in label_words:
+                        xco_codes[cat] = code
+                    else:
+                        plain_codes.setdefault(cat, code)
                     break
+        event_codes = {**plain_codes, **xco_codes}
         with open(path, "w", encoding="utf-8") as f:
             json.dump(event_codes, f, ensure_ascii=False)
         time.sleep(0.3)
