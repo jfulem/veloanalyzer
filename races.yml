@@ -466,20 +466,20 @@ races:
 
 # --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
 # organizer site: https://www.cbasport.cz
-# - url: ""  # TODO: find start list URL
-#   name: CBA Paprsek XCO 2026 — Men Elite
-#   date: '2026-08-01'
-#   category: Men Elite
-#   uci_category: ME
-#   uci_competition_id: 78637
-#   output: cba-paprsek-xco-me.html
-# - url: ""  # TODO: find start list URL
-#   name: CBA Paprsek XCO 2026 — Men Juniors
-#   date: '2026-08-01'
-#   category: Men Juniors
-#   uci_category: MJ
-#   uci_competition_id: 78637
-#   output: cba-paprsek-xco-mj.html
+ - url: "https://my.raceresult.com/409537/participants"  # TODO: find start list URL
+  name: CBA Paprsek XCO 2026 — Men Elite
+  date: '2026-08-01'
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 78637
+  output: cba-paprsek-xco-me.html
+- url: "https://my.raceresult.com/409537/participants"  # TODO: find start list URL
+  name: CBA Paprsek XCO 2026 — Men Juniors
+  date: '2026-08-01'
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 78637
+  output: cba-paprsek-xco-mj.html
 # - url: ""  # TODO: find start list URL
 #   name: CBA Paprsek XCO 2026 — Women Elite
 #   date: '2026-08-01'
