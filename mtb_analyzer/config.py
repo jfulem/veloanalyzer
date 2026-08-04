@@ -98,6 +98,22 @@ CATEGORY_ALIASES = {
     "junior":   "Juniors",
     "amateur":  "Amateur",
     "u19":      "Juniors",   # RaceResult / bike-revolution.ch
+    # Czech (registrace.sportsoft.cz / my.raceresult.com contest names).
+    # Some raceresult participants-mode lists split gender into contests
+    # rather than a per-row field, so these translate to real words —
+    # _extract_participant_rows() avoids double-prepending a row-level
+    # gender when the contest name already starts with one.
+    "muži":     "Men",
+    "muzi":     "Men",
+    "ženy":     "Women",
+    "zeny":     "Women",
+    # Czech grammatical gender is baked into the word itself for juniors
+    # (masculine "junioři" vs feminine "juniorky"), so these map straight to
+    # a full "<Gender> Juniors" rather than just "Juniors".
+    "junioři":  "Men Juniors",
+    "juniori":  "Men Juniors",
+    "juniorky": "Women Juniors",
+    "uci":      "",
 }
 
 # ISO 3166-1 alpha-2 → IOC alpha-3 (used by raceresult flag URLs)

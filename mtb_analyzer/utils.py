@@ -50,8 +50,11 @@ def normalize_rider_name(raw: str) -> str:
 
 
 def normalize_category_name(name: str) -> str:
-    """Replaces non-English category words with standard English equivalents."""
-    return " ".join(CATEGORY_ALIASES.get(w.lower(), w) for w in name.split())
+    """Replaces non-English category words with standard English equivalents.
+    A word aliased to "" (e.g. a gender word already conveyed elsewhere) is
+    dropped entirely rather than leaving a blank in its place."""
+    words = (CATEGORY_ALIASES.get(w.lower(), w) for w in name.split())
+    return " ".join(w for w in words if w)
 
 
 def category_matches(category_text: str, filter_str: str) -> bool:
