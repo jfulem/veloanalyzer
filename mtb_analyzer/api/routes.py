@@ -47,6 +47,44 @@ def list_races(conn: Connection = Depends(get_conn)) -> list[dict]:
     """)
 
 
+@router.get("/stats")
+def get_stats(conn: Connection = Depends(get_conn)) -> dict:
+    """Site-wide totals for the landing page.
+
+    `riders` counts distinct people, not start-list entries — that is the whole
+    point of the normalised schema, and it is the honest answer to "riders
+    tracked" now that we can give it.
+    """
+    row = conn.execute(text("""
+        SELECT (SELECT count(*) FROM races)       AS races,
+               (SELECT count(*) FROM riders)      AS riders,
+               (SELECT count(*) FROM race_entries) AS entries
+    """)).mappings().one()
+    return dict(row)
+
+
+# Declared before /races/{slug} on purpose: FastAPI matches routes in order, so
+# the path-parameter route would otherwise capture "stats" as a slug.
+@router.get("/races/stats")
+def get_race_stats(conn: Connection = Depends(get_conn)) -> list[dict]:
+    """Per-race aggregates for the landing and race-overview pages.
+
+    Reproduces what _compute_race_stats() derived in Python when the site was
+    generated ahead of time.
+    """
+    return _rows(conn, """
+        SELECT r.id, r.slug, r.name, r.date, r.uci_category, r.category,
+               count(e.id)                    AS total,
+               count(e.uci_rank)              AS ranked,
+               min(e.uci_rank)                AS best,
+               round(avg(e.uci_rank))::int    AS avg
+        FROM races r
+        LEFT JOIN race_entries e ON e.race_id = r.id
+        GROUP BY r.id
+        ORDER BY r.date ASC NULLS LAST, r.name
+    """)
+
+
 @router.get("/races/{slug}")
 def get_race(slug: str, conn: Connection = Depends(get_conn)) -> dict:
     rows = _rows(conn, """
