@@ -28,6 +28,21 @@ function sortResults(results: RaceResult[], col: SortCol, dir: SortDir): RaceRes
   });
 }
 
+// UCI MTB Rules Part IV, art. 4.16.008: only the best N single-race results
+// count toward a rider's rolling ranking total (the rest show with "*" and
+// are excluded on UCI's own individual ranking breakdown). Junior one-day
+// events cap at 4, other classes at 5 — mirrors compute_points_from_history
+// in mtb_analyzer/ranking.py.
+const BEST_N_JUNIOR  = 4;
+const BEST_N_DEFAULT = 5;
+
+function computeCappedPoints(results: RaceResult[]): number {
+  const cat = results.find((r) => r.cat)?.cat ?? "";
+  const n = cat === "MJ" || cat === "WJ" ? BEST_N_JUNIOR : BEST_N_DEFAULT;
+  const pts = results.map((r) => r.uci_pts ?? 0).filter((p) => p > 0).sort((a, b) => b - a);
+  return pts.slice(0, n).reduce((s, p) => s + p, 0);
+}
+
 function buildPointsChart(results: RaceResult[]): HTMLElement | null {
   const sorted = [...results]
     .filter((r) => r.uci_pts != null)
@@ -175,6 +190,10 @@ export function renderRiderCard(
     const avgPts     = ptsResults.length
       ? (totalPts / ptsResults.length).toFixed(1)
       : "—";
+    // "UCI pts" reflects only the best-N results that actually count toward
+    // the ranking (art. 4.16.008), not every point-scoring race — this can
+    // be lower than totalPts above.
+    const cappedPts  = computeCappedPoints(results);
 
     const stats = el("div", { class: "rc-stats" });
     for (const [label, value] of [
@@ -183,7 +202,7 @@ export function renderRiderCard(
       ["Wins",     String(wins)],
       ["Podiums",  String(podiums)],
       ["Avg pts",  avgPts],
-      ["UCI pts",  String(totalPts)],
+      ["UCI pts",  String(cappedPts)],
     ] as [string, string][]) {
       const chip = el("div", { class: "rc-chip" });
       chip.appendChild(el("span", { class: "rc-chip-val" }, value));

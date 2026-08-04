@@ -10,7 +10,7 @@ from .models import Rider
 def sort_riders(riders: list) -> list:
     ranked   = sorted([r for r in riders if r.uci_rank is not None], key=lambda r: r.uci_rank)
     unranked = sorted([r for r in riders if r.uci_rank is None],
-                      key=lambda r: (-r.cp_xco_points, r.full_name))
+                      key=lambda r: (-r.computed_points, -r.cp_xco_points, r.full_name))
     return ranked + unranked
 
 

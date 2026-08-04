@@ -346,6 +346,31 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
     return by_name
 
 
+# UCI MTB Rules Part IV, art. 4.16.008: for one-day events, only the best N
+# per-race results count toward a rider's rolling ranking total (the rest are
+# shown with a "*" and excluded on UCI's own individual ranking breakdown).
+# XCO junior series / junior events cap at 4; other one-day classes (HC,
+# Continental Series, class 1/2/3) cap at 5. Championships and World Cups
+# aren't subject to this cap (naturally capped at one per rolling year), but
+# we don't track per-race class here, so a single cap is applied uniformly
+# per art. 4.16.008 above.
+_BEST_N_JUNIOR  = 4
+_BEST_N_DEFAULT = 5
+
+
+def compute_points_from_history(race_results: list, uci_cat: str) -> int:
+    """
+    Approximate a rider's current UCI ranking points total from their race
+    history, applying the best-N-results cap (art. 4.16.008). race_results is
+    expected to already be limited to the rolling 12-month window, as
+    returned by build_uci_xco_history.
+    """
+    uci_cat = _ranking_category(uci_cat)
+    n = _BEST_N_JUNIOR if uci_cat in ("MJ", "WJ") else _BEST_N_DEFAULT
+    pts = sorted((r["uci_pts"] for r in race_results if r.get("uci_pts")), reverse=True)
+    return sum(pts[:n])
+
+
 def _lookup_rider_history(history_db: dict, first_name: str, last_name: str) -> list:
     """Find a rider's results in the UCI XCO history database.
     Tries name in both orders, with and without diacritics."""

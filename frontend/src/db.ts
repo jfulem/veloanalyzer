@@ -33,6 +33,7 @@ export interface Rider {
   uci_rank: number | null;
   uci_points: number | null;
   cp_xco_points: number | null;
+  computed_points: number | null;
   team: string;
   category: string;
   match_confidence: number;
@@ -77,6 +78,7 @@ export function getRiders(raceId: number): Rider[] {
     `SELECT * FROM riders WHERE race_id = ?
      ORDER BY uci_rank IS NULL,
               uci_rank,
+              COALESCE(computed_points, 0) DESC,
               COALESCE(cp_xco_points, 0) DESC,
               last_name`,
     [raceId],

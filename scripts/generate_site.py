@@ -15,9 +15,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mtb_analyzer.config import console
 from mtb_analyzer.export_db import export_db
 from mtb_analyzer.parsers import parse_start_list
-from mtb_analyzer.ranking import (build_uci_xco_history, enrich_cp_xco_points,
-                                   fetch_cp_xco_standings, get_uci_cache, lookup_rider,
-                                   supplement_from_uci_competition,
+from mtb_analyzer.ranking import (build_uci_xco_history, compute_points_from_history,
+                                   enrich_cp_xco_points, fetch_cp_xco_standings, get_uci_cache,
+                                   lookup_rider, supplement_from_uci_competition,
                                    _lookup_rider_history, _strip_diacritics)
 
 REPO_ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -75,6 +75,8 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
     for rider in riders:
         lookup_rider(rider, cache)
         rider.race_results = _lookup_rider_history(history_db, rider.first_name, rider.last_name)
+        if rider.uci_rank is None:
+            rider.computed_points = compute_points_from_history(rider.race_results, uci_category)
         if not rider.country and rider.race_results:
             rider.country = next(
                 (r.get("nationality", "") for r in rider.race_results if r.get("nationality")),

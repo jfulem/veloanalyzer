@@ -95,8 +95,17 @@ function buildTable(
     }
     tr.appendChild(rankCell);
 
-    // UCI pts
-    tr.appendChild(el("td", { class: "pts-cell" }, rider.uci_points != null ? String(rider.uci_points) : "0"));
+    // UCI pts — official total when ranked, otherwise a best-N estimate from race history
+    const ptsCell = el("td", { class: "pts-cell" });
+    if (rider.uci_points != null) {
+      ptsCell.textContent = String(rider.uci_points);
+    } else if (rider.computed_points) {
+      ptsCell.textContent = `~${rider.computed_points}`;
+      ptsCell.title = "Estimated from race history (best results, UCI art. 4.16.008)";
+    } else {
+      ptsCell.textContent = "0";
+    }
+    tr.appendChild(ptsCell);
 
     // Team
     const team = rider.team ? rider.team.slice(0, 50) : "—";
