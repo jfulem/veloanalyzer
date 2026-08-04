@@ -3,6 +3,12 @@ primary_region = "ams"
 
 [build]
 
+[deploy]
+  # Runs in a temporary machine before the new version takes traffic, so a
+  # failed migration aborts the deploy instead of leaving code and schema
+  # out of step.
+  release_command = "alembic upgrade head"
+
 [env]
   MTB_CACHE_DIR = "/data/.mtb_cache"
   INGEST_HOUR   = "12"

@@ -1,0 +1,125 @@
+name: Deploy
+
+# Replaces generate-reports.yml. The daily scrape no longer runs here — it runs
+# in the Fly machine via APScheduler, where it can reuse the warm .mtb_cache
+# volume instead of restoring a cache key on every run.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Baked into the frontend bundle at build time. Not a secret — it is a public
+  # URL that ships in the JS either way.
+  VITE_API_BASE: https://api.veloanalyzer.com
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync
+
+      - name: Import smoke test
+        env:
+          # A syntactically valid URL is enough: nothing here opens a
+          # connection, and the API must import without a live database.
+          DATABASE_URL: postgresql://user:pass@localhost/db
+          RUN_SCHEDULER: "0"
+        run: |
+          uv run python -c "
+          from mtb_analyzer.api.main import app
+          from mtb_analyzer.ingest import run
+          from mtb_analyzer.pipeline import fetch_riders
+          paths = sorted(r.path for r in app.routes if hasattr(r, 'path'))
+          assert '/api/races' in paths, paths
+          print('routes OK:', paths)
+          "
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: Upload built site
+        uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: docs/
+          if-no-files-found: error
+
+  deploy-api:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # `alembic upgrade head` runs first via the release_command in fly.toml,
+      # so a bad migration fails the deploy before any traffic is shifted.
+      - name: Deploy API to Fly
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  deploy-frontend:
+    # Deliberately after the API: the frontend is built against endpoints that
+    # must already exist, so shipping it first would expose a window where the
+    # site calls routes the deployed API does not yet serve.
+    needs: [check, deploy-api]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download built site
+        uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: docs
+
+      - name: Deploy frontend to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy docs --project-name=veloanalyzer --branch=main
+
+  smoke:
+    needs: [deploy-api, deploy-frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify the deployment actually serves data
+        run: |
+          set -euo pipefail
+          curl -fsS https://api.veloanalyzer.com/health > /dev/null
+          echo "health OK"
+          n=$(curl -fsS https://api.veloanalyzer.com/api/races | jq 'length')
+          echo "races returned: $n"
+          test "$n" -gt 0
+          curl -fsS -o /dev/null https://www.veloanalyzer.com/
+          echo "frontend OK"
