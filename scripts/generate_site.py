@@ -14,12 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mtb_analyzer.config import console
 from mtb_analyzer.export_db import export_db
-from mtb_analyzer.parsers import parse_start_list
-from mtb_analyzer.ranking import (build_uci_xco_history, compute_points_from_history,
-                                   enrich_cp_xco_points, enrich_with_race_results,
-                                   fetch_cp_xco_standings, get_uci_cache, lookup_rider,
-                                   supplement_from_uci_competition,
-                                   _lookup_rider_history, _strip_diacritics)
+from mtb_analyzer.pipeline import fetch_riders
 
 REPO_ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RACES_FILE = os.path.join(REPO_ROOT, "races.yml")
@@ -29,76 +24,6 @@ DOCS_DIR   = os.path.join(REPO_ROOT, "docs")
 def load_races() -> list:
     with open(RACES_FILE, encoding="utf-8") as f:
         return yaml.safe_load(f).get("races", [])
-
-
-def _merge_riders(primary: list, extra: list) -> list:
-    """Append riders from a second start list, skipping anyone already present
-    (matched by diacritic-stripped first+last name)."""
-    def key(r):
-        return (_strip_diacritics(r.first_name).lower(), _strip_diacritics(r.last_name).lower())
-
-    seen = {key(r) for r in primary}
-    merged = list(primary)
-    for r in extra:
-        k = key(r)
-        if k not in seen:
-            merged.append(r)
-            seen.add(k)
-    return merged
-
-
-def fetch_riders(race: dict, uci_caches: dict) -> list:
-    url          = race["url"]
-    category     = race.get("category")
-    uci_category = race.get("uci_category", "MJ")
-
-    if uci_category not in uci_caches:
-        uci_caches[uci_category] = get_uci_cache(uci_category)
-    cache = uci_caches[uci_category]
-
-    console.print(f"\n[cyan]Processing:[/cyan] {race.get('name', url)}")
-    riders, _ = parse_start_list(url, category)
-
-    extra_url = race.get("extra_url")
-    if extra_url:
-        console.print(f"[dim]  Merging extra start list: {extra_url}[/dim]")
-        extra_riders, _ = parse_start_list(extra_url, category)
-        riders = _merge_riders(riders, extra_riders)
-
-    if not riders:
-        console.print("[yellow]  No riders found — skipping[/yellow]")
-        return []
-
-    console.print(f"[green]  ✓ {len(riders)} riders[/green]")
-    console.print("[dim]  Looking up UCI rankings and building race histories...[/dim]")
-
-    history_db = build_uci_xco_history(uci_category)
-    for rider in riders:
-        lookup_rider(rider, cache)
-        rider.race_results = _lookup_rider_history(history_db, rider.first_name, rider.last_name)
-        if rider.uci_rank is None:
-            rider.computed_points = compute_points_from_history(rider.race_results, uci_category)
-        if not rider.country and rider.race_results:
-            rider.country = next(
-                (r.get("nationality", "") for r in rider.race_results if r.get("nationality")),
-                "",
-            )
-
-    uci_comp_id = race.get("uci_competition_id")
-    if uci_comp_id:
-        race_year = int(race.get("date", "2026")[:4])
-        supplement_from_uci_competition(riders, str(uci_comp_id), race_year, uci_category)
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        if race.get("date", "") < today:
-            console.print("[dim]  Race is in the past — fetching official results...[/dim]")
-            enrich_with_race_results(riders, str(uci_comp_id), race_year, uci_category)
-
-    cp_url = race.get("cp_xco_standings_url")
-    if cp_url:
-        standings = fetch_cp_xco_standings(cp_url, uci_category)
-        enrich_cp_xco_points(riders, standings)
-
-    return riders
 
 
 def _esc(s: str) -> str:

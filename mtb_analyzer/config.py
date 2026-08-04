@@ -14,7 +14,11 @@ _urllib3_conn.allowed_gai_family = lambda: socket.AF_INET
 console = Console()
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-CACHE_DIR = os.path.normpath(os.path.join(_HERE, "..", ".mtb_cache"))
+# In production the cache lives on a mounted Fly volume, not next to the source
+# tree — the container filesystem is ephemeral and would drop it on every deploy.
+CACHE_DIR = os.environ.get("MTB_CACHE_DIR") or os.path.normpath(
+    os.path.join(_HERE, "..", ".mtb_cache")
+)
 CACHE_MAX_AGE_DAYS = 7
 XCODATA_BASE  = "https://www.xcodata.com"
 DATARIDE_BASE = "https://dataride.uci.ch"
