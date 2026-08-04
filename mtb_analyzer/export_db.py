@@ -37,6 +37,8 @@ def export_db(race_configs: list, rider_groups: list, output_path: str) -> None:
             uci_points       INTEGER,
             cp_xco_points    INTEGER,
             computed_points  INTEGER,
+            result_rank      INTEGER,
+            result_time      TEXT,
             team             TEXT,
             category         TEXT,
             match_confidence INTEGER,
@@ -78,13 +80,14 @@ def export_db(race_configs: list, rider_groups: list, output_path: str) -> None:
                 """INSERT INTO riders
                    (race_id, first_name, last_name, corrected_name, country,
                     birth_year, start_nr, uci_id, uci_rank, uci_points,
-                    cp_xco_points, computed_points, team, category, match_confidence,
-                    xcodata_slug, race_name)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    cp_xco_points, computed_points, result_rank, result_time,
+                    team, category, match_confidence, xcodata_slug, race_name)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (race_id, rider.first_name, rider.last_name,
                  rider.corrected_name, rider.country, rider.birth_year,
                  rider.start_nr, rider.uci_id, rider.uci_rank,
                  rider.uci_points, rider.cp_xco_points, rider.computed_points,
+                 rider.result_rank, rider.result_time,
                  rider.team, rider.category, rider.match_confidence,
                  rider.xcodata_slug, rider.race_name),
             )

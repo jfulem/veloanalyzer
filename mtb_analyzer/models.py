@@ -18,6 +18,8 @@ class Rider:
     uci_points: Optional[int] = None
     cp_xco_points: int = 0       # Czech Cup XCO standings points; fallback sort for unranked
     computed_points: int = 0    # Best-N UCI points estimated from race_results (art. 4.16.008); fallback sort for unranked
+    result_rank: Optional[int] = None  # Official finishing position in THIS race (past races only)
+    result_time: str = ""              # Official finishing time in THIS race (past races only)
     match_confidence: int = 100  # 100 = exact match, <100 = fuzzy match %
     corrected_name: str = ""    # set when fuzzy match reveals a non-diacritic typo
     race_name: str = ""         # set for riders from multi-race meeting pages

@@ -16,8 +16,9 @@ from mtb_analyzer.config import console
 from mtb_analyzer.export_db import export_db
 from mtb_analyzer.parsers import parse_start_list
 from mtb_analyzer.ranking import (build_uci_xco_history, compute_points_from_history,
-                                   enrich_cp_xco_points, fetch_cp_xco_standings, get_uci_cache,
-                                   lookup_rider, supplement_from_uci_competition,
+                                   enrich_cp_xco_points, enrich_with_race_results,
+                                   fetch_cp_xco_standings, get_uci_cache, lookup_rider,
+                                   supplement_from_uci_competition,
                                    _lookup_rider_history, _strip_diacritics)
 
 REPO_ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -87,6 +88,10 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
     if uci_comp_id:
         race_year = int(race.get("date", "2026")[:4])
         supplement_from_uci_competition(riders, str(uci_comp_id), race_year, uci_category)
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        if race.get("date", "") < today:
+            console.print("[dim]  Race is in the past — fetching official results...[/dim]")
+            enrich_with_race_results(riders, str(uci_comp_id), race_year, uci_category)
 
     cp_url = race.get("cp_xco_standings_url")
     if cp_url:

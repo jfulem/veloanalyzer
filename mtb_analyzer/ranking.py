@@ -650,6 +650,66 @@ def _enrich_results_with_times(results: list, uci_cat: str, catalog: dict) -> No
         res["time"] = time_val
 
 
+def _build_event_name_map(event_results: list) -> dict:
+    """Map lowercase 'first last' / 'last first' / UCI-caps name variants to
+    their event result dict, for matching start-list riders against a UCI
+    event's official results."""
+    name_map: dict = {}
+    for er in event_results:
+        fn = er.get("first_name", "").strip()
+        ln = er.get("last_name", "").strip()
+        for key in (
+            f"{fn} {ln}".lower(),
+            f"{ln} {fn}".lower(),
+            f"{fn.upper()} {ln.upper()}",   # UCI all-caps variant
+        ):
+            name_map[key] = er
+    return name_map
+
+
+def _match_rider_in_event_map(rider, name_map: dict) -> "dict | None":
+    fn = rider.first_name.strip()
+    ln = rider.last_name.strip()
+    for key in (
+        f"{fn} {ln}".lower(),
+        f"{ln} {fn}".lower(),
+        f"{fn.upper()} {ln.upper()}",
+        f"{fn.lower()} {ln.upper()}",
+    ):
+        er = name_map.get(key)
+        if er:
+            return er
+    return None
+
+
+def enrich_with_race_results(riders: list, competition_id: str, year: int, uci_cat: str) -> None:
+    """
+    Fetch the official UCI final classification for a specific (already-run)
+    competition and attach each matched rider's finishing rank/time as
+    result_rank/result_time. Used for past races so the site can display the
+    actual results instead of the pre-race start-list order.
+    """
+    uci_cat = _ranking_category(uci_cat)
+    event_codes = _get_competition_event_codes(competition_id, year)
+    event_code = event_codes.get(uci_cat)
+    if not event_code:
+        return
+
+    event_results = _get_uci_event_results(event_code)
+    if not event_results:
+        return
+
+    name_map = _build_event_name_map(event_results)
+
+    for rider in riders:
+        er = _match_rider_in_event_map(rider, name_map)
+        if not er:
+            continue
+        rank_raw = er.get("rank")
+        rider.result_rank = int(rank_raw) if rank_raw and str(rank_raw).isdigit() else None
+        rider.result_time = er.get("time", "")
+
+
 def supplement_from_uci_competition(
     riders: list, competition_id: str, year: int, uci_cat: str
 ) -> None:
@@ -670,17 +730,7 @@ def supplement_from_uci_competition(
     if not event_results:
         return
 
-    # Build name → event result map (lowercase, both orders)
-    name_map: dict = {}
-    for er in event_results:
-        fn = er.get("first_name", "").strip()
-        ln = er.get("last_name", "").strip()
-        for key in (
-            f"{fn} {ln}".lower(),
-            f"{ln} {fn}".lower(),
-            f"{fn.upper()} {ln.upper()}",   # UCI all-caps variant
-        ):
-            name_map[key] = er
+    name_map = _build_event_name_map(event_results)
 
     # Derive race metadata from the competition catalog (already cached)
     catalog = _get_uci_competition_catalog(year)
@@ -693,19 +743,7 @@ def supplement_from_uci_competition(
     existing_key = f"{comp_date}|{comp_name}"
 
     for rider in riders:
-        fn = rider.first_name.strip()
-        ln = rider.last_name.strip()
-        er = None
-        for key in (
-            f"{fn} {ln}".lower(),
-            f"{ln} {fn}".lower(),
-            f"{fn.upper()} {ln.upper()}",
-            f"{fn.lower()} {ln.upper()}",
-        ):
-            er = name_map.get(key)
-            if er:
-                break
-
+        er = _match_rider_in_event_map(rider, name_map)
         if not er:
             continue
 

@@ -128,6 +128,7 @@ body {
 .rank-cell   { font-weight: 600; width: 5rem; }
 .pts-cell    { width: 4.5rem; }
 .country-cell { width: 5.5rem; }
+.time-cell   { color: #a0aec0; font-size: .85rem; font-variant-numeric: tabular-nums; width: 5.5rem; }
 .team-cell   { color: #a0aec0; font-size: .82rem; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .trend      { font-size: .8rem; font-weight: 700; }

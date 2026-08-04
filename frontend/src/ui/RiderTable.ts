@@ -38,10 +38,18 @@ function buildTable(
   onDetail: DetailCallback,
   trends: Map<number, Trend>,
 ): HTMLTableElement {
+  // Past races carry an official finishing rank/time fetched from UCI —
+  // show those as dedicated "Result"/"Time" columns instead of only the
+  // pre-race UCI ranking context.
+  const hasResults = riders.some((r) => r.result_rank != null || r.result_time);
+
   const table = el("table", { class: "rider-table" });
   const thead = el("thead");
   const hRow = el("tr");
-  for (const h of ["#", "Name", "Country", "UCI rank", "UCI pts", "Team"]) {
+  const headers = ["#", "Name", "Country"];
+  if (hasResults) headers.push("Result", "Time");
+  headers.push("UCI rank", "UCI pts", "Team");
+  for (const h of headers) {
     hRow.appendChild(el("th", {}, h));
   }
   thead.appendChild(hRow);
@@ -83,6 +91,16 @@ function buildTable(
     // Country
     const flag = rider.country ? `${flagEmoji(rider.country)} ${rider.country}` : "—";
     tr.appendChild(el("td", { class: "country-cell" }, flag));
+
+    // Result + Time (past races only)
+    if (hasResults) {
+      const resultCell = el("td", { class: "num-cell" });
+      if (rider.result_rank === 1) resultCell.style.color = "#f6e05e";
+      else if (rider.result_rank != null && rider.result_rank <= 3) resultCell.style.fontWeight = "700";
+      resultCell.textContent = rider.result_rank != null ? String(rider.result_rank) : "—";
+      tr.appendChild(resultCell);
+      tr.appendChild(el("td", { class: "time-cell" }, rider.result_time || "—"));
+    }
 
     // UCI rank + trend
     const rankCell = el("td", { class: "rank-cell" });
