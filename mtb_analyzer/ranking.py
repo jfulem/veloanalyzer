@@ -510,8 +510,13 @@ def _get_competition_event_codes(competition_id: str, year: int) -> dict:
                         plain_codes.setdefault(cat, code)
                     break
         event_codes = {**plain_codes, **xco_codes}
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(event_codes, f, ensure_ascii=False)
+        # Don't cache an empty result: it usually just means the UCI hasn't
+        # published category entries for this competition yet (checked too
+        # early), and this cache has no TTL — caching {} would make it stick
+        # forever even once results appear.
+        if event_codes:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(event_codes, f, ensure_ascii=False)
         time.sleep(0.3)
         return event_codes
     except Exception:
