@@ -89,14 +89,24 @@ fly status
 a temporary machine first — a failed migration aborts the deploy rather than
 leaving code and schema out of step.
 
-Populate the database without waiting for 12:00 UTC:
+Populate the database without waiting for 12:00 UTC. **Run it detached** — on a
+cold volume the ingest downloads ~1,800 UCI event files with rate-limiting
+sleeps and prints nothing for 10+ minutes, and `fly ssh console` drops the
+session, killing the job (`exited without exit status or exit signal`):
 
 ```bash
-fly ssh console -C "/app/.venv/bin/python scripts/ingest.py"
+fly ssh console -C "sh -c 'cd /app && setsid /usr/local/bin/docker-entrypoint.sh .venv/bin/python scripts/ingest.py > /data/ingest.log 2>&1 < /dev/null & echo started'"
+
+# Check progress whenever — the log lives on the volume
+fly ssh console -C "tail -n 30 /data/ingest.log"
 ```
 
-The first run is slow (cold `.mtb_cache`, several minutes). Every later run
-reuses the volume.
+Going through `docker-entrypoint.sh` drops to the `velo` user. Running the
+ingest as root would leave root-owned files in `/data/.mtb_cache` that the
+scheduled ingest — which runs as `velo` inside uvicorn — could not overwrite.
+
+Only the first run is slow. Later runs reuse the volume, which is the whole
+reason the machine stays always-on.
 
 ## 6. Cloudflare Pages project
 
