@@ -8,16 +8,27 @@ from ..models import Rider
 from ..utils import category_matches, normalize_category_name
 
 
-def _find_col(fields: list, *needles: str) -> "int | None":
+def _find_col(fields: list, *needles: str, exclude: str = None) -> "int | None":
     """
     DataFields entries aren't always plain field names — some lists (e.g.
-    combined age-group rankings) emit full RaceResult formula expressions
-    like "if([CONTEST]=1 AND ...;[TS6.P1.YEAR];[TS1.P1.YEAR])" instead of a
-    bare "YEAR". Substring search finds the right column either way; an
+    combined age-group rankings, or sanctions-compliance flag hiding) emit
+    full RaceResult formula expressions like
+    "if([NATION.IOCNAME]IN\"RUS,BLR\";\"\";[NATION.FLAG])" instead of a bare
+    field name. Substring search finds the right column either way; an
     exact-equality check would silently miss it and fall back to a wrong
     hardcoded index.
+
+    `exclude` guards against a formula that references the target field only
+    as a side condition while actually resolving to something else — e.g.
+    the formula above contains "NATION.IOCNAME" but its *result* is a flag
+    image, not the IOC code (that's a different column, whose own formula
+    doesn't mention NATION.FLAG at all).
     """
-    return next((i for i, f in enumerate(fields) if any(n in f for n in needles)), None)
+    return next(
+        (i for i, f in enumerate(fields)
+         if any(n in f for n in needles) and (exclude is None or exclude not in f)),
+        None,
+    )
 
 
 def _total_rows(payload: dict) -> int:
@@ -123,11 +134,11 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
     # NATION.UCINAME / NATION.IOCNAME contain the IOC alpha-3 code directly
     # (e.g. "GER"). NATION.FLAG contains an img tag/URL that needs
     # _flag_to_country() parsing.
-    nat_col = _find_col(fields, "NATION.UCINAME", "NATION.IOCNAME")
+    nat_col = _find_col(fields, "NATION.UCINAME", "NATION.IOCNAME", exclude="NATION.FLAG")
     if nat_col is not None:
         nat_direct = True
     else:
-        nat_col = _find_col("NATION.FLAG")
+        nat_col = _find_col(fields, "NATION.FLAG")
         nat_direct = False
         if nat_col is None:
             nat_col = 4
@@ -256,7 +267,7 @@ def _extract_participant_rows(data: dict, category_filter: str = None) -> list:
 
     # Nationality: NATION.UCINAME/NATION.IOCNAME carry the IOC alpha-3 code
     # directly; NATION.FLAG carries an img URL that needs _flag_to_country().
-    nat_col = _find_col(fields, "NATION.UCINAME", "NATION.IOCNAME")
+    nat_col = _find_col(fields, "NATION.UCINAME", "NATION.IOCNAME", exclude="NATION.FLAG")
     nat_direct = nat_col is not None
     if nat_col is None:
         nat_col = _find_col(fields, "NATION.FLAG")
