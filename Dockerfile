@@ -20,6 +20,10 @@ RUN uv sync --frozen --no-dev
 COPY mtb_analyzer/ ./mtb_analyzer/
 COPY scripts/ ./scripts/
 COPY races.yml ./
+# Needed by the release_command in fly.toml: `alembic upgrade head` resolves
+# script_location from alembic.ini relative to the working directory.
+COPY alembic.ini ./
+COPY migrations/ ./migrations/
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 RUN useradd --create-home --uid 10001 velo \

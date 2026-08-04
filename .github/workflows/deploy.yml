@@ -49,6 +49,15 @@ jobs:
           print('routes OK:', paths)
           "
 
+      # Catches the class of bug where the image builds fine but is missing a
+      # file the release_command needs. `alembic heads` reads only the script
+      # directory, so it needs no database — but it fails loudly if alembic.ini
+      # or migrations/ did not make it into the image.
+      - name: Build image and verify migrations are runnable inside it
+        run: |
+          docker build -t veloanalyzer:ci .
+          docker run --rm veloanalyzer:ci alembic heads
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
