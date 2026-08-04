@@ -497,28 +497,28 @@ races:
 
 - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3641"  # TODO: find start list URL
   name: SP Oslany XCO 2026 — Men Elite
-  date: '2026-08-01'
+  date: '2026-08-08'
   category: Men Elite
   uci_category: ME
   uci_competition_id: 77727
   output: oslany-xco-me.html
 - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3641"  # TODO: find start list URL
   name: SP Oslany XCO 2026 — Men Juniors
-  date: '2026-08-01'
+  date: '2026-08-08'
   category: Men Juniors
   uci_category: MJ
   uci_competition_id: 77727
   output: oslany-xco-mj.html
 - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3641"  # TODO: find start list URL
   name: SP Oslany XCO 2026 — Women Elite
-  date: '2026-08-01'
+  date: '2026-08-08'
   category: Women Elite
   uci_category: WE
   uci_competition_id: 77727
   output: oslany-xco-we.html
 - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3641"  # TODO: find start list URL
   name: SP Oslany XCO 2026 — Women Juniors
-  date: '2026-08-01'
+  date: '2026-08-08'
   category: Women Juniors
   uci_category: WJ
   uci_competition_id: 77727
