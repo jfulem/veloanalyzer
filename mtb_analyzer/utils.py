@@ -67,11 +67,17 @@ def category_matches(category_text: str, filter_str: str) -> bool:
 
     Also requires the category and filter to have the same word count so
     that 'Men XCO UCI C3' does not accidentally match 'Men XCO UCI C3 Short'.
+
+    The filter is normalised the same way parsers normalise the scraped
+    category text. Without that the comparison is asymmetric: a filter written
+    in official UCI wording ('Men XCO UCI C1') can never match a category that
+    normalize_category_name() has already stripped to 'Men XCO C1', because the
+    word counts differ.
     """
     if not filter_str:
         return True
     haystack = re.sub(r"[^\w\s]", " ", category_text.lower())
-    filter_words = filter_str.lower().split()
+    filter_words = normalize_category_name(filter_str).lower().split()
     if len(haystack.split()) != len(filter_words):
         return False
     for word in filter_words:
