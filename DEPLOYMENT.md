@@ -56,8 +56,22 @@ fly volumes create mtb_cache --region ams --size 1
 
 ## 4. Secrets
 
+**Quote the whole argument.** The URL contains `?` and `&`; unquoted in zsh the
+`&` backgrounds the command mid-string and the `?` fails to glob
+(`zsh: no matches found`).
+
 ```bash
-fly secrets set DATABASE_URL='postgresql://neondb_owner:...@...neon.tech/neondb?sslmode=require'
+fly secrets set 'DATABASE_URL=postgresql://neondb_owner:...@...neon.tech/neondb?sslmode=require&channel_binding=require'
+```
+
+Either Neon endpoint works. The pooled one (`-pooler` in the hostname) is
+verified against psycopg 3's automatic prepared statements, which is the thing
+that classically breaks under transaction pooling.
+
+Confirm it took:
+
+```bash
+fly secrets list                  # shows names and digests, never values
 ```
 
 Everything non-secret (`MTB_CACHE_DIR`, `INGEST_HOUR`, `CORS_ORIGINS`) is in
