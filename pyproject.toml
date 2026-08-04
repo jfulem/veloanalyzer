@@ -23,3 +23,8 @@ dependencies = [
 # dependencies without demanding a build backend to install the project itself.
 [tool.uv]
 package = false
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+]

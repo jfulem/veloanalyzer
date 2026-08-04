@@ -1,5 +1,4 @@
-import sqlWasmUrl from "sql.js/dist/sql-wasm.wasm?url";
-import { initDb, getRaces, getRiders, getResults, getMeta, Race, Rider, RaceResult } from "./db.js";
+import { getRaces, getRiders, getResults, getMeta, Race, Rider, RaceResult } from "./api.js";
 import { renderStatsBar } from "./ui/StatsBar.js";
 import { renderCountryChart } from "./ui/CountryChart.js";
 import { renderRiderTable, filterRiderTable } from "./ui/RiderTable.js";
@@ -34,10 +33,14 @@ const appEl        = $<HTMLElement>("#app");
 const generatedAt  = $<HTMLElement>("#generated-at");
 
 // ── Load race ──────────────────────────────────────────────────────────────
-function loadRace(race: Race): void {
+async function loadRace(race: Race): Promise<void> {
   selectedIds.clear();
-  currentRiders  = getRiders(race.id);
-  currentResults = getResults(currentRiders.map((r) => r.id));
+  // Both requests are independent, so overlap them rather than paying two
+  // round trips in series.
+  [currentRiders, currentResults] = await Promise.all([
+    getRiders(race.slug),
+    getResults(race.slug),
+  ]);
 
   raceName.textContent = race.name;
   raceDate.textContent = race.date || "";
@@ -94,7 +97,9 @@ h2hBackdrop.addEventListener("click", (e) => {
 function openRiderCard(riderId: number): void {
   const rider = currentRiders.find((r) => r.id === riderId);
   if (!rider) return;
-  const results = getResults([riderId]);
+  // The whole field's history is already loaded, so the card opens instantly
+  // instead of waiting on a request.
+  const results = currentResults.filter((r) => r.rider_id === riderId);
   renderRiderCard(riderCard, rider, results);
   riderBackdrop.removeAttribute("hidden");
   document.body.style.overflow = "hidden";
@@ -123,15 +128,15 @@ searchInput.addEventListener("input", () => {
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 (async () => {
+  let meta: Record<string, string>;
+  let allRaces: Race[];
   try {
-    await initDb(sqlWasmUrl, "data.db");
+    [meta, allRaces] = await Promise.all([getMeta(), getRaces()]);
   } catch (err) {
-    loadingEl.textContent = `Failed to load database: ${err}`;
+    loadingEl.textContent = `Failed to reach the API: ${err}`;
     return;
   }
 
-  const meta  = getMeta();
-  const allRaces = getRaces();
   const races = allRaces.filter((r) => {
     if (!r.date) return true;
     const cutoff = new Date(r.date);
@@ -165,7 +170,11 @@ searchInput.addEventListener("input", () => {
   raceSelect.addEventListener("change", () => {
     const id = Number(raceSelect.value);
     const race = races.find((r) => r.id === id);
-    if (race) loadRace(race);
+    if (race) {
+      loadRace(race).catch((err) => {
+        raceName.textContent = `Failed to load race: ${err}`;
+      });
+    }
   });
 
   loadingEl.style.display = "none";
@@ -174,7 +183,7 @@ searchInput.addEventListener("input", () => {
   if (races.length > 0) {
     const initial = requestedRace ?? races[0]!;
     raceSelect.value = String(initial.id);
-    loadRace(initial);
+    await loadRace(initial);
   } else {
     $<HTMLElement>("#race-name").textContent = "No upcoming races";
   }

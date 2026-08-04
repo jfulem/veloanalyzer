@@ -19,9 +19,4 @@ export default defineConfig({
       },
     },
   },
-  optimizeDeps: {
-    exclude: ["sql.js"],
-  },
-  // sql.js needs its WASM file served as a static asset
-  assetsInclude: ["**/*.wasm"],
 });

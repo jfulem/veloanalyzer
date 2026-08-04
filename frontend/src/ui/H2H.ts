@@ -1,4 +1,4 @@
-import { Rider, RaceResult } from "../db.js";
+import { Rider, RaceResult } from "../api.js";
 import { flagEmoji, posLabel, timeGap, tierClass, el, parseResultDate } from "../utils.js";
 
 export function renderH2H(

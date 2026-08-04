@@ -12,10 +12,12 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy import text
 
 from ..config import console
 from ..db import get_engine
+from .routes import router
 
 # Same cadence as the GitHub Actions cron this replaces: 12:00 UTC daily.
 INGEST_HOUR = int(os.environ.get("INGEST_HOUR", "12"))
@@ -60,12 +62,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="VeloAnalyzer API", lifespan=lifespan)
 
+# Neither uvicorn nor Fly's proxy compresses responses, and the race-history
+# payload is highly repetitive JSON that gzips to roughly a tenth of its size.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+
+
+app.include_router(router)
 
 
 @app.get("/health")
