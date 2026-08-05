@@ -1,9 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Colours are taken from the site palette in src/style.css: the card
-       background, the accent blue used for links and headings, and the green
-       that marks a TOP 50 rider. Three shapes only, so it stays legible at
-       16x16 where anything finer turns to mush. -->
+  <!-- Chainring + VA monogram. Colours come from the site palette in
+       src/style.css. The letters are strokes rather than filled outlines so
+       they stay chunky and evenly weighted when the icon is scaled down to
+       16x16, where thin glyph stems disappear. -->
   <rect width="64" height="64" rx="14" fill="#2d3748"/>
-  <path d="M5 47 L24 17 L34 32 L44 22 L59 47 Z" fill="#90cdf4"/>
-  <circle cx="24" cy="17" r="5.5" fill="#68d391"/>
+
+  <!-- Chainring: ring + 12 teeth. Real chainrings have ~34 teeth; a dozen
+       chunky ones still read as a chainring and survive downscaling. -->
+  <g fill="#90cdf4">
+    <path d="M 29.63 13.15 L 29.99 6.28 L 34.01 6.28 L 34.37 13.15 Z M 39.37 14.49 L 43.12 8.72 L 46.60 10.73 L 43.48 16.86 Z M 47.14 20.52 L 53.27 17.40 L 55.28 20.88 L 49.51 24.63 Z M 50.85 29.63 L 57.72 29.99 L 57.72 34.01 L 50.85 34.37 Z M 49.51 39.37 L 55.28 43.12 L 53.27 46.60 L 47.14 43.48 Z M 43.48 47.14 L 46.60 53.27 L 43.12 55.28 L 39.37 49.51 Z M 34.37 50.85 L 34.01 57.72 L 29.99 57.72 L 29.63 50.85 Z M 24.63 49.51 L 20.88 55.28 L 17.40 53.27 L 20.52 47.14 Z M 16.86 43.48 L 10.73 46.60 L 8.72 43.12 L 14.49 39.37 Z M 13.15 34.37 L 6.28 34.01 L 6.28 29.99 L 13.15 29.63 Z M 14.49 24.63 L 8.72 20.88 L 10.73 17.40 L 16.86 20.52 Z M 20.52 16.86 L 17.40 10.73 L 20.88 8.72 L 24.63 14.49 Z"/>
+  </g>
+  <circle cx="32.0" cy="32.0" r="18" fill="none" stroke="#90cdf4" stroke-width="4"/>
+
+  <!-- VA -->
+  <g fill="none" stroke="#edf2f7" stroke-width="4"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18.5 25 L24.5 39 L30.5 25"/>
+    <path d="M33.5 39 L39.5 25 L45.5 39"/>
+    <path d="M36.2 34 L42.8 34"/>
+  </g>
 </svg>
