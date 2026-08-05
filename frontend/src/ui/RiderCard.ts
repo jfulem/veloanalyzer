@@ -36,11 +36,33 @@ function sortResults(results: RaceResult[], col: SortCol, dir: SortDir): RaceRes
 const BEST_N_JUNIOR  = 4;
 const BEST_N_DEFAULT = 5;
 
-function computeCappedPoints(results: RaceResult[]): number {
+/** How many scoring results count, per UCI art. 4.16.008. */
+function bestN(results: RaceResult[]): number {
   const cat = results.find((r) => r.cat)?.cat ?? "";
-  const n = cat === "MJ" || cat === "WJ" ? BEST_N_JUNIOR : BEST_N_DEFAULT;
-  const pts = results.map((r) => r.uci_pts ?? 0).filter((p) => p > 0).sort((a, b) => b - a);
-  return pts.slice(0, n).reduce((s, p) => s + p, 0);
+  return cat === "MJ" || cat === "WJ" ? BEST_N_JUNIOR : BEST_N_DEFAULT;
+}
+
+/** The results that actually make up the UCI points total — a rider's best N
+ *  scoring rides. Everything else is real, but does not add to the total.
+ *  Returned as ids so the table can mark exactly these rows. */
+function countingResultIds(results: RaceResult[]): Set<number> {
+  return new Set(
+    [...results]
+      .filter((r) => (r.uci_pts ?? 0) > 0)
+      .sort((a, b) => (b.uci_pts ?? 0) - (a.uci_pts ?? 0))
+      .slice(0, bestN(results))
+      .map((r) => r.id),
+  );
+}
+
+/** Derived from countingResultIds so the highlighted rows always sum to the
+ *  figure shown in the stat chip — if they ever disagreed, the highlight would
+ *  be worse than no highlight at all. */
+function computeCappedPoints(results: RaceResult[]): number {
+  const counting = countingResultIds(results);
+  return results
+    .filter((r) => counting.has(r.id))
+    .reduce((s, r) => s + (r.uci_pts ?? 0), 0);
 }
 
 function buildPointsChart(results: RaceResult[]): HTMLElement | null {
@@ -231,6 +253,8 @@ export function renderRiderCard(
 
   const hasTimes = results.some((r) => !!r.time);
   const hasPts   = results.some((r) => r.uci_pts != null);
+  const countingIds = countingResultIds(results);
+  const n = bestN(results);
   const COL_HEADERS = ALL_COL_HEADERS.filter((c) =>
     (c.key !== "time" || hasTimes) && (c.key !== "pts" || hasPts),
   );
@@ -279,12 +303,40 @@ export function renderRiderCard(
       tr.appendChild(posTd);
 
       if (hasTimes) tr.appendChild(el("td", { style: "font-size:.82rem; color:#a0aec0" }, res.time || "—"));
-      if (hasPts) tr.appendChild(el("td", { style: "font-size:.82rem; color:#68d391" },
-        res.uci_pts != null ? String(res.uci_pts) : "—"));
+      if (hasPts) {
+        // Points that do not make the best-N cut are still shown — they are
+        // real results — but dimmed, so the rows adding up to the UCI total
+        // are obvious at a glance.
+        const counts = countingIds.has(res.id);
+        const td = el("td", {
+          style: counts
+            ? "font-size:.82rem; color:#68d391; font-weight:700"
+            : "font-size:.82rem; color:#718096",
+        }, res.uci_pts != null ? String(res.uci_pts) : "—");
+        if (res.uci_pts != null && !counts) {
+          td.title = `Outside this rider's best ${n} results, so not included in the UCI points total`;
+        }
+        tr.appendChild(td);
+      }
       tbody.appendChild(tr);
     }
   }
 
   buildHeaders();
   buildBody();
+
+  // Without this the dimming looks like missing data rather than a deliberate
+  // distinction.
+  if (hasPts && countingIds.size > 0) {
+    const note = el("p", {
+      style: "font-size:.75rem; color:#718096; margin:.6rem 0 0; line-height:1.5",
+    });
+    note.appendChild(el("span", { style: "color:#68d391; font-weight:700" }, "Green"));
+    note.appendChild(document.createTextNode(
+      ` points count toward the UCI total — a rider's best ${n} results (art. 4.16.008). `,
+    ));
+    note.appendChild(el("span", { style: "color:#718096" }, "Dimmed"));
+    note.appendChild(document.createTextNode(" points are real results that fall outside that cap."));
+    container.appendChild(note);
+  }
 }
