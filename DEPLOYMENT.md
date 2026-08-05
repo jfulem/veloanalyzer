@@ -80,35 +80,55 @@ Verify on the workers.dev URL before any DNS exists — `wrangler deploy` prints
 curl -s https://veloanalyzer.<your-subdomain>.workers.dev/api/stats
 ```
 
-## 4. DNS
+## 4. Domains
 
-**Move the domain's nameservers to Cloudflare.** Dashboard → *Add a site* →
-`veloanalyzer.com` → Free plan. It shows two nameservers; set those at your
-registrar. Propagation is usually under an hour.
+Only needed once. Two things must be true:
 
-Then re-run `npx wrangler deploy`. `wrangler.toml` declares
-`www.veloanalyzer.com` and `veloanalyzer.com` as **custom domains**, so
-Cloudflare creates the DNS records and issues the certificates itself — there
-is nothing to add by hand.
+**a. The domain's nameservers point at Cloudflare.** Dashboard → *Add a site* →
+`veloanalyzer.com` → Free plan, then set the two nameservers it shows at your
+registrar. Check with:
 
-(A plain Worker *route* would additionally need a proxied placeholder DNS
-record for the hostname before it would fire. Custom domains avoid that.)
+```bash
+dig +short veloanalyzer.com NS      # expect *.ns.cloudflare.com
+```
+
+**b. Both hostnames are bound to the Worker.** `wrangler.toml` declares
+`veloanalyzer.com` and `www.veloanalyzer.com` as custom domains, so
+`wrangler deploy` creates the DNS records and certificates itself — there is
+nothing to add by hand.
+
+Verify both actually resolve, not just the apex:
+
+```bash
+dig +short veloanalyzer.com A       # expect Cloudflare IPs
+dig +short www.veloanalyzer.com A   # expect Cloudflare IPs — empty means unbound
+```
+
+If one is empty, the custom domain did not bind. Add it in the dashboard:
+**Workers & Pages → `veloanalyzer` → Settings → Domains & Routes → Add →
+Custom domain**. A binding can also take a minute to provision after a deploy.
 
 ## 5. GitHub secrets
+
+**The site does not need this to be live** — it is live as soon as you run
+`wrangler deploy`. This step is only about automation, and one part of it
+matters a lot:
+
+| Workflow | Needs | What breaks without it |
+|---|---|---|
+| `ingest.yml` | `DATABASE_URL` | **The daily 12:00 UTC scrape never runs and the data freezes.** |
+| `deploy.yml` | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Only auto-deploy on push; you can keep deploying by hand. |
 
 Repo → **Settings** → **Secrets and variables** → **Actions**:
 
 | Secret | Where to get it |
 |---|---|
+| `DATABASE_URL` | The Neon connection string |
 | `CLOUDFLARE_API_TOKEN` | My Profile → API Tokens → *Edit Cloudflare Workers* template |
 | `CLOUDFLARE_ACCOUNT_ID` | Dashboard sidebar, or `wrangler whoami` |
-| `DATABASE_URL` | The Neon connection string — used by the ingest cron |
 
-Then remove the old GitHub Pages workflow, which would fight the new one:
-
-```bash
-git rm .github/workflows/generate-reports.yml
-```
+At minimum set `DATABASE_URL`, or the site will still be showing today's data
+next month.
 
 ## 6. First ingest
 
