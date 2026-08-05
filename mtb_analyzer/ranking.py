@@ -679,23 +679,33 @@ def _build_event_name_map(event_results: list) -> dict:
         ):
             name_map[key] = er
 
-    # Stripped keys are added in a second pass, and only when unambiguous:
-    # if two riders in the same event collapse to the same ASCII name, matching
-    # either of them would be a coin flip, so neither is added.
-    stripped: dict = {}
+    # Looser keys are added in a second pass, and only when unambiguous: if two
+    # riders in the same event collapse to the same loose key, matching either
+    # would be a coin flip, so neither is added.
+    loose: dict = {}
+
+    def _add(key: str, er: dict) -> None:
+        if not key.strip():
+            return
+        if key in loose and loose[key] is not er:
+            loose[key] = None             # ambiguous — drop it
+        else:
+            loose.setdefault(key, er)
+
     for er in event_results:
-        fn = er.get("first_name", "").strip()
-        ln = er.get("last_name", "").strip()
-        for key in (
-            _strip_diacritics(f"{fn} {ln}").lower(),
-            _strip_diacritics(f"{ln} {fn}").lower(),
-        ):
-            if key in stripped and stripped[key] is not er:
-                stripped[key] = None      # ambiguous — drop it
-            else:
-                stripped.setdefault(key, er)
-    for key, er in stripped.items():
-        # Never let a stripped key shadow an exact one.
+        fn = _strip_diacritics(er.get("first_name", "").strip()).lower()
+        ln = _strip_diacritics(er.get("last_name", "").strip()).lower()
+        _add(f"{fn} {ln}", er)
+        _add(f"{ln} {fn}", er)
+        # Start lists sometimes carry a middle name the UCI omits ("Boldizsár
+        # Béla Szalay" vs "Boldizsár SZALAY"), so key on the first given name
+        # alone as well.
+        first = fn.split()[0] if fn.split() else ""
+        _add(f"{first} {ln}", er)
+        _add(f"{ln} {first}", er)
+
+    for key, er in loose.items():
+        # Never let a loose key shadow an exact one.
         if er is not None:
             name_map.setdefault(key, er)
 
@@ -714,11 +724,17 @@ def _match_rider_in_event_map(rider, name_map: dict) -> "dict | None":
         er = name_map.get(key)
         if er:
             return er
-    # Fall back to the accent-insensitive form only after every exact spelling
-    # has been tried.
+    # Fall back to the looser forms only after every exact spelling has been
+    # tried: accent-insensitive first, then dropping any middle name. Both
+    # sides get truncated because either source may be the one carrying it.
+    s_fn = _strip_diacritics(fn).lower()
+    s_ln = _strip_diacritics(ln).lower()
+    first = s_fn.split()[0] if s_fn.split() else ""
     for key in (
-        _strip_diacritics(f"{fn} {ln}").lower(),
-        _strip_diacritics(f"{ln} {fn}").lower(),
+        f"{s_fn} {s_ln}",
+        f"{s_ln} {s_fn}",
+        f"{first} {s_ln}",
+        f"{s_ln} {first}",
     ):
         er = name_map.get(key)
         if er:
