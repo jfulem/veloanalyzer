@@ -32,6 +32,20 @@ wrangler login
 
 Neon is browser-only — no CLI needed.
 
+**Add a payment method to Fly before deploying** (<https://fly.io/trial>).
+Trial accounts cap machines at 5 minutes of runtime, then stop them with
+`exit_code=0, oom_killed=false, requested_stop=true` — indistinguishable from
+idle autostop unless you read `fly logs`, which says plainly:
+
+```
+Trial machine stopping. To run for longer than 5m0s, add a credit card ...
+```
+
+This app cannot work on a trial account at all. The daily ingest runs via
+APScheduler inside the API process, so a machine stopped after five minutes
+never reaches 12:00 UTC and the data silently goes stale with no error
+anywhere.
+
 ## 2. Neon
 
 Already done. The connection string is in use; keep it in a password manager.
