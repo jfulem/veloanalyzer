@@ -1,4 +1,4 @@
-import { Rider } from "../db.js";
+import { Rider } from "../api.js";
 import { flagEmoji, el } from "../utils.js";
 
 export function renderCountryChart(container: HTMLElement, riders: Rider[]): void {

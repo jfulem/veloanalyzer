@@ -1,0 +1,82 @@
+name: Ingest
+
+# Scrapes every race in races.yml and writes the result to Neon.
+#
+# This runs in Actions rather than in a hosted service because the scraper
+# stack (requests, BeautifulSoup, a C-extension fuzzy matcher, ~1800 HTTP
+# requests over several minutes) cannot run in a Worker. Actions is free for
+# public repositories and already has the cache primitive this needs.
+
+on:
+  schedule:
+    - cron: "0 12 * * *"      # 12:00 UTC daily, matching the original cadence
+  workflow_dispatch:
+    inputs:
+      force_refresh:
+        description: 'Bust the UCI cache and re-download everything'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    # A cold cache means ~1800 UCI requests with rate-limiting sleeps.
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Get current ISO week
+        id: week
+        run: echo "week=$(date +%G-W%V)" >> $GITHUB_OUTPUT
+
+      # Keyed by week so UCI ranking data refreshes weekly, and by races.yml so
+      # adding a race doesn't reuse a cache that predates it. Without this the
+      # run takes ~10 minutes instead of ~1.
+      - name: Cache UCI data
+        uses: actions/cache@v4
+        with:
+          path: .mtb_cache
+          key: mtb-cache-${{ runner.os }}-${{ steps.week.outputs.week }}-${{ hashFiles('races.yml') }}${{ inputs.force_refresh && format('-bust{0}', github.run_id) || '' }}
+          restore-keys: |
+            mtb-cache-${{ runner.os }}-${{ steps.week.outputs.week }}-
+            mtb-cache-${{ runner.os }}-
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run alembic upgrade head
+
+      - name: Ingest into Neon
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python scripts/ingest.py
+
+      - name: Report row counts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          uv run python -c "
+          from mtb_analyzer.db import get_engine
+          from sqlalchemy import text
+          with get_engine().connect() as c:
+              for t in ('races','riders','race_entries','rider_results'):
+                  print(f'{t:15}', c.execute(text(f'select count(*) from {t}')).scalar_one())
+              empty = c.execute(text('''
+                  select count(*) from races r
+                  where not exists (select 1 from race_entries e where e.race_id = r.id)
+              ''')).scalar_one()
+              print('races with 0 entries:', empty)
+          "

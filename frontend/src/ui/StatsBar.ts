@@ -1,4 +1,4 @@
-import { Rider } from "../db.js";
+import { Rider } from "../api.js";
 import { el } from "../utils.js";
 
 export function renderStatsBar(container: HTMLElement, riders: Rider[]): void {

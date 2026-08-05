@@ -1,4 +1,4 @@
-import { Rider } from "../db.js";
+import { Rider } from "../api.js";
 import { flagEmoji, tierClass, el, Trend } from "../utils.js";
 
 type SelectCallback = (riderId: number) => void;

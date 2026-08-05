@@ -1,0 +1,80 @@
+// Replaces the sql.js layer that downloaded the whole database into the
+// browser. The exported names and the Race/Rider/RaceResult shapes are
+// unchanged from that version, so the ui/ components did not need touching —
+// the functions are simply async now, and keyed by race slug rather than by a
+// row id that only meant something inside the baked file.
+
+// Empty by default: the Worker is routed on /api/* of the same domain that
+// serves this page, so requests are relative and no CORS preflight happens.
+// `vite dev` proxies /api to a local `wrangler dev` (see vite.config.ts).
+// Override only to point a preview build at a different API.
+const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
+
+async function getJson<T>(path: string): Promise<T> {
+  const resp = await fetch(`${API_BASE}${path}`);
+  if (!resp.ok) throw new Error(`${path} → ${resp.status} ${resp.statusText}`);
+  return resp.json() as Promise<T>;
+}
+
+export interface Race {
+  id: number;
+  slug: string;
+  name: string;
+  date: string;
+  uci_category: string;
+  category: string;
+}
+
+export interface Rider {
+  id: number;
+  race_id: number;
+  first_name: string;
+  last_name: string;
+  corrected_name: string;
+  country: string;
+  birth_year: string;
+  start_nr: string;
+  uci_id: string;
+  uci_rank: number | null;
+  uci_points: number | null;
+  cp_xco_points: number | null;
+  computed_points: number | null;
+  result_rank: number | null;
+  result_time: string | null;
+  team: string;
+  category: string;
+  match_confidence: number;
+  xcodata_slug: string;
+  race_name: string;
+}
+
+export interface RaceResult {
+  id: number;
+  rider_id: number;
+  xco_race_id: string;
+  race_name: string;
+  date: string;
+  location: string;
+  rank: number | null;
+  time: string;
+  cat: string;
+  uci_pts: number | null;
+}
+
+export function getMeta(): Promise<Record<string, string>> {
+  return getJson<Record<string, string>>("/api/meta");
+}
+
+export function getRaces(): Promise<Race[]> {
+  return getJson<Race[]>("/api/races");
+}
+
+export function getRiders(slug: string): Promise<Rider[]> {
+  return getJson<Rider[]>(`/api/races/${encodeURIComponent(slug)}/entries`);
+}
+
+/** Every history row for everyone in the race, in one request. The head-to-head
+ *  panel and the form-trend arrows both need the whole field at once. */
+export function getResults(slug: string): Promise<RaceResult[]> {
+  return getJson<RaceResult[]>(`/api/races/${encodeURIComponent(slug)}/results`);
+}

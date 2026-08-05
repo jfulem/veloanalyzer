@@ -1,0 +1,49 @@
+name = "veloanalyzer"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+# Required by @neondatabase/serverless.
+compatibility_flags = ["nodejs_compat"]
+
+# Keep the <worker>.<subdomain>.workers.dev URL alive. Declaring routes turns
+# this off by default, which would leave no way to test a deploy before the
+# domain's nameservers point at Cloudflare — and the custom domains below
+# cannot bind until then either.
+workers_dev = true
+
+# The Worker serves the whole site: static files from the Vite build, and the
+# read API on /api/*. One deployable, same origin by construction, and no
+# dependency on the Pages asset-upload API.
+[assets]
+directory = "../docs"
+# Static files win for every path except /api/*, which must reach the script
+# even though no asset matches it.
+run_worker_first = ["/api/*"]
+# html_handling is left at its default ("auto-trailing-slash"). It 307-redirects
+# /app.html to /app, so the ./app.html links cost one hop — but it also serves
+# index.html at "/", which is the URL that matters most. Setting "none" fixes
+# the .html paths and 404s the site root instead, which is a worse trade.
+# Fragments survive the redirect, so #race=<slug> deep links still work.
+
+# Custom domains rather than routes: Cloudflare creates and manages the DNS
+# record and the certificate itself, so there is nothing to add by hand. A
+# plain route would additionally need a proxied placeholder DNS record for the
+# hostname before it would ever fire.
+#
+# These bind only once veloanalyzer.com is a zone in this Cloudflare account.
+# Until you have added the site and moved its nameservers, comment both blocks
+# out — otherwise `wrangler deploy` fails trying to create a custom domain on a
+# zone it cannot find.
+[[routes]]
+pattern = "www.veloanalyzer.com"
+custom_domain = true
+
+[[routes]]
+pattern = "veloanalyzer.com"
+custom_domain = true
+
+# DATABASE_URL is a secret, set with:
+#   wrangler secret put DATABASE_URL
+# Never put the Neon connection string in this file.
+
+[observability]
+enabled = true

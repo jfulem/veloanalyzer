@@ -1,4 +1,4 @@
-import { Rider, RaceResult } from "../db.js";
+import { Rider, RaceResult } from "../api.js";
 import { flagEmoji, posLabel, tierClass, el, parseResultDate } from "../utils.js";
 
 type SortCol = "date" | "race" | "cat" | "rank" | "time" | "pts";

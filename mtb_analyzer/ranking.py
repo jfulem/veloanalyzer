@@ -715,6 +715,55 @@ def enrich_with_race_results(riders: list, competition_id: str, year: int, uci_c
         rider.result_time = er.get("time", "")
 
 
+def riders_from_uci_competition(competition_id: str, year: int, uci_cat: str) -> list:
+    """
+    Reconstruct a past race's field from its official UCI classification.
+
+    Timing sites take start lists down once an event is over, which otherwise
+    leaves past races with nothing to show. The UCI keeps the final
+    classification, so for a race that has already run the finishers are a
+    better source than the organiser's site — it cannot rot.
+
+    Returns [] when the UCI has no distinct event for this category, rather
+    than falling back to a related one. In particular U23 has no standalone
+    UCI event: _ranking_category() aliases MU23/WU23 to ME/WE for *ranking*
+    lookups, which is correct there, but reusing it here would copy the Elite
+    finishers into the U23 race and invent a field that never started.
+    """
+    if _ranking_category(uci_cat) != uci_cat:
+        console.print(
+            f"[dim]  {uci_cat} has no standalone UCI event — cannot rebuild from results[/dim]"
+        )
+        return []
+
+    event_codes = _get_competition_event_codes(competition_id, year)
+    event_code = event_codes.get(uci_cat)
+    if not event_code:
+        return []
+
+    event_results = _get_uci_event_results(event_code)
+    if not event_results:
+        return []
+
+    riders = []
+    for er in event_results:
+        first = (er.get("first_name") or "").strip()
+        last  = (er.get("last_name") or "").strip()
+        if not (first or last):
+            continue
+        rank_raw = er.get("rank")
+        riders.append(Rider(
+            first_name=first,
+            # The UCI publishes surnames in caps; match the casing the start
+            # list parsers produce via normalize_rider_name().
+            last_name=last.title() if last.isupper() else last,
+            country=normalize_country(er.get("nationality", "")),
+            result_rank=int(rank_raw) if rank_raw and str(rank_raw).isdigit() else None,
+            result_time=er.get("time", ""),
+        ))
+    return riders
+
+
 def supplement_from_uci_competition(
     riders: list, competition_id: str, year: int, uci_cat: str
 ) -> None:
