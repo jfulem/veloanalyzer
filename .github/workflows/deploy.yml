@@ -84,6 +84,20 @@ jobs:
           name: site
           path: docs
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # wrangler-action probes for an existing install with
+      # `npx --no-install wrangler --version`. Without node_modules that probe
+      # fails and the action installs its own pinned wrangler (3.90.0), which
+      # wants @cloudflare/workers-types@4 and collides with the v5 this project
+      # uses. Installing from the lockfile first means the action finds the
+      # exact version we develop and dry-run against.
+      - name: Install Worker dependencies
+        working-directory: worker
+        run: npm ci
+
       - name: Deploy Worker and site
         uses: cloudflare/wrangler-action@v3
         with:
