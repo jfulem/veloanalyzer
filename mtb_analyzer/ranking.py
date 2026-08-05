@@ -655,6 +655,16 @@ def _enrich_results_with_times(results: list, uci_cat: str, catalog: dict) -> No
         res["time"] = time_val
 
 
+def _loose_name(s: str) -> str:
+    """Diacritic-stripped, lowercased, hyphens treated as spaces.
+
+    The two sources disagree about compound given names — a start list writes
+    'Victor Alexandru' where the UCI writes 'Victor-Alexandru' — and about
+    accents. Normalising both to the same shape is what lets them meet.
+    """
+    return " ".join(_strip_diacritics(s).replace("-", " ").lower().split())
+
+
 def _build_event_name_map(event_results: list) -> dict:
     """Map lowercase 'first last' / 'last first' / UCI-caps name variants to
     their event result dict, for matching start-list riders against a UCI
@@ -693,8 +703,8 @@ def _build_event_name_map(event_results: list) -> dict:
             loose.setdefault(key, er)
 
     for er in event_results:
-        fn = _strip_diacritics(er.get("first_name", "").strip()).lower()
-        ln = _strip_diacritics(er.get("last_name", "").strip()).lower()
+        fn = _loose_name(er.get("first_name", ""))
+        ln = _loose_name(er.get("last_name", ""))
         _add(f"{fn} {ln}", er)
         _add(f"{ln} {fn}", er)
         # Start lists sometimes carry a middle name the UCI omits ("Boldizsár
@@ -725,10 +735,11 @@ def _match_rider_in_event_map(rider, name_map: dict) -> "dict | None":
         if er:
             return er
     # Fall back to the looser forms only after every exact spelling has been
-    # tried: accent-insensitive first, then dropping any middle name. Both
-    # sides get truncated because either source may be the one carrying it.
-    s_fn = _strip_diacritics(fn).lower()
-    s_ln = _strip_diacritics(ln).lower()
+    # tried: accent- and hyphen-insensitive first, then dropping any middle
+    # name. Both sides get truncated because either source may be the one
+    # carrying it.
+    s_fn = _loose_name(fn)
+    s_ln = _loose_name(ln)
     first = s_fn.split()[0] if s_fn.split() else ""
     for key in (
         f"{s_fn} {s_ln}",
