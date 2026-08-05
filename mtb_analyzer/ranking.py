@@ -543,6 +543,10 @@ _CLASS_QUOTA = {
     "2":  5,   # class 2
     "3":  5,   # class 3
 }
+# Count without limit. The UCI uses French abbreviations here: CM =
+# Championnat du Monde (World Championships), CDM = Coupe du Monde (World Cup),
+# CC = Continental Championships, CN = National Championships.
+_UNCAPPED_CLASSES = frozenset({"CM", "CDM", "CC", "CN"})
 # Stage races share a single quota "regardless the class".
 _STAGE_CLASSES = frozenset({"SHC", "S1", "S2"})
 _STAGE_QUOTA = 3
@@ -560,12 +564,17 @@ def _is_junior_series(race_name: str) -> bool:
 def _points_bucket(uci_cat: str, race_class: str, race_name: str) -> "str | None":
     """Which quota bucket a result falls into, or None when it is uncapped."""
     cls = (race_class or "").upper()
+    # Checked before the junior split: World Cups and championships are
+    # uncapped for juniors too, and putting the junior branch first would have
+    # swept a junior's World Cup results into their best-4 quota.
+    if cls in _UNCAPPED_CLASSES:
+        return None
     if cls in _STAGE_CLASSES:
         return "STAGE"
     if _ranking_category(uci_cat) in ("MJ", "WJ"):
-        # Junior ranking has two capped buckets and no per-class split.
-        if not cls or cls == "CN":
-            return None                      # championships count unlimited
+        # Junior ranking has two capped buckets and no per-class split. An
+        # unclassified event still belongs in one of them — several Junior
+        # Series rounds carry no class code at all.
         return "JS" if _is_junior_series(race_name) else "J"
     return cls if cls in _CLASS_QUOTA else None
 

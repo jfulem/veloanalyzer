@@ -38,6 +38,9 @@ function sortResults(results: RaceResult[], col: SortCol, dir: SortDir): RaceRes
 // Mirrors _CLASS_QUOTA / _points_bucket in mtb_analyzer/ranking.py — the two
 // must agree or the card contradicts the ingest.
 const CLASS_QUOTA: Record<string, number> = { HC: 5, CS: 5, "1": 5, "2": 5, "3": 5 };
+// The UCI uses French abbreviations: CM = World Championships, CDM = World Cup,
+// CC = Continental Championships, CN = National Championships. All uncapped.
+const UNCAPPED_CLASSES = new Set(["CM", "CDM", "CC", "CN"]);
 const STAGE_CLASSES = new Set(["SHC", "S1", "S2"]);
 const STAGE_QUOTA = 3;
 const JUNIOR_SERIES_QUOTA = 4;
@@ -50,11 +53,14 @@ const isJuniorSeries = (name: string) => (name || "").toLowerCase().includes("ju
  *  Championships and National Championships. */
 function pointsBucket(cat: string, raceClass: string, raceName: string): string | null {
   const cls = (raceClass || "").toUpperCase();
+  // Before the junior split: World Cups and championships are uncapped for
+  // juniors too, and checking the junior branch first would sweep a junior's
+  // World Cup results into their best-4 quota.
+  if (UNCAPPED_CLASSES.has(cls)) return null;
   if (STAGE_CLASSES.has(cls)) return "STAGE";
-  if (cat === "MJ" || cat === "WJ") {
-    if (!cls || cls === "CN") return null;
-    return isJuniorSeries(raceName) ? "JS" : "J";
-  }
+  // An unclassified event still belongs in a junior bucket — several Junior
+  // Series rounds carry no class code at all.
+  if (cat === "MJ" || cat === "WJ") return isJuniorSeries(raceName) ? "JS" : "J";
   return cls in CLASS_QUOTA ? cls : null;
 }
 
