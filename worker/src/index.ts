@@ -195,7 +195,14 @@ export default {
     const url = new URL(request.url);
     try {
       const resp = await route(url, neon(env.DATABASE_URL));
-      return resp ?? notFound(`No route for ${url.pathname}`);
+      if (resp) return resp;
+      // Static files are served by the assets binding before the script runs,
+      // so anything reaching here is genuinely missing. Only /api/* is routed
+      // to the script deliberately (run_worker_first in wrangler.toml); a
+      // non-API path here means a mistyped URL, which deserves plain text
+      // rather than a JSON error body.
+      if (url.pathname.startsWith("/api/")) return notFound(`No route for ${url.pathname}`);
+      return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain" } });
     } catch (err) {
       // Surface the message but never the connection string.
       const message = err instanceof Error ? err.message : String(err);

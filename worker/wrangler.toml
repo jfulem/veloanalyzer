@@ -1,19 +1,34 @@
-name = "veloanalyzer-api"
+name = "veloanalyzer"
 main = "src/index.ts"
 compatibility_date = "2026-01-01"
 # Required by @neondatabase/serverless.
 compatibility_flags = ["nodejs_compat"]
 
-# Served from the same origin as the Pages site, so the frontend makes
-# relative /api/... requests and no CORS preflight is involved. Worker routes
-# take precedence over Pages for matching paths on the same zone.
+# The Worker serves the whole site: static files from the Vite build, and the
+# read API on /api/*. One deployable, same origin by construction, and no
+# dependency on the Pages asset-upload API.
+[assets]
+directory = "../docs"
+# Static files win for every path except /api/*, which must reach the script
+# even though no asset matches it.
+run_worker_first = ["/api/*"]
+# html_handling is left at its default ("auto-trailing-slash"). It 307-redirects
+# /app.html to /app, so the ./app.html links cost one hop — but it also serves
+# index.html at "/", which is the URL that matters most. Setting "none" fixes
+# the .html paths and 404s the site root instead, which is a worse trade.
+# Fragments survive the redirect, so #race=<slug> deep links still work.
+
+# Custom domains rather than routes: Cloudflare creates and manages the DNS
+# record and the certificate itself, so there is nothing to add by hand. A
+# plain route would additionally need a proxied placeholder DNS record for the
+# hostname before it would ever fire.
 [[routes]]
-pattern = "www.veloanalyzer.com/api/*"
-zone_name = "veloanalyzer.com"
+pattern = "www.veloanalyzer.com"
+custom_domain = true
 
 [[routes]]
-pattern = "veloanalyzer.com/api/*"
-zone_name = "veloanalyzer.com"
+pattern = "veloanalyzer.com"
+custom_domain = true
 
 # DATABASE_URL is a secret, set with:
 #   wrangler secret put DATABASE_URL

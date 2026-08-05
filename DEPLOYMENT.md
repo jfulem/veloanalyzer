@@ -1,18 +1,21 @@
 # Deployment runbook
 
 ```
-www.veloanalyzer.com        →  Cloudflare Pages    (static frontend)
-www.veloanalyzer.com/api/*  →  Cloudflare Worker   (read API)
-                            →  Neon Postgres       (free tier)
-GitHub Actions cron         →  daily scrape into Neon
+www.veloanalyzer.com   →  Cloudflare Worker  (static site + read API on /api/*)
+                       →  Neon Postgres      (free tier)
+GitHub Actions cron    →  daily scrape into Neon
 ```
 
-**$0/month beyond the domain.** Cloudflare Pages, Workers (100k requests/day),
-Neon's free tier and Actions minutes for public repos are all free at this
-scale.
+**$0/month beyond the domain.** Workers (100k requests/day), Neon's free tier
+and Actions minutes for public repos are all free at this scale.
 
-The API is served from `/api/*` on the same domain as the site, so the frontend
-makes relative requests and there is no CORS preflight anywhere in production.
+One Worker serves everything: the Vite build as static assets, and the API on
+`/api/*`. That means one deployable, one deploy command, and same-origin
+requests with no CORS preflight anywhere in production.
+
+Cloudflare Pages is deliberately **not** used. Its asset-upload API failed
+persistently from both the CLI and the dashboard, and Workers static assets
+deploy through a different API path with fewer moving parts.
 
 ## Why the scrape runs in Actions
 
@@ -54,62 +57,44 @@ Either endpoint works. The pooled one (`-pooler` in the hostname) is verified
 against both psycopg 3 (used by the ingest) and `@neondatabase/serverless`
 (used by the Worker).
 
-## 3. Worker
+## 3. Build and deploy
 
 ```bash
-cd worker
-npm ci
-npx wrangler deploy
-npx wrangler secret put DATABASE_URL     # paste the Neon connection string
+cd frontend && npm ci && npm run build && cd ..    # writes docs/
+cd worker   && npm ci
+npx wrangler deploy                                 # uploads docs/ + the API
+npx wrangler secret put DATABASE_URL                # paste the Neon string
 ```
 
-`wrangler.toml` declares routes on `veloanalyzer.com/api/*` and
-`www.veloanalyzer.com/api/*`. Those only bind once the domain is on Cloudflare
-DNS (step 5) — deploying earlier is fine, the routes attach when the zone
-appears.
+`wrangler.toml` points `[assets] directory` at `../docs`, so the site and the
+API ship together. Deploy again after any frontend change.
 
 **Quote the connection string** if you ever pass it inline. It contains `?` and
 `&`; unquoted in zsh the `&` backgrounds the command mid-string and the `?`
 fails to glob (`zsh: no matches found`). `wrangler secret put` prompts for it
 instead, which sidesteps this.
 
-## 4. Pages project
+Verify on the workers.dev URL before any DNS exists — `wrangler deploy` prints it:
 
 ```bash
-cd frontend && npm ci && npm run build && cd ..
-wrangler pages project create veloanalyzer --production-branch=main
-wrangler pages deploy docs --project-name=veloanalyzer
+curl -s https://veloanalyzer.<your-subdomain>.workers.dev/api/stats
 ```
 
-Note the `*.pages.dev` hostname it prints — needed for DNS.
+## 4. DNS
 
-## 5. DNS
-
-**Move the domain's nameservers to Cloudflare first.** Dashboard → *Add a site*
-→ `veloanalyzer.com` → Free plan. It shows two nameservers; set those at your
+**Move the domain's nameservers to Cloudflare.** Dashboard → *Add a site* →
+`veloanalyzer.com` → Free plan. It shows two nameservers; set those at your
 registrar. Propagation is usually under an hour.
 
-This is required, not optional: only Cloudflare's DNS can point the **apex** at
-Pages (a bare domain cannot hold a CNAME; Cloudflare fakes it with CNAME
-flattening), and Worker routes only work on a zone Cloudflare controls.
+Then re-run `npx wrangler deploy`. `wrangler.toml` declares
+`www.veloanalyzer.com` and `veloanalyzer.com` as **custom domains**, so
+Cloudflare creates the DNS records and issues the certificates itself — there
+is nothing to add by hand.
 
-| Type | Name | Value | Proxy |
-|---|---|---|---|
-| `CNAME` | `www` | `veloanalyzer.pages.dev` | Proxied (orange cloud) |
-| `CNAME` | `@` | `veloanalyzer.pages.dev` | Proxied (orange cloud) |
+(A plain Worker *route* would additionally need a proxied placeholder DNS
+record for the hostname before it would fire. Custom domains avoid that.)
 
-Both **must** be proxied — Worker routes only fire on proxied traffic. There is
-no `api` record and no Fly IP to point at; the Worker attaches to a path on the
-existing hostname.
-
-Then Cloudflare dashboard → **Workers & Pages** → `veloanalyzer` → **Custom
-domains** → add `www.veloanalyzer.com` and `veloanalyzer.com`. Certificates are
-automatic.
-
-Optionally redirect apex → www (**Rules** → *Redirect Rules*): hostname equals
-`veloanalyzer.com` → 301 to `https://www.veloanalyzer.com${uri.path}`.
-
-## 6. GitHub secrets
+## 5. GitHub secrets
 
 Repo → **Settings** → **Secrets and variables** → **Actions**:
 
@@ -125,7 +110,7 @@ Then remove the old GitHub Pages workflow, which would fight the new one:
 git rm .github/workflows/generate-reports.yml
 ```
 
-## 7. First ingest
+## 6. First ingest
 
 The schema is already migrated and populated. To re-run on demand:
 **Actions** → **Ingest** → *Run workflow*. It prints row counts when it
@@ -134,7 +119,7 @@ finishes.
 A cold cache takes ~10 minutes; warm runs are about a minute. The job has a
 45-minute timeout so a slow UCI day doesn't fail it.
 
-## 8. Verify
+## 7. Verify
 
 ```bash
 curl -s https://www.veloanalyzer.com/api/stats     # {"races":50,"riders":553,"entries":1080}
@@ -148,28 +133,30 @@ Then in a browser: load a race, open a rider card, select two riders for a
 head-to-head, and confirm the network tab shows no `data.db` or `.wasm`
 request. The `smoke` job in `deploy.yml` runs the first two after every deploy.
 
-## 9. Local development
+## 8. Local development
 
 ```bash
-cd worker  && npx wrangler dev          # API on :8787, reads worker/.dev.vars
+# Whole site + API exactly as production serves it
+cd worker && npx wrangler dev           # http://localhost:8787
+
+# Or, for frontend hot-reload:
 cd frontend && npm run dev              # Vite on :5173, proxies /api → :8787
 ```
 
-`worker/.dev.vars` holds `DATABASE_URL` locally and is gitignored. The Vite
-proxy mirrors production, so dev is same-origin too.
+`worker/.dev.vars` holds `DATABASE_URL` locally and is gitignored. `wrangler
+dev` serves `docs/`, so run the frontend build first to see changes there.
 
-## 10. Rollback
+## 9. Rollback
 
 ```bash
-cd worker && npx wrangler rollback              # previous Worker version
-wrangler pages deployment list --project-name=veloanalyzer
-# or roll back from the Pages dashboard → Deployments
+cd worker && npx wrangler rollback     # previous version, site and API together
+npx wrangler deployments list
 ```
 
-Frontend and API roll back independently. Roll the **frontend** back first if a
-deploy breaks the site — it restores service without touching data.
+Site and API are one deployable now, so a rollback restores both at once. It
+never touches data — Neon is unaffected.
 
-## 11. Ongoing
+## 10. Ongoing
 
 - **Ingest** runs daily at 12:00 UTC via `.github/workflows/ingest.yml`.
 - **Watch for** `! <race>: scraped 0 riders but N entries are already stored` in
@@ -177,7 +164,8 @@ deploy breaks the site — it restores service without touching data.
   failure that silently emptied eight races before it was caught.
 - **Neon free tier** gives 100 CU-hours/month; exceeding it suspends compute
   until the next billing month.
-- **Workers free tier** is 100k requests/day. Responses carry
-  `Cache-Control: max-age=60`, so Cloudflare's edge absorbs repeat traffic.
+- **Workers free tier** is 100k requests/day. API responses carry
+  `Cache-Control: max-age=60` and static assets are edge-cached, so repeat
+  traffic mostly never reaches the script.
 - **Rebuild from scratch**: `alembic upgrade head`, then run the Ingest
   workflow.

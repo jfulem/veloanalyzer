@@ -1,7 +1,7 @@
 name: Deploy
 
-# Frontend to Cloudflare Pages, read API to a Cloudflare Worker. The daily
-# scrape lives in ingest.yml, not here.
+# One deployable: the Worker serves the built site as static assets and the
+# read API on /api/*. The daily scrape lives in ingest.yml, not here.
 
 on:
   push:
@@ -56,6 +56,12 @@ jobs:
           npm ci
           npm run build
 
+      # Validates wrangler.toml and that the assets directory exists and is
+      # readable, without touching production.
+      - name: Validate Worker deploy
+        working-directory: worker
+        run: npx wrangler deploy --dry-run
+
       - name: Upload built site
         uses: actions/upload-artifact@v4
         with:
@@ -63,17 +69,22 @@ jobs:
           path: docs/
           if-no-files-found: error
 
-  deploy-api:
+  deploy:
     needs: check
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # Deployed before the frontend: the bundle calls endpoints that must
-      # already exist, so the reverse order would leave a window where the
-      # live site requests routes the deployed API does not serve.
-      - name: Deploy Worker
+      # wrangler uploads docs/ as the Worker's static assets, so the built site
+      # has to be back on disk before deploying.
+      - name: Download built site
+        uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: docs
+
+      - name: Deploy Worker and site
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -81,34 +92,17 @@ jobs:
           workingDirectory: worker
           command: deploy
 
-  deploy-frontend:
-    needs: [check, deploy-api]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download built site
-        uses: actions/download-artifact@v4
-        with:
-          name: site
-          path: docs
-
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy docs --project-name=veloanalyzer --branch=main
-
   smoke:
-    needs: [deploy-api, deploy-frontend]
+    needs: deploy
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - name: Verify the deployment serves data
+      - name: Verify the deployment serves both site and data
         run: |
           set -euo pipefail
           n=$(curl -fsS https://www.veloanalyzer.com/api/races | jq 'length')
           echo "races returned: $n"
           test "$n" -gt 0
           curl -fsS -o /dev/null https://www.veloanalyzer.com/
-          echo "frontend OK"
+          curl -fsSL -o /dev/null https://www.veloanalyzer.com/app.html
+          echo "site OK"
