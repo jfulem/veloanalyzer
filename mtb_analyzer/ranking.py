@@ -82,9 +82,26 @@ _DATE_RE = re.compile(r'\d{2}(?:\s*-\s*\d{2})?\s+\w{3}\s+\d{4}')
 _DISC_RE = re.compile(r'\b(XCO|XCC|XCR|XCM)\b', re.IGNORECASE)
 
 
+# Letters NFD cannot decompose, because they are distinct letters rather than a
+# base plus a combining mark. Without folding these by hand "Wojtyła" never
+# meets "WOJTYLA" — the ł survives every normalisation and the names never match.
+_LETTER_FOLD = str.maketrans({
+    "ł": "l",  "Ł": "L",
+    "ø": "o",  "Ø": "O",
+    "đ": "d",  "Đ": "D",
+    "ð": "d",  "Ð": "D",
+    "æ": "ae", "Æ": "Ae",
+    "œ": "oe", "Œ": "Oe",
+    "þ": "th", "Þ": "Th",
+    "ß": "ss",
+    "ı": "i",  "İ": "I",
+})
+
+
 def _strip_diacritics(s: str) -> str:
-    return "".join(c for c in unicodedata.normalize("NFD", s)
-                   if unicodedata.category(c) != "Mn")
+    """Fold accents, special letters and case into a comparable ASCII form."""
+    return "".join(c for c in unicodedata.normalize("NFD", s.translate(_LETTER_FOLD))
+                   if unicodedata.category(c) != "Mn").lower()
 
 
 def infer_rider_slug(first_name: str, last_name: str) -> str:
@@ -1321,11 +1338,6 @@ def get_uci_cache(uci_cat: str, force_refresh: bool = False) -> dict:
         console.print(f"[dim]Using cached UCI ranking ({uci_cat})[/dim]")
         return load_cache(uci_cat)
     return build_uci_cache(uci_cat)
-
-
-def _strip_diacritics(s: str) -> str:
-    return "".join(c for c in unicodedata.normalize("NFD", s)
-                   if unicodedata.category(c) != "Mn").lower()
 
 
 def find_xcodata_slug(rider: Rider) -> str:
