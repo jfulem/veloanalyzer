@@ -658,7 +658,16 @@ def _enrich_results_with_times(results: list, uci_cat: str, catalog: dict) -> No
 def _build_event_name_map(event_results: list) -> dict:
     """Map lowercase 'first last' / 'last first' / UCI-caps name variants to
     their event result dict, for matching start-list riders against a UCI
-    event's official results."""
+    event's official results.
+
+    Diacritic-stripped variants are included as a fallback because timing sites
+    routinely publish plain ASCII ("Vit Lisy") where the UCI publishes the
+    accented form ("Vít LISÝ"). Without them the winner of a race can simply
+    fail to match and end up with no result at all.
+
+    The UCI results API returns no rider ID — only name, rank, time, age and
+    nationality — so name matching is the only option here.
+    """
     name_map: dict = {}
     for er in event_results:
         fn = er.get("first_name", "").strip()
@@ -669,6 +678,27 @@ def _build_event_name_map(event_results: list) -> dict:
             f"{fn.upper()} {ln.upper()}",   # UCI all-caps variant
         ):
             name_map[key] = er
+
+    # Stripped keys are added in a second pass, and only when unambiguous:
+    # if two riders in the same event collapse to the same ASCII name, matching
+    # either of them would be a coin flip, so neither is added.
+    stripped: dict = {}
+    for er in event_results:
+        fn = er.get("first_name", "").strip()
+        ln = er.get("last_name", "").strip()
+        for key in (
+            _strip_diacritics(f"{fn} {ln}").lower(),
+            _strip_diacritics(f"{ln} {fn}").lower(),
+        ):
+            if key in stripped and stripped[key] is not er:
+                stripped[key] = None      # ambiguous — drop it
+            else:
+                stripped.setdefault(key, er)
+    for key, er in stripped.items():
+        # Never let a stripped key shadow an exact one.
+        if er is not None:
+            name_map.setdefault(key, er)
+
     return name_map
 
 
@@ -680,6 +710,15 @@ def _match_rider_in_event_map(rider, name_map: dict) -> "dict | None":
         f"{ln} {fn}".lower(),
         f"{fn.upper()} {ln.upper()}",
         f"{fn.lower()} {ln.upper()}",
+    ):
+        er = name_map.get(key)
+        if er:
+            return er
+    # Fall back to the accent-insensitive form only after every exact spelling
+    # has been tried.
+    for key in (
+        _strip_diacritics(f"{fn} {ln}").lower(),
+        _strip_diacritics(f"{ln} {fn}").lower(),
     ):
         er = name_map.get(key)
         if er:
