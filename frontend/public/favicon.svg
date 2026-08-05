@@ -1,22 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Chainring + VA monogram. Colours come from the site palette in
-       src/style.css. The letters are strokes rather than filled outlines so
-       they stay chunky and evenly weighted when the icon is scaled down to
-       16x16, where thin glyph stems disappear. -->
-  <rect width="64" height="64" rx="14" fill="#2d3748"/>
+<svg xmlns="http://w3.org" viewBox="0 0 512 512" width="100%" height="100%">
+  <circle cx="256" cy="256" r="240" fill="#090d16" stroke="#4169E1" stroke-width="6"/>
+  <circle cx="256" cy="256" r="226" fill="none" stroke="#1e293b" stroke-width="4"/>
+  
+  <g fill="#ffffff">
 
-  <!-- Chainring: ring + 12 teeth. Real chainrings have ~34 teeth; a dozen
-       chunky ones still read as a chainring and survive downscaling. -->
-  <g fill="#90cdf4">
-    <path d="M 29.63 13.15 L 29.99 6.28 L 34.01 6.28 L 34.37 13.15 Z M 39.37 14.49 L 43.12 8.72 L 46.60 10.73 L 43.48 16.86 Z M 47.14 20.52 L 53.27 17.40 L 55.28 20.88 L 49.51 24.63 Z M 50.85 29.63 L 57.72 29.99 L 57.72 34.01 L 50.85 34.37 Z M 49.51 39.37 L 55.28 43.12 L 53.27 46.60 L 47.14 43.48 Z M 43.48 47.14 L 46.60 53.27 L 43.12 55.28 L 39.37 49.51 Z M 34.37 50.85 L 34.01 57.72 L 29.99 57.72 L 29.63 50.85 Z M 24.63 49.51 L 20.88 55.28 L 17.40 53.27 L 20.52 47.14 Z M 16.86 43.48 L 10.73 46.60 L 8.72 43.12 L 14.49 39.37 Z M 13.15 34.37 L 6.28 34.01 L 6.28 29.99 L 13.15 29.63 Z M 14.49 24.63 L 8.72 20.88 L 10.73 17.40 L 16.86 20.52 Z M 20.52 16.86 L 17.40 10.73 L 20.88 8.72 L 24.63 14.49 Z"/>
+    <path d="M 110,160 L 165,160 L 225,360 L 170,360 Z" />
+    <path d="M 280,190 L 225,360 L 170,360 L 225,190 Z" />
+    
+    <path d="M 285,140 L 345,140 L 415,360 L 355,360 Z" />
+    <path d="M 285,140 L 225,320 L 280,320 L 340,140 Z" />
   </g>
-  <circle cx="32.0" cy="32.0" r="18" fill="none" stroke="#90cdf4" stroke-width="4"/>
 
-  <!-- VA -->
-  <g fill="none" stroke="#edf2f7" stroke-width="4"
-     stroke-linecap="round" stroke-linejoin="round">
-    <path d="M18.5 25 L24.5 39 L30.5 25"/>
-    <path d="M33.5 39 L39.5 25 L45.5 39"/>
-    <path d="M36.2 34 L42.8 34"/>
-  </g>
 </svg>
