@@ -18,10 +18,20 @@ run_worker_first = ["/api/*"]
 # the .html paths and 404s the site root instead, which is a worse trade.
 # Fragments survive the redirect, so #race=<slug> deep links still work.
 
+# Keep the <worker>.<subdomain>.workers.dev URL alive. Declaring routes turns
+# this off by default, which would leave no way to test a deploy before the
+# domain's nameservers point at Cloudflare.
+workers_dev = true
+
 # Custom domains rather than routes: Cloudflare creates and manages the DNS
 # record and the certificate itself, so there is nothing to add by hand. A
 # plain route would additionally need a proxied placeholder DNS record for the
 # hostname before it would ever fire.
+#
+# These bind only once veloanalyzer.com is a zone in this Cloudflare account.
+# Until you have added the site and moved its nameservers, comment both blocks
+# out — otherwise `wrangler deploy` fails trying to create a custom domain on a
+# zone it cannot find.
 [[routes]]
 pattern = "www.veloanalyzer.com"
 custom_domain = true
