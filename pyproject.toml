@@ -4,11 +4,11 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
+# Python is the scraper and ingest only — the read API is a Cloudflare Worker,
+# so fastapi/uvicorn/apscheduler are gone.
 dependencies = [
     "alembic>=1.16.5",
-    "apscheduler>=3.11.0",
     "beautifulsoup4>=4.14.3",
-    "fastapi>=0.121.0",
     "psycopg[binary]>=3.2.10",
     "python-levenshtein>=0.27.3",
     "pyyaml>=6.0.3",
@@ -16,7 +16,6 @@ dependencies = [
     "rich>=14.3.3",
     "sqlalchemy>=2.0.44",
     "thefuzz>=0.22.1",
-    "uvicorn[standard]>=0.38.0",
 ]
 
 # This project is an application, not a library: `uv sync` should install the
@@ -25,6 +24,4 @@ dependencies = [
 package = false
 
 [dependency-groups]
-dev = [
-    "httpx>=0.28.1",
-]
+dev = []

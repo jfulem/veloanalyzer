@@ -2,6 +2,17 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   base: "./",  // relative paths so the site works under any subdirectory (e.g. GitHub Pages /veloanalyzer/)
+  // In production the Worker is routed on /api/* of the same domain, so the
+  // frontend uses relative URLs. Mirror that locally by proxying to a
+  // `wrangler dev` running in ../worker, which keeps dev same-origin too.
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:8787",
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     outDir: "../docs",
     emptyOutDir: false,  // preserve data.db written by Python

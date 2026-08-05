@@ -1,7 +1,8 @@
 // Shared by the landing page and the race overview, both of which were
 // previously rendered ahead of time by scripts/generate_site.py.
 
-const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "http://localhost:8000").replace(/\/$/, "");
+// See the note in api.ts — same-origin by default.
+const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
 
 export interface RaceStat {
   id: number;

@@ -213,3 +213,4 @@ __marimo__/
 
 # Frontend
 frontend/node_modules/
+.dev.vars

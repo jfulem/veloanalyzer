@@ -1,0 +1,23 @@
+name = "veloanalyzer-api"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+# Required by @neondatabase/serverless.
+compatibility_flags = ["nodejs_compat"]
+
+# Served from the same origin as the Pages site, so the frontend makes
+# relative /api/... requests and no CORS preflight is involved. Worker routes
+# take precedence over Pages for matching paths on the same zone.
+[[routes]]
+pattern = "www.veloanalyzer.com/api/*"
+zone_name = "veloanalyzer.com"
+
+[[routes]]
+pattern = "veloanalyzer.com/api/*"
+zone_name = "veloanalyzer.com"
+
+# DATABASE_URL is a secret, set with:
+#   wrangler secret put DATABASE_URL
+# Never put the Neon connection string in this file.
+
+[observability]
+enabled = true

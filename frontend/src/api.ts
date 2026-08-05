@@ -4,7 +4,11 @@
 // the functions are simply async now, and keyed by race slug rather than by a
 // row id that only meant something inside the baked file.
 
-const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "http://localhost:8000").replace(/\/$/, "");
+// Empty by default: the Worker is routed on /api/* of the same domain that
+// serves this page, so requests are relative and no CORS preflight happens.
+// `vite dev` proxies /api to a local `wrangler dev` (see vite.config.ts).
+// Override only to point a preview build at a different API.
+const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
 
 async function getJson<T>(path: string): Promise<T> {
   const resp = await fetch(`${API_BASE}${path}`);
