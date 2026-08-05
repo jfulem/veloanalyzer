@@ -106,6 +106,30 @@ def _resolve_rider(conn: Connection, rider) -> int:
         if len(candidates) == 1:
             row = candidates[0]
 
+    if row is None:
+        # One source carries a middle name the other omits — 'Milán Zsolt
+        # Podgornik' on one start list, 'Milán Podgornik' on the next. Without
+        # this the same rider forks into two identities, and each start list
+        # shows whichever half it happened to create: one ranked, one not.
+        #
+        # Matched on first given name + surname + birth year, and only when
+        # exactly one candidate qualifies, so two genuinely different riders
+        # who share those never get merged.
+        norm_last = _strip_diacritics(last_name or "").strip().lower()
+        first_token = norm.split()[0] if norm.split() else ""
+        if norm_last and first_token:
+            candidates = [
+                r for r in conn.execute(
+                    select(riders.c.id, riders.c.normalized_name).where(
+                        riders.c.birth_year == birth_year,
+                        riders.c.normalized_name.like(f"% {norm_last}"),
+                    )
+                ).fetchall()
+                if r[1].split() and r[1].split()[0] == first_token
+            ]
+            if len(candidates) == 1:
+                row = candidates[0]
+
     if row is not None:
         rider_id = row[0]
         # Only ever fill blanks; never overwrite a known value with an empty
