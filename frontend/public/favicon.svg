@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Colours are taken from the site palette in src/style.css: the card
+       background, the accent blue used for links and headings, and the green
+       that marks a TOP 50 rider. Three shapes only, so it stays legible at
+       16x16 where anything finer turns to mush. -->
+  <rect width="64" height="64" rx="14" fill="#2d3748"/>
+  <path d="M5 47 L24 17 L34 32 L44 22 L59 47 Z" fill="#90cdf4"/>
+  <circle cx="24" cy="17" r="5.5" fill="#68d391"/>
+</svg>
