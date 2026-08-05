@@ -1182,8 +1182,17 @@ def enrich_times_from_race_pages(riders: list) -> None:
 
 
 def _parse_dataride_name(display_name: str) -> str:
-    """Convert 'LASTNAME Firstname' (dataride.uci.ch format) to 'Firstname Lastname' title case."""
-    parts = display_name.split()
+    """Convert 'LASTNAME Firstname' (dataride.uci.ch format) to 'Firstname Lastname' title case.
+
+    Tokens with no letters are dropped first. The Elite rankings prefix
+    U23-eligible riders with '*', and left in place that marker does double
+    damage: it stays in the name, and it satisfies the "first non-uppercase
+    token" test at index 0, so the function bails out and returns the name
+    still in LASTNAME-first order. Nearly half the Elite field is marked this
+    way, so those riders matched nothing and showed as unranked with zero
+    points.
+    """
+    parts = [p for p in display_name.split() if any(c.isalpha() for c in p)]
     i = next(
         (j for j, p in enumerate(parts) if p != p.upper() or not any(c.isalpha() for c in p)),
         len(parts),
