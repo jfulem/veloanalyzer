@@ -305,6 +305,11 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
     if uci_cat in _uci_xco_history_cache:
         return _uci_xco_history_cache[uci_cat]
 
+    # Deliberate deviation: the UCI computes the junior ranking over a calendar
+    # year, not a rolling window. We use the rolling window for every category,
+    # so junior point totals here are an estimate of form over the last 12
+    # months rather than a reproduction of the official junior standings —
+    # which is the more useful number for comparing start lists mid-season.
     cutoff = datetime.now() - timedelta(days=months_back * 30)
     now    = datetime.now()
     by_name: dict = {}
@@ -410,6 +415,10 @@ def compute_points_from_history(race_results: list, uci_cat: str) -> int:
     history, applying the per-class quotas of art. 4.16.008. race_results is
     expected to already be limited to the relevant window, as returned by
     build_uci_xco_history.
+
+    Junior totals are computed over the same rolling 12 months as everyone
+    else, where the UCI uses a calendar year — see build_uci_xco_history. They
+    are therefore a form estimate, not the official junior standing.
     """
     uci_cat = _ranking_category(uci_cat)
     counting = counting_result_ids(race_results, uci_cat)
