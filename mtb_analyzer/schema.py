@@ -87,6 +87,10 @@ rider_results = Table(
     Column("time", Text, nullable=False, server_default=""),
     Column("cat", Text, nullable=False, server_default=""),
     Column("uci_pts", Integer),
+    # UCI competition class ('1', '2', '3', 'HC', 'CS', 'CN', 'S1'...). Drives
+    # the per-class points quotas in art. 4.16.008, so the UI can show which
+    # results actually contribute to a rider's total.
+    Column("race_class", String(8), nullable=False, server_default=""),
     UniqueConstraint("rider_id", "xco_race_id", name="uq_rider_results_rider_race"),
 )
 

@@ -143,7 +143,7 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
       if (!(await raceExists(sql, slug))) return notFound(`No race with slug '${slug}'`);
       return json(await sql`
         SELECT rr.id, rr.rider_id, rr.xco_race_id, rr.race_name,
-               rr.date_raw AS date, rr.location, rr.rank, rr.time, rr.cat, rr.uci_pts
+               rr.date_raw AS date, rr.location, rr.rank, rr.time, rr.cat, rr.uci_pts, rr.race_class
         FROM rider_results rr
         WHERE rr.rider_id IN (
           SELECT e.rider_id FROM race_entries e
@@ -174,7 +174,7 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     if (parts.length === 4 && parts[3] === "results") {
       return json(await sql`
         SELECT id, rider_id, xco_race_id, race_name,
-               date_raw AS date, location, rank, time, cat, uci_pts
+               date_raw AS date, location, rank, time, cat, uci_pts, race_class
         FROM rider_results
         WHERE rider_id = ${riderId}
         ORDER BY date DESC NULLS LAST

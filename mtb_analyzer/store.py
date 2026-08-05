@@ -184,6 +184,7 @@ def _save_results(conn: Connection, rider_id: int, results: list) -> None:
             "time": res.get("time", "") or "",
             "cat": res.get("cat", "") or "",
             "uci_pts": res.get("uci_pts"),
+            "race_class": res.get("race_class", "") or "",
         })
     if not rows:
         return
@@ -192,7 +193,8 @@ def _save_results(conn: Connection, rider_id: int, results: list) -> None:
     conn.execute(stmt.on_conflict_do_update(
         index_elements=[rider_results.c.rider_id, rider_results.c.xco_race_id],
         set_={k: stmt.excluded[k] for k in
-              ("race_name", "date_raw", "date", "location", "rank", "time", "cat", "uci_pts")},
+              ("race_name", "date_raw", "date", "location", "rank", "time", "cat",
+               "uci_pts", "race_class")},
     ))
 
 

@@ -320,10 +320,11 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
             if end_dt is None or end_dt < cutoff or end_dt > now:
                 continue
 
-            event_codes = _get_competition_event_codes(comp_id, year)
-            event_code = event_codes.get(uci_cat)
+            details = _get_competition_details(comp_id, year)
+            event_code = details.get("events", {}).get(uci_cat)
             if not event_code:
                 continue
+            race_class = details.get("class", "")
 
             event_results = _get_uci_event_results(event_code)
             if not event_results:
@@ -350,6 +351,7 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
                     "uci_pts":     int(pts_raw) if str(pts_raw).isdigit() else None,
                     "nationality": er.get("nationality", ""),
                     "cat":         uci_cat,
+                    "race_class":  race_class,
                     "disc":        "XCO",
                 }
                 key = f"{fn} {ln}".lower()
@@ -363,29 +365,58 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
     return by_name
 
 
-# UCI MTB Rules Part IV, art. 4.16.008: for one-day events, only the best N
-# per-race results count toward a rider's rolling ranking total (the rest are
-# shown with a "*" and excluded on UCI's own individual ranking breakdown).
-# XCO junior series / junior events cap at 4; other one-day classes (HC,
-# Continental Series, class 1/2/3) cap at 5. Championships and World Cups
-# aren't subject to this cap (naturally capped at one per rolling year), but
-# we don't track per-race class here, so a single cap is applied uniformly
-# per art. 4.16.008 above.
-_BEST_N_JUNIOR  = 4
-_BEST_N_DEFAULT = 5
+def counting_result_ids(race_results: list, uci_cat: str) -> set:
+    """
+    Which results actually contribute to a rider's ranking total, per art.
+    4.16.008. Quotas apply *per bucket*, not to the field as a whole:
+
+      HC / Continental Series / class 1 / 2 / 3 : best 5 each
+      stage races (SHC, S1, S2)                 : best 3 combined
+      XCO juniors series                        : best 4
+      XCO juniors                               : best 4
+      everything else                           : uncapped
+
+    Uncapped covers World Championships, World Cup rounds and Continental
+    Championships. National Championships are uncapped too — a rider only
+    starts their own, so the "one result" limit is self-enforcing.
+
+    Returns the identity of each counting result as (race_id, uci_pts), which
+    is what callers can match rows on.
+    """
+    buckets: dict = {}
+    uncapped = set()
+    for r in race_results:
+        pts = r.get("uci_pts")
+        if not pts:
+            continue
+        ident = (r.get("race_id", ""), pts)
+        bucket = _points_bucket(uci_cat, r.get("race_class", ""), r.get("race_name", ""))
+        if bucket is None:
+            uncapped.add(ident)
+        else:
+            buckets.setdefault(bucket, []).append((pts, ident))
+
+    counting = set(uncapped)
+    for bucket, entries in buckets.items():
+        entries.sort(key=lambda e: e[0], reverse=True)
+        for _, ident in entries[: _bucket_quota(bucket)]:
+            counting.add(ident)
+    return counting
 
 
 def compute_points_from_history(race_results: list, uci_cat: str) -> int:
     """
     Approximate a rider's current UCI ranking points total from their race
-    history, applying the best-N-results cap (art. 4.16.008). race_results is
-    expected to already be limited to the rolling 12-month window, as
-    returned by build_uci_xco_history.
+    history, applying the per-class quotas of art. 4.16.008. race_results is
+    expected to already be limited to the relevant window, as returned by
+    build_uci_xco_history.
     """
     uci_cat = _ranking_category(uci_cat)
-    n = _BEST_N_JUNIOR if uci_cat in ("MJ", "WJ") else _BEST_N_DEFAULT
-    pts = sorted((r["uci_pts"] for r in race_results if r.get("uci_pts")), reverse=True)
-    return sum(pts[:n])
+    counting = counting_result_ids(race_results, uci_cat)
+    return sum(
+        r["uci_pts"] for r in race_results
+        if r.get("uci_pts") and (r.get("race_id", ""), r["uci_pts"]) in counting
+    )
 
 
 def _lookup_rider_history(history_db: dict, first_name: str, last_name: str) -> list:
@@ -479,12 +510,78 @@ def _get_uci_competition_catalog(year: int) -> dict:
     return catalog
 
 
-def _get_competition_event_codes(competition_id: str, year: int) -> dict:
+def _parse_competition_class(props: dict) -> str:
+    """Pull the class code out of a competition-details payload.
+
+    The UCI writes it as '2 - Class 2', 'CN - National Championships',
+    'CS - Continental Series' — the code is the token before the dash.
     """
-    Returns {uci_cat: event_code} for a competition by parsing its UCI detail page.
-    Cached per competition (file in uci_comps/).
+    blob = json.dumps(props, ensure_ascii=False)
+    m = re.search(r'"(?:competitionClass|raceClass)"\s*:\s*"([^"]+)"', blob)
+    if not m:
+        return ""
+    return m.group(1).split(" - ")[0].strip().upper()
+
+
+# Art. 4.16.008: how many results count, per class. Anything absent from this
+# map counts without limit — World Championships, World Cup rounds and
+# Continental Championships have no cap, and a National Championship is
+# effectively self-limiting since a rider only starts their own.
+_CLASS_QUOTA = {
+    "HC": 5,   # class HC one-day events
+    "CS": 5,   # Continental Series one-day events
+    "1":  5,   # class 1
+    "2":  5,   # class 2
+    "3":  5,   # class 3
+}
+# Stage races share a single quota "regardless the class".
+_STAGE_CLASSES = frozenset({"SHC", "S1", "S2"})
+_STAGE_QUOTA = 3
+# Juniors are ranked on their own two buckets rather than per class.
+_JUNIOR_SERIES_QUOTA = 4
+_JUNIOR_QUOTA = 4
+
+
+def _is_junior_series(race_name: str) -> bool:
+    """The UCI Junior Series is not a class code — it is appended to the
+    competition name ('VTT Chabrières + UCI XCO Junior Series')."""
+    return "junior series" in (race_name or "").lower()
+
+
+def _points_bucket(uci_cat: str, race_class: str, race_name: str) -> "str | None":
+    """Which quota bucket a result falls into, or None when it is uncapped."""
+    cls = (race_class or "").upper()
+    if cls in _STAGE_CLASSES:
+        return "STAGE"
+    if _ranking_category(uci_cat) in ("MJ", "WJ"):
+        # Junior ranking has two capped buckets and no per-class split.
+        if not cls or cls == "CN":
+            return None                      # championships count unlimited
+        return "JS" if _is_junior_series(race_name) else "J"
+    return cls if cls in _CLASS_QUOTA else None
+
+
+def _bucket_quota(bucket: str) -> int:
+    if bucket == "STAGE":
+        return _STAGE_QUOTA
+    if bucket == "JS":
+        return _JUNIOR_SERIES_QUOTA
+    if bucket == "J":
+        return _JUNIOR_QUOTA
+    return _CLASS_QUOTA.get(bucket, 0)
+
+
+def _get_competition_details(competition_id: str, year: int) -> dict:
     """
-    path = os.path.join(_uci_comp_dir(), f"{competition_id}.json")
+    Returns {"events": {uci_cat: event_code}, "class": "<code>"} for a
+    competition by parsing its UCI detail page. Cached per competition.
+
+    The class drives the points quotas in art. 4.16.008, and it comes off the
+    very same page as the event codes, so capturing it costs no extra request.
+    The cache file is suffixed v2 because the old format stored only the event
+    code mapping; a stale v1 file would silently yield no class.
+    """
+    path = os.path.join(_uci_comp_dir(), f"{competition_id}.v2.json")
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             return json.load(f)
@@ -501,6 +598,8 @@ def _get_competition_event_codes(competition_id: str, year: int) -> dict:
         if not el:
             return {}
         props = json.loads(el["data-props"])
+        comp_class = _parse_competition_class(props)
+        comp_name = props.get("competitionName", "")
         label_to_cat = {v.lower(): k for k, v in _UCI_CATEGORY_LABELS.items()}
         # Sort longest first so "women elite" is tried before "men elite" (substring of it)
         sorted_labels = sorted(label_to_cat, key=len, reverse=True)
@@ -527,17 +626,23 @@ def _get_competition_event_codes(competition_id: str, year: int) -> dict:
                         plain_codes.setdefault(cat, code)
                     break
         event_codes = {**plain_codes, **xco_codes}
+        details = {"events": event_codes, "class": comp_class, "name": comp_name}
         # Don't cache an empty result: it usually just means the UCI hasn't
         # published category entries for this competition yet (checked too
         # early), and this cache has no TTL — caching {} would make it stick
         # forever even once results appear.
         if event_codes:
             with open(path, "w", encoding="utf-8") as f:
-                json.dump(event_codes, f, ensure_ascii=False)
+                json.dump(details, f, ensure_ascii=False)
         time.sleep(0.3)
-        return event_codes
+        return details
     except Exception:
         return {}
+
+
+def _get_competition_event_codes(competition_id: str, year: int) -> dict:
+    """Backwards-compatible view over _get_competition_details."""
+    return _get_competition_details(competition_id, year).get("events", {})
 
 
 def _normalize_race_time(raw: str) -> str:

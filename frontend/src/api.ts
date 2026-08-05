@@ -59,6 +59,9 @@ export interface RaceResult {
   time: string;
   cat: string;
   uci_pts: number | null;
+  /** UCI competition class: '1', '2', '3', 'HC', 'CS', 'CN', 'S1'... Empty for
+   *  World Cups and World Championships, which carry no class code. */
+  race_class: string;
 }
 
 export function getMeta(): Promise<Record<string, string>> {

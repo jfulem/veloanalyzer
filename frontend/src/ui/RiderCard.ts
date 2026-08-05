@@ -33,26 +33,62 @@ function sortResults(results: RaceResult[], col: SortCol, dir: SortDir): RaceRes
 // are excluded on UCI's own individual ranking breakdown). Junior one-day
 // events cap at 4, other classes at 5 — mirrors compute_points_from_history
 // in mtb_analyzer/ranking.py.
-const BEST_N_JUNIOR  = 4;
-const BEST_N_DEFAULT = 5;
+// Art. 4.16.008 quotas. These are per bucket, not a single cap across the
+// whole history: a rider can count 5 class-1 results *and* 5 class-2 results.
+// Mirrors _CLASS_QUOTA / _points_bucket in mtb_analyzer/ranking.py — the two
+// must agree or the card contradicts the ingest.
+const CLASS_QUOTA: Record<string, number> = { HC: 5, CS: 5, "1": 5, "2": 5, "3": 5 };
+const STAGE_CLASSES = new Set(["SHC", "S1", "S2"]);
+const STAGE_QUOTA = 3;
+const JUNIOR_SERIES_QUOTA = 4;
+const JUNIOR_QUOTA = 4;
 
-/** How many scoring results count, per UCI art. 4.16.008. */
-function bestN(results: RaceResult[]): number {
-  const cat = results.find((r) => r.cat)?.cat ?? "";
-  return cat === "MJ" || cat === "WJ" ? BEST_N_JUNIOR : BEST_N_DEFAULT;
+const isJuniorSeries = (name: string) => (name || "").toLowerCase().includes("junior series");
+
+/** Which quota bucket a result falls in, or null when it is uncapped.
+ *  Uncapped covers World Championships, World Cup rounds, Continental
+ *  Championships and National Championships. */
+function pointsBucket(cat: string, raceClass: string, raceName: string): string | null {
+  const cls = (raceClass || "").toUpperCase();
+  if (STAGE_CLASSES.has(cls)) return "STAGE";
+  if (cat === "MJ" || cat === "WJ") {
+    if (!cls || cls === "CN") return null;
+    return isJuniorSeries(raceName) ? "JS" : "J";
+  }
+  return cls in CLASS_QUOTA ? cls : null;
 }
 
-/** The results that actually make up the UCI points total — a rider's best N
- *  scoring rides. Everything else is real, but does not add to the total.
- *  Returned as ids so the table can mark exactly these rows. */
+function bucketQuota(bucket: string): number {
+  if (bucket === "STAGE") return STAGE_QUOTA;
+  if (bucket === "JS") return JUNIOR_SERIES_QUOTA;
+  if (bucket === "J") return JUNIOR_QUOTA;
+  return CLASS_QUOTA[bucket] ?? 0;
+}
+
+/** The results that actually make up the UCI points total. Everything else is
+ *  a real result that simply falls outside its bucket's quota. */
 function countingResultIds(results: RaceResult[]): Set<number> {
-  return new Set(
-    [...results]
-      .filter((r) => (r.uci_pts ?? 0) > 0)
-      .sort((a, b) => (b.uci_pts ?? 0) - (a.uci_pts ?? 0))
-      .slice(0, bestN(results))
-      .map((r) => r.id),
-  );
+  const cat = results.find((r) => r.cat)?.cat ?? "";
+  const buckets = new Map<string, RaceResult[]>();
+  const counting = new Set<number>();
+
+  for (const r of results) {
+    if ((r.uci_pts ?? 0) <= 0) continue;
+    const bucket = pointsBucket(cat, r.race_class, r.race_name);
+    if (bucket === null) {
+      counting.add(r.id);                       // uncapped
+    } else {
+      const list = buckets.get(bucket) ?? [];
+      list.push(r);
+      buckets.set(bucket, list);
+    }
+  }
+
+  for (const [bucket, list] of buckets) {
+    list.sort((a, b) => (b.uci_pts ?? 0) - (a.uci_pts ?? 0));
+    for (const r of list.slice(0, bucketQuota(bucket))) counting.add(r.id);
+  }
+  return counting;
 }
 
 /** Derived from countingResultIds so the highlighted rows always sum to the
@@ -254,7 +290,6 @@ export function renderRiderCard(
   const hasTimes = results.some((r) => !!r.time);
   const hasPts   = results.some((r) => r.uci_pts != null);
   const countingIds = countingResultIds(results);
-  const n = bestN(results);
   const COL_HEADERS = ALL_COL_HEADERS.filter((c) =>
     (c.key !== "time" || hasTimes) && (c.key !== "pts" || hasPts),
   );
@@ -314,7 +349,8 @@ export function renderRiderCard(
             : "font-size:.82rem; color:#718096",
         }, res.uci_pts != null ? String(res.uci_pts) : "—");
         if (res.uci_pts != null && !counts) {
-          td.title = `Outside this rider's best ${n} results, so not included in the UCI points total`;
+          const cls = res.race_class ? `class ${res.race_class}` : "its class";
+          td.title = `Outside this rider's counting results for ${cls}, so not included in the UCI points total`;
         }
         tr.appendChild(td);
       }
@@ -331,12 +367,17 @@ export function renderRiderCard(
     const note = el("p", {
       style: "font-size:.75rem; color:#718096; margin:.6rem 0 0; line-height:1.5",
     });
+    const isJunior = ["MJ", "WJ"].includes(results.find((r) => r.cat)?.cat ?? "");
     note.appendChild(el("span", { style: "color:#68d391; font-weight:700" }, "Green"));
-    note.appendChild(document.createTextNode(
-      ` points count toward the UCI total — a rider's best ${n} results (art. 4.16.008). `,
-    ));
+    note.appendChild(document.createTextNode(" points count toward the UCI total. "));
     note.appendChild(el("span", { style: "color:#718096" }, "Dimmed"));
-    note.appendChild(document.createTextNode(" points are real results that fall outside that cap."));
+    note.appendChild(document.createTextNode(
+      " points are real results that fall outside their quota (art. 4.16.008): "
+      + (isJunior
+          ? "best 4 junior series and best 4 junior one-day results"
+          : "best 5 per class for HC, Continental Series and classes 1–3, best 3 across stage races")
+      + ". World Cups and championships count without limit.",
+    ));
     container.appendChild(note);
   }
 }
