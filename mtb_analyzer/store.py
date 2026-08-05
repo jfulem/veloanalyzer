@@ -115,7 +115,7 @@ def _resolve_rider(conn: Connection, rider) -> int:
         # Matched on first given name + surname + birth year, and only when
         # exactly one candidate qualifies, so two genuinely different riders
         # who share those never get merged.
-        norm_last = _strip_diacritics(last_name or "").strip().lower()
+        norm_last = _strip_diacritics(rider.last_name or "").strip().lower()
         first_token = norm.split()[0] if norm.split() else ""
         if norm_last and first_token:
             candidates = [
