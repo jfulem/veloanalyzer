@@ -317,6 +317,139 @@ races:
   uci_competition_id: 77412
   output: jwf-2026-xco-c3-short-wj.html
 
+# Added 2026-08-06 — four Czech UCI XCO one-day races (competitions 77484-77487).
+# Touškov and Vimperk are rounds of the same Czech Cup (ČP) series as Bedřichov,
+# with live, verified sportsoft start lists (41 and 47 Men Elite riders resp.).
+# Valbek Ústí and Tessuti are standalone C2 events, not part of that series.
+# Neither organiser's start list is reachable after the fact — no working
+# joycycling.cz path was found for Ústí (both /usti and /en/usti/ 404) and
+# Tessuti's own start-list page is live but empty — so both rely entirely on
+# riders_from_uci_competition() rebuilding the field from the official UCI
+# classification. That path only fires on a *clean* empty/failed scrape, which
+# is why the url below is deliberately something guaranteed to return 200 with
+# no matching riders (the UCI competition page itself for Ústí) rather than
+# left blank.
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3543
+  name: ČP XCO MTB TOUŠKOV - UCI C1 Men Juniors
+  date: '2026-04-19'
+  category: Men Juniors
+  uci_category: MJ
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
+  uci_competition_id: 77485
+  output: touskov-xco-2026-mj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3543
+  name: ČP XCO MTB TOUŠKOV - UCI C1 Women Juniors
+  date: '2026-04-19'
+  category: Women Juniors
+  uci_category: WJ
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
+  uci_competition_id: 77485
+  output: touskov-xco-2026-wj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3543
+  name: ČP XCO MTB TOUŠKOV - UCI C1 Men Elite
+  date: '2026-04-19'
+  category: Men Elite
+  uci_category: ME
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
+  uci_competition_id: 77485
+  output: touskov-xco-2026-me.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3543
+  name: ČP XCO MTB TOUŠKOV - UCI C1 Women Elite
+  date: '2026-04-19'
+  category: Women Elite
+  uci_category: WE
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
+  uci_competition_id: 77485
+  output: touskov-xco-2026-we.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3544
+  name: ČP XCO MTB VIMPERK - UCI C1 Men Juniors
+  date: '2026-05-10'
+  category: Men Juniors
+  uci_category: MJ
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
+  uci_competition_id: 77486
+  output: vimperk-xco-2026-mj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3544
+  name: ČP XCO MTB VIMPERK - UCI C1 Women Juniors
+  date: '2026-05-10'
+  category: Women Juniors
+  uci_category: WJ
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
+  uci_competition_id: 77486
+  output: vimperk-xco-2026-wj.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3544
+  name: ČP XCO MTB VIMPERK - UCI C1 Men Elite
+  date: '2026-05-10'
+  category: Men Elite
+  uci_category: ME
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
+  uci_competition_id: 77486
+  output: vimperk-xco-2026-me.html
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3544
+  name: ČP XCO MTB VIMPERK - UCI C1 Women Elite
+  date: '2026-05-10'
+  category: Women Elite
+  uci_category: WE
+  cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
+  uci_competition_id: 77486
+  output: vimperk-xco-2026-we.html
+- url: https://www.uci.org/competition-details/2026/MTB/77484
+  name: Valbek Velká cena Ústí nad Labem 2026 — Men Juniors
+  date: '2026-04-04'
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 77484
+  output: valbek-usti-2026-mj.html
+- url: https://www.uci.org/competition-details/2026/MTB/77484
+  name: Valbek Velká cena Ústí nad Labem 2026 — Women Juniors
+  date: '2026-04-04'
+  category: Women Juniors
+  uci_category: WJ
+  uci_competition_id: 77484
+  output: valbek-usti-2026-wj.html
+- url: https://www.uci.org/competition-details/2026/MTB/77484
+  name: Valbek Velká cena Ústí nad Labem 2026 — Men Elite
+  date: '2026-04-04'
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 77484
+  output: valbek-usti-2026-me.html
+- url: https://www.uci.org/competition-details/2026/MTB/77484
+  name: Valbek Velká cena Ústí nad Labem 2026 — Women Elite
+  date: '2026-04-04'
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 77484
+  output: valbek-usti-2026-we.html
+- url: https://www.tessuti-team.cz/bikerace-startovni
+  name: Tessuti Sport Bike Race 2026 — Men Juniors
+  date: '2026-05-16'
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 77487
+  output: tessuti-2026-mj.html
+- url: https://www.tessuti-team.cz/bikerace-startovni
+  name: Tessuti Sport Bike Race 2026 — Women Juniors
+  date: '2026-05-16'
+  category: Women Juniors
+  uci_category: WJ
+  uci_competition_id: 77487
+  output: tessuti-2026-wj.html
+- url: https://www.tessuti-team.cz/bikerace-startovni
+  name: Tessuti Sport Bike Race 2026 — Men Elite
+  date: '2026-05-16'
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 77487
+  output: tessuti-2026-me.html
+- url: https://www.tessuti-team.cz/bikerace-startovni
+  name: Tessuti Sport Bike Race 2026 — Women Elite
+  date: '2026-05-16'
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 77487
+  output: tessuti-2026-we.html
+
 # --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
 # - url: ""  # TODO: find start list URL
 #   name: Grandprix Fichtelgerbirge 2026 — Men Elite
