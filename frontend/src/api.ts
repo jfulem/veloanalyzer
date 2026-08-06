@@ -68,6 +68,41 @@ export interface RaceResult {
   race_class: string;
 }
 
+export interface RiderListItem {
+  id: number;
+  first_name: string;
+  last_name: string;
+  country: string;
+  birth_year: string;
+  uci_id: string;
+  xcodata_slug: string;
+  /** All four fields below come from the rider's most recent race_entries row
+   *  — the closest thing to a "current" value, since none of these live on
+   *  the rider record itself. */
+  uci_rank: number | null;
+  uci_points: number | null;
+  team: string;
+  uci_category: string;
+  races_count: number;
+}
+
+/** Bare identity plus the same "most recent entry" fields as RiderListItem.
+ *  Deliberately not the full race-context Rider shape — this is for opening a
+ *  profile with no specific race in view. */
+export interface RiderDetail {
+  id: number;
+  uci_id: string;
+  first_name: string;
+  last_name: string;
+  birth_year: string;
+  country: string;
+  xcodata_slug: string;
+  uci_rank: number | null;
+  uci_points: number | null;
+  team: string;
+  uci_category: string;
+}
+
 export function getMeta(): Promise<Record<string, string>> {
   return getJson<Record<string, string>>("/api/meta");
 }
@@ -84,4 +119,17 @@ export function getRiders(slug: string): Promise<Rider[]> {
  *  panel and the form-trend arrows both need the whole field at once. */
 export function getResults(slug: string): Promise<RaceResult[]> {
   return getJson<RaceResult[]>(`/api/races/${encodeURIComponent(slug)}/results`);
+}
+
+/** Every rider ever tracked, independent of any one race. */
+export function getAllRiders(): Promise<RiderListItem[]> {
+  return getJson<RiderListItem[]>("/api/riders");
+}
+
+export function getRiderDetail(id: number): Promise<RiderDetail> {
+  return getJson<RiderDetail>(`/api/riders/${id}`);
+}
+
+export function getRiderHistory(id: number): Promise<RaceResult[]> {
+  return getJson<RaceResult[]>(`/api/riders/${id}/results`);
 }

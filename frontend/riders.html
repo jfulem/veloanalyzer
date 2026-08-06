@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VeloAnalyzer — Riders</title>
+  <meta name="description" content="Every rider tracked across VeloAnalyzer's races, with UCI rank, points and race history." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/src/style.css" />
+  <style>
+    .cat-badge {
+      display: inline-block; border-radius: 4px; padding: 1px 6px;
+      font-size: .72rem; font-weight: 600; white-space: nowrap;
+    }
+    .cat-legend { margin-bottom: 1.2rem; display: flex; gap: .6rem; flex-wrap: wrap; }
+    .legend-item {
+      font-size: .82rem; color: #a0aec0; display: flex; align-items: center; gap: .4rem;
+      background: transparent; border: 1px solid transparent; border-radius: 6px;
+      padding: .25rem .5rem; cursor: pointer; font-family: inherit;
+    }
+    .legend-item:hover { border-color: #4a5568; }
+    .legend-item.active { border-color: #90cdf4; background: #2d3748; color: #e2e8f0; }
+    .riders-count { color: #718096; font-size: .82rem; margin: 0 0 1.2rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="site-header">
+      <h1>🚵 VeloAnalyzer</h1>
+      <p class="header-sub">
+        All tracked riders &nbsp;·&nbsp; Updated: <span id="generated-at">—</span>
+      </p>
+    </header>
+
+    <a class="back-link" href="./index.html">← Home</a>
+
+    <p id="loading">Loading…</p>
+
+    <div id="content" style="display:none">
+      <div class="cat-legend" id="cat-legend"></div>
+
+      <input
+        id="search-input"
+        class="search-box"
+        type="search"
+        placeholder="Search by name, country or team…"
+        aria-label="Search riders"
+      />
+
+      <p class="riders-count" id="riders-count"></p>
+
+      <div id="table-area"></div>
+    </div>
+
+    <footer class="site-footer">
+      <a href="./app.html">Start list viewer</a> &nbsp;·&nbsp;
+      <a href="./races.html">Race comparison</a> &nbsp;·&nbsp;
+      Ranking data © <a href="https://www.uci.org" target="_blank" rel="noopener">uci.org</a>
+    </footer>
+  </div>
+
+  <!-- Rider detail modal -->
+  <div id="rider-backdrop" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rider-modal-title">
+      <div class="modal-header">
+        <h2 id="rider-modal-title">Rider Profile</h2>
+        <button id="rider-close" class="modal-close" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body" id="rider-card"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/riders.ts"></script>
+</body>
+</html>

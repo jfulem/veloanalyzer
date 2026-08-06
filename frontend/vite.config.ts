@@ -17,13 +17,14 @@ export default defineConfig({
     outDir: "../docs",
     emptyOutDir: false,  // preserve data.db written by Python
     rollupOptions: {
-      // All three pages are Vite entries now. index.html and races.html used to
-      // be written by scripts/generate_site.py from scraped data; they render
+      // All pages are Vite entries. index.html and races.html used to be
+      // written by scripts/generate_site.py from scraped data; they render
       // from the API instead, so nothing needs a build-time database.
       input: {
-        index: "index.html",
-        app:   "app.html",
-        races: "races.html",
+        index:  "index.html",
+        app:    "app.html",
+        races:  "races.html",
+        riders: "riders.html",
       },
       output: {
         // Content-hashed filenames so browsers can't serve a stale cached

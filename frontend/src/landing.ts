@@ -106,7 +106,7 @@ function wireRequestForm(): void {
     const next = upcoming[0];
     const heroStats = $("#hero-stats");
     heroStats.appendChild(chip(String(site.races), "Races tracked", "./races.html"));
-    heroStats.appendChild(chip(String(site.riders), "Riders tracked", "./app.html"));
+    heroStats.appendChild(chip(String(site.riders), "Riders tracked", "./riders.html"));
     heroStats.appendChild(chip(
       nextRaceLabel(upcoming),
       "Next race",

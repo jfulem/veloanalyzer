@@ -184,16 +184,57 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     }
   }
 
+  // ── /api/riders ────────────────────────────────────────────────────────
+  // Every tracked rider, one row each, regardless of how many races they
+  // appear in. uci_rank/uci_points/team/uci_category come from each rider's
+  // most recent race_entries row — the closest thing to a "current" value
+  // available, since none of those are stored per-rider.
+  if (parts[1] === "riders" && parts.length === 2) {
+    return json(await sql`
+      SELECT ri.id, ri.first_name, ri.last_name, ri.country, ri.birth_year,
+             COALESCE(ri.uci_id, '') AS uci_id, ri.xcodata_slug,
+             le.uci_rank, le.uci_points, le.team, le.uci_category,
+             rc.races_count
+      FROM riders ri
+      LEFT JOIN LATERAL (
+        SELECT e.uci_rank, e.uci_points, e.team, r.uci_category
+        FROM race_entries e
+        JOIN races r ON r.id = e.race_id
+        WHERE e.rider_id = ri.id
+        ORDER BY r.date DESC NULLS LAST, e.id DESC
+        LIMIT 1
+      ) le ON true
+      LEFT JOIN LATERAL (
+        SELECT count(*)::int AS races_count
+        FROM race_entries e2 WHERE e2.rider_id = ri.id
+      ) rc ON true
+      ORDER BY (le.uci_rank IS NULL), le.uci_rank, ri.last_name
+    `);
+  }
+
   if (parts[1] === "riders" && parts.length >= 3) {
     const riderId = Number(parts[2]);
     if (!Number.isInteger(riderId)) return notFound(`Invalid rider id '${parts[2]}'`);
 
     // ── /api/riders/{id} ──────────────────────────────────────────────────
+    // Same "most recent entry" join as the list above, so a rider opened
+    // directly from the index shows their current rank/points/team instead
+    // of the bare identity row.
     if (parts.length === 3) {
       const rows = (await sql`
-        SELECT id, uci_id, first_name, last_name, normalized_name,
-               birth_year, country, xcodata_slug
-        FROM riders WHERE id = ${riderId}
+        SELECT ri.id, ri.uci_id, ri.first_name, ri.last_name, ri.normalized_name,
+               ri.birth_year, ri.country, ri.xcodata_slug,
+               le.uci_rank, le.uci_points, le.team, le.uci_category
+        FROM riders ri
+        LEFT JOIN LATERAL (
+          SELECT e.uci_rank, e.uci_points, e.team, r.uci_category
+          FROM race_entries e
+          JOIN races r ON r.id = e.race_id
+          WHERE e.rider_id = ri.id
+          ORDER BY r.date DESC NULLS LAST, e.id DESC
+          LIMIT 1
+        ) le ON true
+        WHERE ri.id = ${riderId}
       `) as unknown[];
       if (rows.length === 0) return notFound(`No rider with id ${riderId}`);
       return json(rows[0]);
