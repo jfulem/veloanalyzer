@@ -136,14 +136,29 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
                e.uci_rank, e.uci_points, e.cp_xco_points, e.computed_points,
                e.result_rank, e.result_time,
                e.team, e.category, e.match_confidence,
-               ri.xcodata_slug, e.race_name
+               ri.xcodata_slug, e.race_name,
+               lp.last_points_date::text AS last_points_date
         FROM race_entries e
         JOIN riders ri ON ri.id = e.rider_id
         JOIN races  r  ON r.id  = e.race_id
+        -- Most recent ride that actually scored, for the tie-break below.
+        LEFT JOIN LATERAL (
+          SELECT max(rr.date) AS last_points_date
+          FROM rider_results rr
+          WHERE rr.rider_id = e.rider_id AND rr.uci_pts > 0
+        ) lp ON true
         WHERE r.slug = ${slug}
         ORDER BY (e.result_rank IS NULL), e.result_rank,
                  (e.uci_rank IS NULL), e.uci_rank,
                  COALESCE(e.computed_points, 0) DESC,
+                 -- UCI tie-break: equal points are separated by whoever scored
+                 -- most recently, regardless of the tier of race it came from.
+                 -- Ranked riders never reach this — the UCI has already applied
+                 -- the rule to produce uci_rank — so it decides the order of
+                 -- unranked riders, where we estimate the points ourselves.
+                 lp.last_points_date DESC NULLS LAST,
+                 -- Only reached when neither rider has ever scored, so the
+                 -- domestic-cup standing is the last meaningful signal.
                  COALESCE(e.cp_xco_points, 0) DESC,
                  ri.last_name
       `);

@@ -46,6 +46,10 @@ export interface Rider {
   match_confidence: number;
   xcodata_slug: string;
   race_name: string;
+  /** Date of this rider's most recent point-scoring result (YYYY-MM-DD), or
+   *  null if they have never scored. Used server-side as the UCI tie-break
+   *  between riders on equal points. */
+  last_points_date: string | null;
 }
 
 export interface RaceResult {
