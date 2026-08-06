@@ -109,6 +109,11 @@ function buildTable(
     if (trend) {
       const arrow = el("span", { class: `trend trend-${trend}` },
         trend === "up" ? " ↑" : trend === "down" ? " ↓" : "");
+      // The arrow sits beside the UCI rank but is not about ranking movement,
+      // so say what it actually measures.
+      arrow.title = trend === "up"
+        ? "Form: scoring more UCI points recently than earlier in the season"
+        : "Form: scoring fewer UCI points recently than earlier in the season";
       if (trend !== "flat") rankCell.appendChild(arrow);
     }
     tr.appendChild(rankCell);

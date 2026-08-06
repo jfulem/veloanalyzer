@@ -76,30 +76,49 @@ export function parseResultDate(s: string): number {
 
 export type Trend = "up" | "down" | "flat";
 
+/**
+ * Form trend from UCI points earned, comparing a rider's recent half of results
+ * against their earlier half.
+ *
+ * Points rather than finishing positions, because positions are not comparable
+ * across races: 54th in a UCI Junior Series field can be a better ride than 6th
+ * at a local race, yet averaging raw positions treats the 54 as a collapse and
+ * flips the arrow on the strength of one entry. UCI points already account for
+ * both where a rider finished and how strong the race was.
+ */
 export function computeTrends(
-  results: { rider_id: number; date: string; rank: number | null }[],
+  results: { rider_id: number; date: string; rank: number | null; uci_pts: number | null }[],
 ): Map<number, Trend> {
-  // Group ranked results by rider, sorted chronologically ascending
-  const byRider = new Map<number, { rank: number; ms: number }[]>();
+  // A DNF or DNS says nothing about form, so it is skipped — but a finish that
+  // scored nothing is a real data point and counts as zero.
+  const byRider = new Map<number, { pts: number; ms: number }[]>();
   for (const r of results) {
     if (r.rank == null) continue;
     if (!byRider.has(r.rider_id)) byRider.set(r.rider_id, []);
-    byRider.get(r.rider_id)!.push({ rank: r.rank, ms: parseResultDate(r.date) });
+    byRider.get(r.rider_id)!.push({ pts: r.uci_pts ?? 0, ms: parseResultDate(r.date) });
   }
+
+  const avg = (xs: number[]): number => xs.reduce((s, v) => s + v, 0) / xs.length;
 
   const out = new Map<number, Trend>();
   for (const [id, entries] of byRider) {
-    const ranks = entries.sort((a, b) => a.ms - b.ms).map((e) => e.rank);
+    const pts = entries.sort((a, b) => a.ms - b.ms).map((e) => e.pts);
+    if (pts.length < 2) continue;
 
-    if (ranks.length < 2) continue;
-    const half = Math.max(1, Math.floor(ranks.length / 2));
-    const recent = ranks.slice(-half);
-    const older  = ranks.slice(0, half);
-    const avgRecent = recent.reduce((s, v) => s + v, 0) / recent.length;
-    const avgOlder  = older.reduce((s, v) => s + v, 0) / older.length;
-    const diff = avgOlder - avgRecent; // positive = improved (lower rank = better)
-    if (diff > 1.5) out.set(id, "up");
-    else if (diff < -1.5) out.set(id, "down");
+    const half = Math.max(1, Math.floor(pts.length / 2));
+    const older     = pts.slice(0, half);
+    const recent    = pts.slice(-half);
+    const avgOlder  = avg(older);
+    const avgRecent = avg(recent);
+    const diff = avgRecent - avgOlder;    // positive = scoring more = improving
+
+    // Relative threshold. Points scale enormously between a junior domestic
+    // race and an Elite World Cup, so any fixed number of points would be
+    // noise in one category and unreachable in the other. The floor of 1 stops
+    // riders hovering near zero from flapping between arrows.
+    const threshold = Math.max(1, Math.max(avgOlder, avgRecent) * 0.2);
+    if (diff > threshold) out.set(id, "up");
+    else if (diff < -threshold) out.set(id, "down");
     else out.set(id, "flat");
   }
   return out;
