@@ -63,13 +63,27 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
     cache = uci_caches[uci_category]
 
     console.print(f"\n[cyan]Processing:[/cyan] {race.get('name', url)}")
-    riders, _ = parse_start_list(url, category)
+    # A dead/unreachable organiser site must fall through to the UCI-results
+    # rebuild below exactly like a start list that loaded but listed nobody —
+    # a 404 or timeout is the most common way a site "goes", and is exactly
+    # the scenario _rebuild_past_race_from_uci exists for. Left unguarded,
+    # the exception would propagate straight past that fallback and only be
+    # caught by the per-race handler in ingest.py, which protects the rest of
+    # the run but never gives reconstruction a chance to run.
+    try:
+        riders, _ = parse_start_list(url, category)
+    except Exception as exc:
+        console.print(f"[yellow]  Start list fetch failed ({type(exc).__name__}) — trying UCI results[/yellow]")
+        riders = []
 
     extra_url = race.get("extra_url")
     if extra_url:
         console.print(f"[dim]  Merging extra start list: {extra_url}[/dim]")
-        extra_riders, _ = parse_start_list(extra_url, category)
-        riders = merge_riders(riders, extra_riders)
+        try:
+            extra_riders, _ = parse_start_list(extra_url, category)
+            riders = merge_riders(riders, extra_riders)
+        except Exception as exc:
+            console.print(f"[yellow]  Extra start list fetch failed ({type(exc).__name__}) — skipping it[/yellow]")
 
     if not riders:
         riders = _rebuild_past_race_from_uci(race, uci_category)
