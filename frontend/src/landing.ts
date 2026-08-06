@@ -8,8 +8,10 @@ function $(sel: string): HTMLElement {
   return node;
 }
 
-function chip(value: string, label: string): HTMLElement {
-  const wrap = el("div", { class: "hero-chip" });
+/** Each stat doubles as a shortcut to the page that shows the detail behind it,
+ *  so the numbers are a way in rather than decoration. */
+function chip(value: string, label: string, href: string): HTMLElement {
+  const wrap = el("a", { class: "hero-chip", href });
   wrap.appendChild(el("span", { class: "hero-chip-val" }, value));
   wrap.appendChild(el("span", { class: "hero-chip-lbl" }, label));
   return wrap;
@@ -101,16 +103,23 @@ function wireRequestForm(): void {
     const today = todayIso();
     const upcoming = stats.filter((s) => s.date && s.date >= today);
 
+    const next = upcoming[0];
     const heroStats = $("#hero-stats");
-    heroStats.appendChild(chip(String(site.races), "Races tracked"));
-    heroStats.appendChild(chip(String(site.riders), "Riders tracked"));
-    heroStats.appendChild(chip(nextRaceLabel(upcoming), "Next race"));
+    heroStats.appendChild(chip(String(site.races), "Races tracked", "./races.html"));
+    heroStats.appendChild(chip(String(site.riders), "Riders tracked", "./app.html"));
+    heroStats.appendChild(chip(
+      nextRaceLabel(upcoming),
+      "Next race",
+      next ? `./app.html#race=${encodeURIComponent(next.slug)}` : "./races.html",
+    ));
 
     const grid = $("#preview-grid");
     if (upcoming.length === 0) {
       grid.appendChild(el("p", { class: "h2h-empty" }, "No upcoming races scheduled."));
     } else {
-      for (const s of upcoming.slice(0, 5)) grid.appendChild(previewCard(s));
+      // Four, not five: the grid fits four across at the container width, and a
+      // fifth card wrapped onto a row of its own looked like a mistake.
+      for (const s of upcoming.slice(0, 4)) grid.appendChild(previewCard(s));
     }
 
     $("#generated-at").textContent = meta["generated_at"] ?? "";
