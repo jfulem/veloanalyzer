@@ -10,7 +10,21 @@ import { neon } from "@neondatabase/serverless";
 
 interface Env {
   DATABASE_URL: string;
+  /** Optional. Salts the submitter hash so a stored value can't be brute-forced
+   *  back to an IP — the IPv4 space is small enough to enumerate unsalted. */
+  SUBMIT_SALT?: string;
+  /** Optional. When set, enables GET /api/race-requests for the maintainer.
+   *  Without it that route stays 404 rather than exposing submissions. */
+  ADMIN_TOKEN?: string;
 }
+
+// Caps on visitor-submitted text. Generous for real use, small enough that the
+// endpoint can't be used to push bulk data into the database.
+const MAX_URL = 500;
+const MAX_TEXT = 300;
+const MAX_NOTE = 1000;
+// Per submitter, per hour.
+const SUBMIT_LIMIT = 5;
 
 type Sql = ReturnType<typeof neon>;
 
@@ -18,7 +32,7 @@ const CORS = {
   // Production is same-origin (the Worker is routed on /api/* of the Pages
   // domain), so this only matters for `vite dev` against `wrangler dev`.
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
@@ -185,15 +199,110 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
   return null;
 }
 
+/** Stable, non-reversible identifier for a submitter, used only to rate-limit.
+ *  Salted because unsalted IPv4 hashes can be enumerated in seconds. */
+async function submitterHash(request: Request, env: Env): Promise<string> {
+  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  const data = new TextEncoder().encode(`${env.SUBMIT_SALT ?? "veloanalyzer"}:${ip}`);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function clean(value: unknown, max: number): string {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+/** POST /api/race-requests — visitors suggesting a start list to track. */
+async function handleRaceRequest(request: Request, env: Env, sql: Sql): Promise<Response> {
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ detail: "Expected a JSON body" }, 400, 0);
+  }
+
+  // Honeypot: a field hidden from humans by CSS. Bots fill everything in, so a
+  // value here means a bot. Accept it with a 200 so it has nothing to retry
+  // against, and discard it.
+  if (clean(body["website"], 50)) return json({ ok: true }, 200, 0);
+
+  const url = clean(body["url"], MAX_URL);
+  if (!url) return json({ detail: "A start list URL is required" }, 400, 0);
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return json({ detail: "That does not look like a valid URL" }, 400, 0);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return json({ detail: "Only http and https links are accepted" }, 400, 0);
+  }
+
+  const email = clean(body["email"], MAX_TEXT);
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return json({ detail: "That email address does not look valid" }, 400, 0);
+  }
+
+  const hash = await submitterHash(request, env);
+  const recent = (await sql`
+    SELECT count(*)::int AS n FROM race_requests
+    WHERE submitter_hash = ${hash} AND created_at > now() - interval '1 hour'
+  `) as { n: number }[];
+  if ((recent[0]?.n ?? 0) >= SUBMIT_LIMIT) {
+    return json({ detail: "Too many submissions — please try again later" }, 429, 0);
+  }
+
+  await sql`
+    INSERT INTO race_requests (url, race_name, category, email, note, submitter_hash, status, created_at)
+    VALUES (${url}, ${clean(body["race_name"], MAX_TEXT)}, ${clean(body["category"], MAX_TEXT)},
+            ${email}, ${clean(body["note"], MAX_NOTE)}, ${hash}, 'new', now())
+  `;
+  return json({ ok: true }, 201, 0);
+}
+
+/** GET /api/race-requests — maintainer only, and only when ADMIN_TOKEN is set. */
+async function handleListRequests(request: Request, env: Env, sql: Sql): Promise<Response> {
+  const token = env.ADMIN_TOKEN;
+  // Without a configured token the route does not exist at all, rather than
+  // existing and rejecting — nothing to probe for.
+  if (!token) return notFound("No route for /api/race-requests");
+  if (request.headers.get("X-Admin-Token") !== token) {
+    return json({ detail: "Not found" }, 404, 0);
+  }
+  return json(await sql`
+    SELECT id, url, race_name, category, email, note, status,
+           to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at
+    FROM race_requests ORDER BY created_at DESC LIMIT 200
+  `, 200, 0);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+
+    const url = new URL(request.url);
+    const path = url.pathname.replace(/\/+$/, "");
+
+    if (request.method === "POST") {
+      if (path === "/api/race-requests") {
+        try {
+          return await handleRaceRequest(request, env, neon(env.DATABASE_URL));
+        } catch (err) {
+          console.error("race-request failed", err instanceof Error ? err.message : String(err));
+          return json({ detail: "Internal error" }, 500, 0);
+        }
+      }
+      return json({ detail: "Method not allowed" }, 405, 0);
+    }
     if (request.method !== "GET") {
       return json({ detail: "Method not allowed" }, 405, 0);
     }
 
-    const url = new URL(request.url);
     try {
+      if (path === "/api/race-requests") {
+        return await handleListRequests(request, env, neon(env.DATABASE_URL));
+      }
       const resp = await route(url, neon(env.DATABASE_URL));
       if (resp) return resp;
       // Static files are served by the assets binding before the script runs,

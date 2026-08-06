@@ -110,6 +110,26 @@ analysis_jobs = Table(
     Column("finished_at", DateTime(timezone=True)),
 )
 
+# Visitor-submitted start lists, for races not yet in races.yml. Public and
+# unauthenticated, so everything here is untrusted input: it is stored and
+# displayed nowhere on the site, and only ever read by the maintainer.
+race_requests = Table(
+    "race_requests", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("url", Text, nullable=False),
+    Column("race_name", Text, nullable=False, server_default=""),
+    Column("category", Text, nullable=False, server_default=""),
+    # Optional, so the maintainer can reply. Never displayed publicly.
+    Column("email", Text, nullable=False, server_default=""),
+    Column("note", Text, nullable=False, server_default=""),
+    # Salted hash rather than the address itself: enough to rate-limit a
+    # submitter without keeping their IP.
+    Column("submitter_hash", String(64), nullable=False, server_default=""),
+    # new → added → rejected, for the maintainer to track what they've handled.
+    Column("status", String(16), nullable=False, server_default="new"),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
 meta = Table(
     "meta", metadata,
     Column("key", Text, primary_key=True),
@@ -130,3 +150,6 @@ Index(
     postgresql_using="gin",
     postgresql_ops={"normalized_name": "gin_trgm_ops"},
 )
+
+Index("idx_race_requests_status", race_requests.c.status, race_requests.c.created_at)
+Index("idx_race_requests_submitter", race_requests.c.submitter_hash, race_requests.c.created_at)

@@ -1,5 +1,7 @@
 import { getRaceStats, getSiteStats, getMeta, catBadge, todayIso, el, RaceStat } from "./raceStats.js";
 
+const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
+
 function $(sel: string): HTMLElement {
   const node = document.querySelector<HTMLElement>(sel);
   if (!node) throw new Error(`Missing element: ${sel}`);
@@ -30,34 +32,95 @@ function nextRaceLabel(upcoming: RaceStat[]): string {
   return days <= 0 ? "Today" : `${days}d`;
 }
 
+// ── Request form ────────────────────────────────────────────────────────────
+function wireRequestForm(): void {
+  const form   = document.querySelector<HTMLFormElement>("#request-form");
+  const button = document.querySelector<HTMLButtonElement>("#rq-submit");
+  const msg    = document.querySelector<HTMLElement>("#rq-msg");
+  if (!form || !button || !msg) return;
+
+  const show = (text: string, ok: boolean): void => {
+    msg.textContent = text;
+    msg.className = `form-msg ${ok ? "ok" : "err"}`;
+    msg.hidden = false;
+  };
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const data = new FormData(form);
+    const url = String(data.get("url") ?? "").trim();
+    if (!url) {
+      show("Please paste a link to the start list.", false);
+      return;
+    }
+
+    button.disabled = true;
+    const original = button.textContent;
+    button.textContent = "Sending…";
+    try {
+      const resp = await fetch(`${API_BASE}/api/race-requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url,
+          race_name: String(data.get("race_name") ?? "").trim(),
+          category:  String(data.get("category") ?? "").trim(),
+          note:      String(data.get("note") ?? "").trim(),
+          email:     String(data.get("email") ?? "").trim(),
+          website:   String(data.get("website") ?? ""),   // honeypot
+        }),
+      });
+      if (resp.ok) {
+        form.reset();
+        show("Thanks — the suggestion has been recorded and will be reviewed.", true);
+      } else {
+        // The API returns a human-readable reason; fall back if it doesn't.
+        const detail = await resp.json().then(
+          (b: { detail?: string }) => b.detail,
+          () => undefined,
+        );
+        show(detail ?? "Something went wrong. Please try again later.", false);
+      }
+    } catch {
+      show("Could not reach the server. Please try again later.", false);
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  });
+}
+
 (async () => {
+  wireRequestForm();
+
   const loading = $("#loading");
-  let stats: RaceStat[];
-  let site: Awaited<ReturnType<typeof getSiteStats>>;
-  let meta: Record<string, string>;
+  const content = $("#content");
   try {
-    [stats, site, meta] = await Promise.all([getRaceStats(), getSiteStats(), getMeta()]);
+    const [stats, site, meta] = await Promise.all([getRaceStats(), getSiteStats(), getMeta()]);
+
+    const today = todayIso();
+    const upcoming = stats.filter((s) => s.date && s.date >= today);
+
+    const heroStats = $("#hero-stats");
+    heroStats.appendChild(chip(String(site.races), "Races tracked"));
+    heroStats.appendChild(chip(String(site.riders), "Riders tracked"));
+    heroStats.appendChild(chip(nextRaceLabel(upcoming), "Next race"));
+
+    const grid = $("#preview-grid");
+    if (upcoming.length === 0) {
+      grid.appendChild(el("p", { class: "h2h-empty" }, "No upcoming races scheduled."));
+    } else {
+      for (const s of upcoming.slice(0, 5)) grid.appendChild(previewCard(s));
+    }
+
+    $("#generated-at").textContent = meta["generated_at"] ?? "";
+    loading.style.display = "none";
   } catch (err) {
-    loading.textContent = `Failed to reach the API: ${err}`;
-    return;
+    // The page still explains what the site does and still accepts a request
+    // when the API is unreachable — hiding all of it would be a worse failure
+    // than showing it without live numbers.
+    loading.textContent = `Live data is unavailable right now (${err}).`;
+    loading.style.color = "#fc8181";
   }
-
-  const today = todayIso();
-  const upcoming = stats.filter((s) => s.date && s.date >= today);
-
-  const heroStats = $("#hero-stats");
-  heroStats.appendChild(chip(String(site.races), "Races tracked"));
-  heroStats.appendChild(chip(String(site.riders), "Riders tracked"));
-  heroStats.appendChild(chip(nextRaceLabel(upcoming), "Next race"));
-
-  const grid = $("#preview-grid");
-  if (upcoming.length === 0) {
-    grid.appendChild(el("p", { class: "h2h-empty" }, "No upcoming races scheduled."));
-  } else {
-    for (const s of upcoming.slice(0, 5)) grid.appendChild(previewCard(s));
-  }
-
-  $("#generated-at").textContent = meta["generated_at"] ?? "";
-  loading.style.display = "none";
-  $("#content").style.display = "block";
+  content.style.display = "block";
 })();
