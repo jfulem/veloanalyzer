@@ -3,7 +3,7 @@ import os
 import re
 import time
 import unicodedata
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import requests
 from bs4 import BeautifulSoup
@@ -1304,6 +1304,17 @@ def enrich_times_from_race_pages(riders: list) -> None:
                 pass
 
 
+def _parse_dotnet_date(raw: str) -> "datetime | None":
+    """Parse dataride's '/Date(1222034400000)/' (ms since epoch) format."""
+    m = re.search(r"/Date\((-?\d+)\)/", raw or "")
+    if not m:
+        return None
+    try:
+        return datetime.fromtimestamp(int(m.group(1)) / 1000, tz=timezone.utc)
+    except (ValueError, OSError, OverflowError):
+        return None
+
+
 def _parse_dataride_name(display_name: str) -> str:
     """Convert 'LASTNAME Firstname' (dataride.uci.ch format) to 'Firstname Lastname' title case.
 
@@ -1436,6 +1447,7 @@ def build_uci_cache(uci_cat: str) -> dict:
         if not name:
             continue
         country = item.get("NationName", "").strip()
+        dob = _parse_dotnet_date(item.get("BirthDate", ""))
         by_name[name.lower()] = {
             "rank":      item["Rank"],
             "points":    item.get("Points", 0),
@@ -1443,6 +1455,12 @@ def build_uci_cache(uci_cat: str) -> dict:
             "slug":      "",
             "country":   country,
             "object_id": item.get("ObjectId", 0),
+            # The rider's actual UCI ID (distinct from ObjectId, which is
+            # dataride's own internal key) and birth year. Every ranked rider
+            # carries both — this is the UCI's own identity record, so it is a
+            # far more reliable source than any one start list.
+            "uci_id":     str(item["UciId"]) if item.get("UciId") else "",
+            "birth_year": str(dob.year) if dob else "",
         }
 
     if not by_name:
@@ -1506,6 +1524,18 @@ def lookup_rider(rider: Rider, cache: dict) -> Rider:
         rider.match_confidence = confidence
         if not rider.country and entry.get("country"):
             rider.country = entry["country"]
+        # Backfill identity from the UCI's own ranking record — but only on an
+        # exact name match. A fuzzy match can pick the wrong person entirely
+        # (two similarly-named riders), and propagating uci_id from that would
+        # silently merge two different humans' race histories under one
+        # identity in store.py — a worse failure than the duplicate-rider
+        # forks this is meant to fix. Only fill blanks: a value the start list
+        # already supplied is left alone rather than overwritten.
+        if confidence == 100:
+            if not rider.uci_id and entry.get("uci_id"):
+                rider.uci_id = entry["uci_id"]
+            if not rider.birth_year and entry.get("birth_year"):
+                rider.birth_year = entry["birth_year"]
         # Use the UCI canonical name (title-case, correct diacritics) as the
         # display name whenever it differs from what the start list provided.
         canonical = entry.get("name", "")
