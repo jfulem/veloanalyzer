@@ -214,3 +214,6 @@ __marimo__/
 # Frontend
 frontend/node_modules/
 .dev.vars
+
+# wrangler local cache (account id, pages metadata) — not secrets, but not ours to commit
+.wrangler/
