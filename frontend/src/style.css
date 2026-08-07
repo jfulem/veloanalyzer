@@ -271,6 +271,10 @@ body {
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0,0,0,.6);
 }
+/* Rider profile only: with the Class column, its results table has seven
+   columns (Date/Race/Cat/Class/Pos/Time/Pts) and needs more room than the
+   H2H modal's four or five to keep a row on one line. */
+.modal-wide { max-width: 880px; }
 .modal-header {
   display: flex;
   align-items: center;
@@ -294,6 +298,9 @@ body {
 .modal-body {
   padding: 1.25rem;
   overflow-y: auto;
+  /* Safety net on narrow viewports: the wider rider table scrolls inside the
+     card rather than forcing the modal itself wider than the screen. */
+  overflow-x: auto;
 }
 
 .h2h-cards {
@@ -334,7 +341,13 @@ body {
   letter-spacing: .05em;
   color: #a0aec0;
 }
-.h2h-table td { padding: .4rem .6rem; border-bottom: 1px solid #1a202c; }
+.h2h-table td {
+  padding: .4rem .6rem;
+  border-bottom: 1px solid #1a202c;
+  /* A long race name must not wrap a row onto two lines; if it doesn't fit
+     even the widened rider modal, .modal-body's overflow-x scrolls instead. */
+  white-space: nowrap;
+}
 .h2h-table tr.win1 td:nth-child(3) { color: #68d391; font-weight: 600; }
 .h2h-table tr.win2 td:nth-child(4) { color: #68d391; font-weight: 600; }
 
