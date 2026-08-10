@@ -26,6 +26,7 @@ export default defineConfig({
         races:   "races.html",
         riders:  "riders.html",
         results: "results.html",
+        about:   "about.html",
       },
       output: {
         // Content-hashed filenames so browsers can't serve a stale cached

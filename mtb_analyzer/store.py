@@ -172,6 +172,9 @@ def _upsert_race(conn: Connection, race_cfg: dict) -> int:
         "category": race_cfg.get("category", ""),
         "source_url": race_cfg.get("url", ""),
         "is_tracked": True,
+        "location": race_cfg.get("location", "") or "",
+        "lat": race_cfg.get("lat"),
+        "lon": race_cfg.get("lon"),
     }
     stmt = insert(races).values(**values)
     return conn.execute(

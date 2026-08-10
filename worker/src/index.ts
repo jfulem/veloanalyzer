@@ -95,6 +95,7 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     if (parts.length === 3 && parts[2] === "stats") {
       return json(await sql`
         SELECT r.id, r.slug, r.name, r.date::text AS date, r.uci_category, r.category,
+               r.location, r.lat, r.lon,
                count(e.id)::int              AS total,
                count(e.uci_rank)::int        AS ranked,
                min(e.uci_rank)::int          AS best,

@@ -11,6 +11,12 @@ export interface RaceStat {
   date: string;
   uci_category: string;
   category: string;
+  /** Free-text venue, geocoded at ingest time. lat/lon are null until a
+   *  location: is set in races.yml and successfully geocoded — races.html
+   *  and the results/start-list pages don't need this, only the home map. */
+  location: string;
+  lat: number | null;
+  lon: number | null;
   total: number;
   /** Entrants who are UCI-ranked riders — a field-strength signal, true even
    *  before the race has been run. Not a proxy for "has results". */

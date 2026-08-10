@@ -1,4 +1,6 @@
-import { getRaceStats, getSiteStats, getMeta, catBadge, todayIso, el, RaceStat } from "./raceStats.js";
+import { getRaceStats, getSiteStats, getMeta, todayIso, el, RaceStat } from "./raceStats.js";
+import { renderCalendar } from "./calendar.js";
+import { renderMap } from "./map.js";
 
 const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
 
@@ -15,16 +17,6 @@ function chip(value: string, label: string, href: string): HTMLElement {
   wrap.appendChild(el("span", { class: "hero-chip-val" }, value));
   wrap.appendChild(el("span", { class: "hero-chip-lbl" }, label));
   return wrap;
-}
-
-function previewCard(s: RaceStat): HTMLElement {
-  const a = el("a", { class: "preview-card", href: `./app.html#race=${encodeURIComponent(s.slug)}` });
-  a.appendChild(el("div", { class: "preview-date" }, s.date ?? ""));
-  a.appendChild(el("div", { class: "preview-name" }, s.name));
-  const badgeWrap = el("div");
-  badgeWrap.appendChild(catBadge(s.uci_category));
-  a.appendChild(badgeWrap);
-  return a;
 }
 
 function nextRaceLabel(upcoming: RaceStat[]): string {
@@ -100,6 +92,13 @@ function wireRequestForm(): void {
   try {
     const [stats, site, meta] = await Promise.all([getRaceStats(), getSiteStats(), getMeta()]);
 
+    // Leaflet measures its container's pixel size at construction time, so
+    // #map has to already be visible before renderMap() runs below — a
+    // display:none ancestor at that point would leave the map permanently
+    // blank, since nothing here calls invalidateSize() after the fact.
+    loading.style.display = "none";
+    content.style.display = "block";
+
     const today = todayIso();
     const upcoming = stats.filter((s) => s.date && s.date >= today);
 
@@ -113,17 +112,10 @@ function wireRequestForm(): void {
       next ? `./app.html#race=${encodeURIComponent(next.slug)}` : "./races.html",
     ));
 
-    const grid = $("#preview-grid");
-    if (upcoming.length === 0) {
-      grid.appendChild(el("p", { class: "h2h-empty" }, "No upcoming races scheduled."));
-    } else {
-      // Four, not five: the grid fits four across at the container width, and a
-      // fifth card wrapped onto a row of its own looked like a mistake.
-      for (const s of upcoming.slice(0, 4)) grid.appendChild(previewCard(s));
-    }
+    renderCalendar($("#calendar"), stats);
+    renderMap($("#map"), stats);
 
     $("#generated-at").textContent = meta["generated_at"] ?? "";
-    loading.style.display = "none";
   } catch (err) {
     // The page still explains what the site does and still accepts a request
     // when the API is unreachable — hiding all of it would be a worse failure

@@ -8,10 +8,6 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/src/style.css" />
   <style>
-    .cat-badge {
-      display: inline-block; border-radius: 4px; padding: 1px 6px;
-      font-size: .72rem; font-weight: 600; white-space: nowrap;
-    }
     .cat-legend { margin-bottom: 1.2rem; display: flex; gap: .6rem; flex-wrap: wrap; }
     .legend-item {
       font-size: .82rem; color: #a0aec0; display: flex; align-items: center; gap: .4rem;
@@ -25,38 +21,50 @@
 </head>
 <body>
   <div class="container">
-    <header class="site-header">
-      <h1>🚵 VeloAnalyzer</h1>
-      <p class="header-sub">
-        All tracked riders &nbsp;·&nbsp; Updated: <span id="generated-at">—</span>
-      </p>
-    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <a class="brand" href="./index.html">
+          <span class="brand-emoji">🚵</span>
+          <span class="brand-name">VeloAnalyzer</span>
+        </a>
 
-    <a class="back-link" href="./index.html">← Home</a>
+        <nav class="side-nav">
+          <a href="./app.html"><span class="icon">🏁</span> Start List</a>
+          <a href="./results.html"><span class="icon">🏆</span> Results</a>
+          <a href="./races.html"><span class="icon">🗓</span> Races</a>
+          <a href="./riders.html" class="active"><span class="icon">👤</span> Riders</a>
+          <a href="./about.html"><span class="icon">ℹ️</span> About</a>
+        </nav>
 
-    <p id="loading">Loading…</p>
+        <div class="side-meta">
+          Updated <span id="generated-at">—</span><br />
+          Ranking data © <a href="https://www.uci.org" target="_blank" rel="noopener">uci.org</a><br />
+          <a href="https://github.com/jfulem/veloanalyzer" target="_blank" rel="noopener">Source on GitHub</a>
+        </div>
+      </aside>
 
-    <div id="content" style="display:none">
-      <div class="cat-legend" id="cat-legend"></div>
+      <div class="main">
+        <h1 class="page-title">Riders</h1>
 
-      <input
-        id="search-input"
-        class="search-box"
-        type="search"
-        placeholder="Search by name, country or team…"
-        aria-label="Search riders"
-      />
+        <p id="loading">Loading…</p>
 
-      <p class="riders-count" id="riders-count"></p>
+        <div id="content" style="display:none">
+          <div class="cat-legend" id="cat-legend"></div>
 
-      <div id="table-area"></div>
+          <input
+            id="search-input"
+            class="search-box"
+            type="search"
+            placeholder="Search by name, country or team…"
+            aria-label="Search riders"
+          />
+
+          <p class="riders-count" id="riders-count"></p>
+
+          <div id="table-area"></div>
+        </div>
+      </div>
     </div>
-
-    <footer class="site-footer">
-      <a href="./app.html">Start list viewer</a> &nbsp;·&nbsp;
-      <a href="./races.html">Race comparison</a> &nbsp;·&nbsp;
-      Ranking data © <a href="https://www.uci.org" target="_blank" rel="noopener">uci.org</a>
-    </footer>
   </div>
 
   <!-- Rider detail modal -->

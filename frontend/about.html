@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VeloAnalyzer — About</title>
+  <meta name="description" content="What VeloAnalyzer does: UCI-enriched start lists, rider profiles, head-to-head comparison and race results for MTB XCO." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/src/style.css" />
+  <style>
+    .about-lede { color: #a0aec0; font-size: .95rem; line-height: 1.6; margin-bottom: 1.75rem; }
+    .about-block { margin-bottom: 2.25rem; }
+    .about-block h2 { font-size: 1rem; color: #90cdf4; margin-bottom: .6rem; }
+    .about-block p { color: #a0aec0; font-size: .88rem; line-height: 1.65; }
+    .about-block p + p { margin-top: .6rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="layout">
+      <aside class="sidebar">
+        <a class="brand" href="./index.html">
+          <span class="brand-emoji">🚵</span>
+          <span class="brand-name">VeloAnalyzer</span>
+        </a>
+
+        <nav class="side-nav">
+          <a href="./app.html"><span class="icon">🏁</span> Start List</a>
+          <a href="./results.html"><span class="icon">🏆</span> Results</a>
+          <a href="./races.html"><span class="icon">🗓</span> Races</a>
+          <a href="./riders.html"><span class="icon">👤</span> Riders</a>
+          <a href="./about.html" class="active"><span class="icon">ℹ️</span> About</a>
+        </nav>
+
+        <div class="side-meta">
+          Ranking data © <a href="https://www.uci.org" target="_blank" rel="noopener">uci.org</a><br />
+          <a href="https://github.com/jfulem/veloanalyzer" target="_blank" rel="noopener">Source on GitHub</a>
+        </div>
+      </aside>
+
+      <div class="main">
+        <h1 class="page-title">What VeloAnalyzer does</h1>
+        <p class="about-lede">
+          A field guide for MTB cross-country racing: every tracked start list enriched with
+          official UCI rank and points, and a season of history behind every rider on it.
+        </p>
+
+        <ul class="cap-list">
+          <li><span class="icon">🏁</span><strong>Start lists</strong><span class="desc">— UCI rank & points, color-coded by tier</span></li>
+          <li><span class="icon">👤</span><strong>Rider profiles</strong><span class="desc">— 12 months of history, chart included</span></li>
+          <li><span class="icon">⚔</span><strong>Head-to-head</strong><span class="desc">— any two riders, every shared race</span></li>
+          <li><span class="icon">📊</span><strong>Field strength</strong><span class="desc">— nation, team & ranking breakdown</span></li>
+          <li><span class="icon">🏆</span><strong>Results</strong><span class="desc">— official finishes once a race is run</span></li>
+          <li><span class="icon">🔄</span><strong>Always current</strong><span class="desc">— rebuilt daily from official UCI data</span></li>
+        </ul>
+
+        <div class="about-block">
+          <h2>How points are counted</h2>
+          <p>
+            A rider's UCI points total follows the individual XCO ranking rules (art. 4.16.008):
+            each class of race — World Cup and Championship results are uncapped, Class 1–3
+            one-day races count the best five, and stage races count the best three — feeds its
+            own quota rather than one flat "best N" across everything. A rider's profile shows
+            exactly which results count toward the total and which were displaced.
+          </p>
+          <p>
+            Ties are broken by the UCI rule: the rider with the more recent point-scoring result
+            ranks higher, regardless of the tier that result came from.
+          </p>
+        </div>
+
+        <div class="about-block">
+          <h2>Where the data comes from</h2>
+          <p>
+            Start lists are pulled from organizers' own timing platforms (RaceResult, sportsoft.cz
+            and others), matched to UCI rider records by UCI ID where available and by name and
+            birth year otherwise. Rankings and race history come from the UCI's own data feed and
+            are refreshed daily.
+          </p>
+        </div>
+
+        <div class="about-block">
+          <h2>Missing a race?</h2>
+          <p>
+            The <a href="./index.html">home page</a> has a form to suggest a start list that
+            isn't tracked yet — a link to the organizer's or timing provider's entry list is all
+            that's needed.
+          </p>
+        </div>
+
+        <footer class="site-footer">
+          Built by <a href="https://github.com/jfulem/veloanalyzer" target="_blank" rel="noopener">veloanalyzer</a>
+        </footer>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

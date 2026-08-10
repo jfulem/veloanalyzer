@@ -10,6 +10,7 @@ import yaml
 
 from .config import console
 from .db import bootstrap
+from .geocode import geocode
 from .pipeline import fetch_riders
 from .store import save_all
 
@@ -24,6 +25,19 @@ def load_races() -> list:
         return yaml.safe_load(f).get("races", [])
 
 
+def _resolve_locations(races: list) -> None:
+    """Fill in lat/lon for every race that has a location: but no explicit
+    lat:/lon: of its own (races.yml may supply GPS directly when a venue's
+    address doesn't geocode cleanly). Geocoding is cached by location string,
+    so races sharing a venue (one entry per category) only pay for one lookup."""
+    for race in races:
+        if race.get("lat") is not None and race.get("lon") is not None:
+            continue
+        coords = geocode(race.get("location", ""))
+        if coords:
+            race["lat"], race["lon"] = coords
+
+
 def run() -> None:
     races = load_races()
     if not races:
@@ -31,6 +45,7 @@ def run() -> None:
         return
 
     bootstrap()
+    _resolve_locations(races)
 
     console.print(f"[bold cyan]Processing {len(races)} race(s)...[/bold cyan]")
     uci_caches   = {}

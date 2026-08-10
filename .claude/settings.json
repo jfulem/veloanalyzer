@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(.venv/bin/python -)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(rm /home/josef/git-repo/veloanalyzer/docs/*.html)",
+      "Bash(rm -f /home/josef/git-repo/veloanalyzer/.mtb_cache/race_pages/*.json && echo \"Race page caches cleared\")",
+      "Bash(curl -s \"https://my.raceresult.com/381877/RRPublish/data/list?listname=Online%7CFinal&contest=1&r=all&l=en&key=16a433fe6d5a90b4139fe4443c9cbe6d\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); keys=list\\(d.get\\('data',{}\\).keys\\(\\)\\); print\\('Top-level keys:', keys[:5]\\)\")",
+      "Bash(curl -s \"https://my.raceresult.com/381877/RRPublish/data/list?listname=Online%7CFinal&contest=0&r=all&l=en&key=16a433fe6d5a90b4139fe4443c9cbe6d\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); keys=list\\(d.get\\('data',{}\\).keys\\(\\)\\); print\\('Top-level keys:', keys[:10]\\)\")",
+      "Bash(curl -s -i \"https://my.raceresult.com/381877/RRPublish/data/list?listname=Online%7CFinal&contest=0&r=all&l=en&key=16a433fe6d5a90b4139fe4443c9cbe6d\")",
+      "Bash(curl -sL \"https://my.raceresult.com/381877/results/list?listname=Online%7CFinal&contest=0&r=all&l=en&key=16a433fe6d5a90b4139fe4443c9cbe6d\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(type\\(d\\)\\); print\\(str\\(d\\)[:500]\\)\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); data=d.get\\('data',{}\\); print\\(type\\(data\\)\\); keys=list\\(data.keys\\(\\)\\) if isinstance\\(data,dict\\) else ['list of',len\\(data\\)]; print\\('keys:', str\\(keys\\)[:200]\\)\")",
+      "Bash(curl -sL \"https://my.raceresult.com/381877/participants\")",
+      "Bash(curl -sL \"https://my.raceresult.com/381877/RRPublish/data/list?listname=Online%7CFinal&contest=4&r=all&l=en&key=16a433fe6d5a90b4139fe4443c9cbe6d\" -L)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.keys\\(\\)\\)[:5]\\); data=d.get\\('data',{}\\); print\\(type\\(data\\)\\); print\\(str\\(list\\(data.keys\\(\\)\\)[:5]\\) if isinstance\\(data,dict\\) else str\\(data\\)[:300]\\)\")",
+      "Bash(curl -sL \"https://my.raceresult.com/381877/RRPublish/data/participants?contest=4&l=en&key=16a433fe6d5a90b4139fe4443c9cbe6d\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.keys\\(\\)\\)[:5]\\)\")",
+      "Bash(curl -sL \"https://my.raceresult.com/381877/results/list?listname=Online%7CFinal&contest=4&r=all&l=en&key=16a433fe6d5a90b4139fe4443c9cbe6d\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); data=d.get\\('data',[]\\); print\\(type\\(data\\), len\\(data\\) if isinstance\\(data,list\\) else 'dict:'+str\\(list\\(data.keys\\(\\)\\)[:5]\\)\\)\")",
+      "Bash(curl -sL \"https://my.raceresult.com/381877/RRPublish/data/config\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:d[k] for k in d if k not in ['splits','contests','lists']}, indent=2\\)[:1000]\\)\")",
+      "Bash(curl -sL \"https://my.raceresult.com/381877/RRPublish/data/participants\" -I)",
+      "Bash(curl -sL \"https://my.raceresult.com/381877/participants/list?contest=4&l=en&key=16a433fe6d5a90b4139fe4443c9cbe6d\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(str\\(d\\)[:500]\\)\")",
+      "Bash(curl -sL \"https://my.raceresult.com/381877/RRPublish/load.js?v=v1.2.96&lang=en\")",
+      "Bash(curl -sL \"https://my.raceresult.com/381877/startlist\" -I)",
+      "Bash(curl -sL \"https://my.raceresult.com/381877/results/list?listname=Startlist&contest=4&r=all&l=en&key=16a433fe6d5a90b4139fe4443c9cbe6d\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.keys\\(\\)\\)\\)\")"
+    ],
+    "additionalDirectories": [
+      "/home/josef/git-repo/veloanalyzer/docs",
+      "/home/josef/git-repo/veloanalyzer/.mtb_cache/race_pages"
+    ]
+  }
+}

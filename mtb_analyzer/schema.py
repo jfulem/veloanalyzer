@@ -8,7 +8,7 @@ that are specific to one start list, and `rider_results` holds each rider's
 history exactly once.
 """
 
-from sqlalchemy import (Boolean, Column, Date, DateTime, ForeignKey, Index,
+from sqlalchemy import (Boolean, Column, Date, DateTime, Float, ForeignKey, Index,
                         Integer, MetaData, String, Table, Text, UniqueConstraint)
 
 metadata = MetaData()
@@ -44,6 +44,13 @@ races = Table(
     # reaped once expires_at passes so they don't accumulate forever.
     Column("is_tracked", Boolean, nullable=False, server_default="true"),
     Column("expires_at", DateTime(timezone=True)),
+    # Free-text venue ("Bedřichov, Czech Republic"), geocoded once by
+    # mtb_analyzer/geocode.py. lat/lon are nullable — races.yml entries the
+    # geocoder hasn't resolved yet (or that never got a location: at all)
+    # simply don't get a map pin rather than showing a wrong one.
+    Column("location", Text, nullable=False, server_default=""),
+    Column("lat", Float),
+    Column("lon", Float),
 )
 
 # A rider's participation in one race, plus everything that is true only of

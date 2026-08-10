@@ -3,80 +3,39 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VeloAnalyzer — MTB XCO start list analysis</title>
-  <meta name="description" content="Who is actually racing. UCI rankings, points and 12-month race history for every rider on an MTB cross-country start list." />
+  <title>VeloAnalyzer — Know the field before the gun goes</title>
+  <meta name="description" content="UCI rankings and race history for every rider on an MTB cross-country start list." />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/src/style.css" />
   <style>
-    /* No max-width on either: the hero should span the same measure as the
-       card grid below, otherwise the page reads as two different widths. */
-    .hero { margin: .5rem 0 2rem; }
-    .hero h2 {
-      font-size: 1.55rem; line-height: 1.3; margin: 0 0 .6rem; color: #e2e8f0;
-      font-weight: 700;
+    /* ── Hero: a motto, not a wall of text ──────────────────────────────── */
+    .hero { margin: .25rem 0 2rem; }
+    .hero h1 {
+      font-size: 2.1rem; line-height: 1.2; margin: 0 0 .5rem; color: #f7fafc;
+      font-weight: 800; letter-spacing: -.02em;
     }
-    .hero p { color: #a0aec0; margin: 0; line-height: 1.6; }
+    .hero p { color: #a0aec0; margin: 0; font-size: 1rem; line-height: 1.5; }
 
-    .hero-stats { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0 0; }
+    .hero-stats { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.6rem 0 0; }
     .hero-chip {
       background: #2d3748; border: 1px solid #4a5568; border-radius: 10px;
-      padding: .9rem 1.4rem; text-align: center; min-width: 128px;
+      padding: 1rem 1.5rem; text-align: center; min-width: 132px;
       text-decoration: none; color: inherit; display: block;
-      transition: border-color .15s;
+      transition: border-color .15s, transform .15s;
     }
-    .hero-chip:hover { border-color: #63b3ed; }
-    .hero-chip-val { display: block; font-size: 1.5rem; font-weight: 700; color: #90cdf4; }
+    .hero-chip:hover { border-color: #63b3ed; transform: translateY(-1px); }
+    .hero-chip-val { display: block; font-size: 1.65rem; font-weight: 800; color: #90cdf4; }
     .hero-chip-lbl {
       display: block; font-size: .72rem; color: #718096; text-transform: uppercase;
       letter-spacing: .05em; margin-top: .25rem;
     }
 
-    .feature-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 1rem; margin: 1rem 0 2.5rem;
-    }
-    .feature {
-      background: #2d3748; border: 1px solid #4a5568; border-radius: 10px;
-      padding: 1.1rem 1.2rem;
-    }
-    .feature h3 {
-      margin: 0 0 .45rem; font-size: .95rem; color: #90cdf4; font-weight: 600;
-      display: flex; align-items: center; gap: .5rem;
-    }
-    .feature p { margin: 0; font-size: .85rem; color: #a0aec0; line-height: 1.55; }
-
-    .preview-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 1rem; margin: 1rem 0 .5rem;
-    }
-    .preview-card {
-      display: block; background: #2d3748; border: 1px solid #4a5568; border-radius: 10px;
-      padding: 1rem 1.1rem; text-decoration: none; color: inherit; transition: border-color .15s;
-    }
-    .preview-card:hover { border-color: #63b3ed; }
-    .preview-date { font-size: .75rem; color: #718096; margin-bottom: .3rem; }
-    .preview-name { font-size: .92rem; font-weight: 600; margin-bottom: .5rem; line-height: 1.3; }
     .see-all { display: inline-block; margin-bottom: 2.5rem; font-size: .85rem; }
 
-    .nav-section { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: 1rem 0 2.5rem; }
-    .nav-card {
-      flex: 1; min-width: 220px; background: #2d3748; border: 2px solid #4a5568;
-      border-radius: 12px; padding: 1.5rem 1.4rem; text-decoration: none; color: inherit;
-      display: block; transition: border-color .15s;
-    }
-    .nav-card:hover { border-color: #63b3ed; }
-    .nav-card h2 { color: #90cdf4; margin: 0 0 .5rem; font-size: 1.05rem; }
-    .nav-card p { color: #a0aec0; margin: 0; font-size: .85rem; line-height: 1.5; }
-
-    .cat-badge {
-      display: inline-block; border-radius: 4px; padding: 1px 6px;
-      font-size: .72rem; font-weight: 600; white-space: nowrap;
-    }
-
-    /* Request form */
+    /* ── Request form ────────────────────────────────────────────────────── */
     .request-box {
       background: #2d3748; border: 1px solid #4a5568; border-radius: 12px;
-      padding: 1.4rem 1.4rem 1.5rem; margin-bottom: 2.5rem;
+      padding: 1.4rem 1.4rem 1.5rem; margin-bottom: 1rem;
     }
     .request-box p.intro { margin: 0 0 1.1rem; color: #a0aec0; font-size: .88rem; line-height: 1.6; }
     .field { margin-bottom: .9rem; }
@@ -109,143 +68,89 @@
 </head>
 <body>
   <div class="container">
-    <header class="site-header">
-      <h1>🚵 VeloAnalyzer</h1>
-      <p class="header-sub">
-        UCI-enriched MTB XCO start list analysis &nbsp;·&nbsp;
-        Updated: <span id="generated-at">—</span>
-      </p>
-    </header>
-
-    <div class="hero">
-      <h2>Know who is actually racing, before the gun goes.</h2>
-      <p>
-        A start list is just a list of names. VeloAnalyzer matches every rider against the
-        official UCI ranking and their last twelve months of race results, so you can see
-        the strength of a field at a glance — who the favourites are, who is in form, and
-        how any two riders have fared against each other.
-      </p>
-      <div class="hero-stats" id="hero-stats"></div>
-    </div>
-
     <p id="loading">Loading…</p>
 
     <div id="content" style="display:none">
-      <p class="section-title">What you can do</p>
-      <div class="feature-grid">
-        <div class="feature">
-          <h3>🏁 Read a start list properly</h3>
-          <p>
-            Every entrant with their UCI rank, points and team, colour-coded by ranking
-            tier so the sharp end of the field stands out immediately.
-          </p>
-        </div>
-        <div class="feature">
-          <h3>👤 Rider profiles</h3>
-          <p>
-            Twelve months of official UCI results per rider — every finish, not only
-            point-scoring ones — with a form chart and which results actually count
-            toward their ranking points.
-          </p>
-        </div>
-        <div class="feature">
-          <h3>⚔ Head-to-head</h3>
-          <p>
-            Pick any two riders in a field and see every race they have both started,
-            newest first, with finishing positions side by side.
-          </p>
-        </div>
-        <div class="feature">
-          <h3>📊 Field strength</h3>
-          <p>
-            Starter counts by nation and team, best and average UCI rank, and how many
-            riders come from the world's top 50, 100 and 200.
-          </p>
-        </div>
-        <div class="feature">
-          <h3>🗓 Race comparison</h3>
-          <p>
-            Every tracked race in one table, upcoming and past, so you can compare the
-            depth of one weekend's field against another.
-          </p>
-        </div>
-        <div class="feature">
-          <h3>🔄 Kept current</h3>
-          <p>
-            Start lists and UCI rankings refresh automatically every day, and past races
-            are rebuilt from official UCI results once they have been run.
-          </p>
-        </div>
-      </div>
+      <div class="layout">
+        <aside class="sidebar">
+          <a class="brand" href="./index.html">
+            <span class="brand-emoji">🚵</span>
+            <span class="brand-name">VeloAnalyzer</span>
+          </a>
 
-      <p class="section-title">Next up</p>
-      <div class="preview-grid" id="preview-grid"></div>
-      <a class="see-all" href="./races.html">See all races →</a>
+          <nav class="side-nav">
+            <a href="./app.html"><span class="icon">🏁</span> Start List</a>
+            <a href="./results.html"><span class="icon">🏆</span> Results</a>
+            <a href="./races.html"><span class="icon">🗓</span> Races</a>
+            <a href="./riders.html"><span class="icon">👤</span> Riders</a>
+            <a href="./about.html"><span class="icon">ℹ️</span> About</a>
+          </nav>
 
-      <div class="nav-section">
-        <a class="nav-card" href="./app.html">
-          <h2>Start list viewer →</h2>
-          <p>Browse and search upcoming start lists. UCI rankings, race history, rider profiles and head-to-head comparison.</p>
-        </a>
-        <a class="nav-card" href="./results.html">
-          <h2>Results →</h2>
-          <p>Official results from races that have finished, with the same rider profiles and head-to-head comparison.</p>
-        </a>
-        <a class="nav-card" href="./races.html">
-          <h2>Race comparison →</h2>
-          <p>Overview of all races in the calendar. Field strength stats and riders competing across multiple events.</p>
-        </a>
-        <a class="nav-card" href="./riders.html">
-          <h2>Rider index →</h2>
-          <p>Every tracked rider in one searchable list. Filter by category and open any profile directly.</p>
-        </a>
-      </div>
+          <div class="side-meta">
+            Updated <span id="generated-at">—</span><br />
+            Ranking data © <a href="https://www.uci.org" target="_blank" rel="noopener">uci.org</a><br />
+            <a href="https://github.com/jfulem/veloanalyzer" target="_blank" rel="noopener">Source on GitHub</a>
+          </div>
+        </aside>
 
-      <p class="section-title">Missing a race?</p>
-      <div class="request-box">
-        <p class="intro">
-          Send the start list and it will be considered for the collection. A link to the
-          organiser's or timing provider's entry list is all that is needed — the rest is
-          worked out automatically.
-        </p>
-        <form id="request-form" novalidate>
-          <div class="field">
-            <label for="rq-url">Start list link <span class="hint">— required</span></label>
-            <input id="rq-url" name="url" type="url" placeholder="https://my.raceresult.com/…/participants" required />
+        <div class="main">
+          <div class="hero">
+            <h1>Know the field before the gun goes.</h1>
+            <p>UCI rankings and a full season of race history for every rider on every MTB XCO start list.</p>
+            <div class="hero-stats" id="hero-stats"></div>
           </div>
-          <div class="field-row">
-            <div class="field">
-              <label for="rq-name">Race name <span class="hint">— optional</span></label>
-              <input id="rq-name" name="race_name" type="text" placeholder="ČP XCO Bedřichov 2026" />
-            </div>
-            <div class="field">
-              <label for="rq-cat">Category <span class="hint">— optional</span></label>
-              <input id="rq-cat" name="category" type="text" placeholder="Men Juniors" />
-            </div>
+
+          <p class="section-title">Races</p>
+          <div class="widgets">
+            <div class="calendar" id="calendar"></div>
+            <div id="map"></div>
           </div>
-          <div class="field">
-            <label for="rq-note">Anything else <span class="hint">— optional</span></label>
-            <textarea id="rq-note" name="note" placeholder="Date, which categories matter, a second entry list…"></textarea>
+          <a class="see-all" href="./races.html">See all races →</a>
+
+          <p class="section-title">Missing a race?</p>
+          <div class="request-box">
+            <p class="intro">
+              Send the start list and it will be considered for the collection. A link to the
+              organizer's or timing provider's entry list is all that is needed.
+            </p>
+            <form id="request-form" novalidate>
+              <div class="field">
+                <label for="rq-url">Start list link <span class="hint">— required</span></label>
+                <input id="rq-url" name="url" type="url" placeholder="https://my.raceresult.com/…/participants" required />
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label for="rq-name">Race name <span class="hint">— optional</span></label>
+                  <input id="rq-name" name="race_name" type="text" placeholder="ČP XCO Bedřichov 2026" />
+                </div>
+                <div class="field">
+                  <label for="rq-cat">Category <span class="hint">— optional</span></label>
+                  <input id="rq-cat" name="category" type="text" placeholder="Men Juniors" />
+                </div>
+              </div>
+              <div class="field">
+                <label for="rq-note">Anything else <span class="hint">— optional</span></label>
+                <textarea id="rq-note" name="note" placeholder="Date, which categories matter, a second entry list…"></textarea>
+              </div>
+              <div class="field">
+                <label for="rq-email">Your email <span class="hint">— optional, only used to reply</span></label>
+                <input id="rq-email" name="email" type="email" placeholder="you@example.com" />
+              </div>
+              <div class="hp" aria-hidden="true">
+                <label for="rq-website">Leave this empty</label>
+                <input id="rq-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+              </div>
+              <button class="submit-btn" id="rq-submit" type="submit">Send suggestion</button>
+              <p class="form-msg" id="rq-msg" hidden></p>
+            </form>
           </div>
-          <div class="field">
-            <label for="rq-email">Your email <span class="hint">— optional, only used to reply</span></label>
-            <input id="rq-email" name="email" type="email" placeholder="you@example.com" />
-          </div>
-          <div class="hp" aria-hidden="true">
-            <label for="rq-website">Leave this empty</label>
-            <input id="rq-website" name="website" type="text" tabindex="-1" autocomplete="off" />
-          </div>
-          <button class="submit-btn" id="rq-submit" type="submit">Send suggestion</button>
-          <p class="form-msg" id="rq-msg" hidden></p>
-        </form>
+
+          <footer class="site-footer" style="margin-top:1.5rem;">
+            Built by <a href="https://github.com/jfulem/veloanalyzer" target="_blank" rel="noopener">veloanalyzer</a>
+          </footer>
+        </div>
       </div>
     </div>
-
-    <footer class="site-footer">
-      Ranking data © <a href="https://www.uci.org" target="_blank" rel="noopener">uci.org</a>
-      &nbsp;·&nbsp;
-      Built by <a href="https://github.com/jfulem/veloanalyzer" target="_blank" rel="noopener">veloanalyzer</a>
-    </footer>
   </div>
 
   <script type="module" src="/src/landing.ts"></script>
