@@ -1,5 +1,5 @@
 import re
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import requests
 
@@ -68,10 +68,21 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
       Category is built as "{gender} {contest_name}" (e.g. "Men XCO UCI C1").
 
     Country is extracted from flag SVG URL (ISO 2-letter → IOC 3-letter).
+
+    Some raceresult.com projects are a whole season rather than one race — the
+    Skoda Swiss Bike Cup and Vittoria-Fischer MTB Cup both run their entire
+    calendar through a single event ID, with one participants "list" per
+    stage (e.g. "TN Lostorf", "TN Haegglingen"). Auto-picking by row count, as
+    this parser otherwise does, would silently return whichever stage happens
+    to have the most entrants rather than the one actually requested. A
+    ?list=<substring> query parameter on the races.yml URL — never present on
+    a single-race event, so every other caller of this parser is unaffected —
+    restricts the search to lists whose name contains it.
     """
     parsed   = urlparse(url)
     event_id = parsed.path.strip("/").split("/")[0]
     origin   = f"{parsed.scheme}://{parsed.netloc}"
+    list_filter = parse_qs(parsed.query).get("list", [None])[0]
 
     try:
         resp = requests.get(f"{origin}/{event_id}/RRPublish/data/config",
@@ -90,12 +101,16 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
         except Exception as e:
             console.print(f"[red]Error fetching raceresult config: {e}[/red]")
             return []
-        return _parse_participants(origin, event_id, p_config.get("key", ""), category_filter)
+        return _parse_participants(origin, event_id, p_config.get("key", ""), category_filter, list_filter)
 
     key = config.get("key", "")
 
-    if config.get("showParticipants") and not config.get("showResults"):
-        return _parse_participants(origin, event_id, key, category_filter)
+    # A season-long project (see docstring) can have showResults=true even
+    # though what we actually want is one stage's entrants, not the season's
+    # cumulative standings — an explicit ?list= always means participants
+    # mode, regardless of what else the event exposes.
+    if config.get("showParticipants") and (list_filter or not config.get("showResults")):
+        return _parse_participants(origin, event_id, key, category_filter, list_filter)
 
     lists = config.get("lists", [])
     if not lists:
@@ -196,12 +211,16 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
 
 
 def _parse_participants(origin: str, event_id: str, key: str,
-                        category_filter: str = None) -> list:
+                        category_filter: str = None, list_filter: str = None) -> list:
     """
     Participants-mode parser for events that publish startlists but not results.
     Uses /{event_id}/participants/config + /{event_id}/participants/list.
     Data is grouped by contest (e.g. 'XCO UCI C1'); gender (M/W) is per row.
     Column positions are read from the DataFields array in the list response.
+
+    list_filter restricts the search to lists whose name contains it
+    (case-insensitive) — see parse_raceresult's docstring for why a
+    season-spanning project needs this to isolate one stage.
     """
     base = f"{origin}/{event_id}/participants"
 
@@ -215,6 +234,15 @@ def _parse_participants(origin: str, event_id: str, key: str,
         return []
 
     lists = p_config.get("TabConfig", {}).get("Lists", [])
+    if list_filter:
+        matched = [lst for lst in lists if list_filter.lower() in lst.get("Name", "").lower()]
+        if not matched:
+            console.print(
+                f"[red]No participants list matches list={list_filter!r} — "
+                f"available: {[lst.get('Name') for lst in lists]}[/red]"
+            )
+            return []
+        lists = matched
     if not lists:
         console.print("[red]No lists found in participants config[/red]")
         return []
@@ -257,12 +285,19 @@ _CONTEST_U23_RE   = re.compile(r"/\S+\s*U23\s*$", re.IGNORECASE)  # redundant "/
 def _extract_participant_rows(data: dict, category_filter: str = None) -> list:
     fields = data.get("DataFields", [])
 
-    # Name: either one combined "AnzeigeName" column, or separate
-    # FIRSTNAME/LASTNAME columns (seen on Czech UCI-category lists).
+    # Name: a combined "AnzeigeName" column (order varies, disambiguated below
+    # by the presence of a comma), separate FIRSTNAME/LASTNAME columns (seen
+    # on Czech UCI-category lists), or a combined "FLNAME" column — seen on
+    # the Vittoria-Fischer MTB Cup — whose order the field name states
+    # outright (First, then Last) and is never comma-separated, so it must
+    # not go through the comma-vs-no-comma heuristic below: unlike
+    # AnzeigeName, treating a no-comma FLNAME as "Last First" would silently
+    # swap every rider's given and family names.
     name_col   = _find_col(fields, "AnzeigeName")
+    flname_col = _find_col(fields, "FLNAME") if name_col is None else None
     first_col  = _find_col(fields, "FIRSTNAME")
     last_col   = _find_col(fields, "LASTNAME")
-    if name_col is None and first_col is None:
+    if name_col is None and flname_col is None and first_col is None:
         name_col = 3
 
     # Nationality: NATION.UCINAME/NATION.IOCNAME carry the IOC alpha-3 code
@@ -305,6 +340,16 @@ def _extract_participant_rows(data: dict, category_filter: str = None) -> list:
                     parts = name_raw.split(None, 1)
                     last  = parts[0].title()
                     first = parts[1].title() if len(parts) > 1 else ""
+            elif flname_col is not None and len(row) > flname_col:
+                # Always "given name(s) SPACE surname", surname last — verified
+                # against sibling pairs sharing a surname (e.g. "Josephine
+                # Ayana Ruh" / "Lucy Maiva Ruh"), so split from the right.
+                name_raw = str(row[flname_col]).strip()
+                if not name_raw:
+                    continue
+                parts = name_raw.rsplit(None, 1)
+                first = parts[0].title() if len(parts) > 1 else ""
+                last  = parts[-1].title()
             else:
                 continue
 

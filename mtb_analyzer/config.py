@@ -98,6 +98,11 @@ CATEGORY_ALIASES = {
     "amateure": "Amateur",
     "damen":    "Women",
     "herren":   "Men",
+    # Swiss/German contests sometimes use this pair instead of damen/herren
+    # (e.g. raceresult's Vittoria-Fischer MTB Cup: "Elite Männer", "Juniors
+    # Frauen") — same meaning, different regional convention.
+    "frauen":   "Women",
+    "männer":   "Men",
     "elit":     "Elite",
     "junior":   "Juniors",
     "amateur":  "Amateur",
