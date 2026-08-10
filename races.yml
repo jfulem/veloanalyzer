@@ -517,7 +517,7 @@ races:
   uci_category: ME
   uci_competition_id: 78637
   output: cba-paprsek-xco-me.html
-  location: "Paprsek, Kořenov, Czech Republic"
+  location: "Staré Město, Czech Republic"
 - url: "https://my.raceresult.com/409537/participants#0_9C0EDD"  # TODO: find start list URL
   name: CBA Paprsek XCO 2026 — Men Juniors
   date: '2026-08-01'
@@ -525,7 +525,7 @@ races:
   uci_category: MJ
   uci_competition_id: 78637
   output: cba-paprsek-xco-mj.html
-  location: "Paprsek, Kořenov, Czech Republic"
+  location: "Staré Město, Czech Republic"
 - url: "https://my.raceresult.com/409537/participants#0_9C0EDD"  # TODO: find start list URL
   name: CBA Paprsek XCO 2026 — Women Elite
   date: '2026-08-01'
@@ -533,7 +533,7 @@ races:
   uci_category: WE
   uci_competition_id: 78637
   output: cba-paprsek-xco-we.html
-  location: "Paprsek, Kořenov, Czech Republic"
+  location: "Staré Město, Czech Republic"
 - url: "https://my.raceresult.com/409537/participants#0_9C0EDD"  # TODO: find start list URL
   name: CBA Paprsek XCO 2026 — Women Juniors
   date: '2026-08-01'
@@ -541,7 +541,7 @@ races:
   uci_category: WJ
   uci_competition_id: 78637
   output: cba-paprsek-xco-wj.html
-  location: "Paprsek, Kořenov, Czech Republic"
+  location: "Staré Město, Czech Republic"
 
 - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3641"  # TODO: find start list URL
   name: SP Oslany XCO 2026 — Men Elite
