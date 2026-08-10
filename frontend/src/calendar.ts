@@ -69,15 +69,19 @@ export function renderCalendar(container: HTMLElement, races: RaceStat[]): void 
     for (let day = 1; day <= daysInMonth; day++) {
       const iso = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const dayRaces = byDate.get(iso) ?? [];
+      // Chronological, not data-driven: a race whose date has passed is
+      // "past" even if results haven't been captured yet (organizer hasn't
+      // published them, scrape missed them, etc). raceHref() below still
+      // uses finished > 0 to decide the link target, since that's genuinely
+      // about whether results.html has anything to show.
+      const isPast = iso < todayIso;
       const classes = ["cal-day", "in-month"];
       if (iso === todayIso) classes.push("today");
       if (dayRaces.length > 0) {
-        const isPast = dayRaces.every((r) => r.finished > 0);
         classes.push("has-race", isPast ? "past" : "future");
       }
       const cell = el("div", { class: classes.join(" ") }, String(day));
       if (dayRaces.length > 0) {
-        const isPast = dayRaces.every((r) => r.finished > 0);
         cell.appendChild(el("span", { class: `cal-dot ${isPast ? "past" : "future"}` }));
         cell.setAttribute("role", "button");
         cell.setAttribute("tabindex", "0");

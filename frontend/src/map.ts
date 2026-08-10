@@ -1,6 +1,6 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { RaceStat, catBadge } from "./raceStats.js";
+import { RaceStat, catBadge, todayIso } from "./raceStats.js";
 
 /** Same destination rule as calendar.ts: results once a race has finished
  *  results, otherwise the (upcoming) start list. */
@@ -47,9 +47,14 @@ export function renderMap(container: HTMLElement, races: RaceStat[]): void {
   }).addTo(map);
 
   const bounds = L.latLngBounds(located.map((r) => [r.lat, r.lon]));
+  const today = todayIso();
 
   for (const race of located) {
-    const isPast = race.finished > 0;
+    // Chronological, same as calendar.ts: a race whose date has passed reads
+    // as "past" even before results are captured. raceHref() above still
+    // keys off finished > 0, since that's about whether results.html has
+    // anything to show, not whether the event itself already happened.
+    const isPast = race.date < today;
     const marker = L.marker([race.lat, race.lon], {
       icon: dotIcon(isPast ? PAST_COLOR : FUTURE_COLOR),
     }).addTo(map);

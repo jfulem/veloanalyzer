@@ -114,7 +114,11 @@ body {
 .widgets { display: flex; gap: 1rem; margin: 1rem 0 2.5rem; align-items: stretch; }
 .widgets .calendar { flex: 0 0 320px; margin: 0; }
 .widgets #map {
-  flex: 1; min-width: 0; height: 260px;
+  /* No explicit height here: align-items: stretch (the flex default) grows
+     it to match .calendar's content height instead. Leaflet reads that
+     stretched height at init time, since renderMap() only runs once #content
+     is already visible and laid out. */
+  flex: 1; min-width: 0;
   border-radius: 10px; overflow: hidden; border: 1px solid #2d3748;
   background: #1a202c;
 }
