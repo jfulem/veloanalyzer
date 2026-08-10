@@ -13,14 +13,14 @@ function num(value: number | null, prefix = ""): string {
   return value === null || value === undefined ? "—" : `${prefix}${value}`;
 }
 
-function row(s: RaceStat): HTMLTableRowElement {
+function row(s: RaceStat, destination: string): HTMLTableRowElement {
   const tr = document.createElement("tr");
   tr.dataset["cat"] = s.uci_category;
 
   tr.appendChild(el("td", {}, s.date ?? ""));
 
   const nameCell = el("td");
-  const link = el("a", { href: `./app.html#race=${encodeURIComponent(s.slug)}` }, s.name);
+  const link = el("a", { href: `./${destination}#race=${encodeURIComponent(s.slug)}` }, s.name);
   nameCell.appendChild(link);
   tr.appendChild(nameCell);
 
@@ -36,7 +36,7 @@ function row(s: RaceStat): HTMLTableRowElement {
   return tr;
 }
 
-function section(container: HTMLElement, title: string, rows: RaceStat[]): void {
+function section(container: HTMLElement, title: string, rows: RaceStat[], destination: string): void {
   container.appendChild(el("p", { class: "section-title" }, `${title} (${rows.length})`));
   if (rows.length === 0) {
     container.appendChild(el("p", { class: "h2h-empty" }, "None."));
@@ -56,7 +56,7 @@ function section(container: HTMLElement, title: string, rows: RaceStat[]): void 
   table.appendChild(thead);
 
   const tbody = el("tbody");
-  for (const s of rows) tbody.appendChild(row(s));
+  for (const s of rows) tbody.appendChild(row(s, destination));
   table.appendChild(tbody);
   container.appendChild(table);
 }
@@ -101,8 +101,8 @@ function buildLegend(container: HTMLElement): void {
   const past = stats.filter((s) => !s.date || s.date < today).reverse();
 
   buildLegend($("#cat-legend"));
-  section($("#upcoming-section"), "Upcoming races", upcoming);
-  section($("#past-section"), "Past races", past);
+  section($("#upcoming-section"), "Upcoming races", upcoming, "app.html");
+  section($("#past-section"), "Past races", past, "results.html");
 
   $("#generated-at").textContent = meta["generated_at"] ?? "";
   loading.style.display = "none";

@@ -95,10 +95,16 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     if (parts.length === 3 && parts[2] === "stats") {
       return json(await sql`
         SELECT r.id, r.slug, r.name, r.date::text AS date, r.uci_category, r.category,
-               count(e.id)::int             AS total,
-               count(e.uci_rank)::int       AS ranked,
-               min(e.uci_rank)::int         AS best,
-               round(avg(e.uci_rank))::int  AS avg
+               count(e.id)::int              AS total,
+               count(e.uci_rank)::int        AS ranked,
+               min(e.uci_rank)::int          AS best,
+               round(avg(e.uci_rank))::int   AS avg,
+               -- Distinct from "ranked" above: that counts entrants who are
+               -- UCI-ranked riders (a field-strength signal, true before the
+               -- race is even run), while this counts entrants with a
+               -- captured finishing position — i.e. whether the race itself
+               -- has been run yet.
+               count(e.result_rank)::int     AS finished
         FROM races r
         LEFT JOIN race_entries e ON e.race_id = r.id
         GROUP BY r.id

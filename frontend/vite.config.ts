@@ -21,10 +21,11 @@ export default defineConfig({
       // written by scripts/generate_site.py from scraped data; they render
       // from the API instead, so nothing needs a build-time database.
       input: {
-        index:  "index.html",
-        app:    "app.html",
-        races:  "races.html",
-        riders: "riders.html",
+        index:   "index.html",
+        app:     "app.html",
+        races:   "races.html",
+        riders:  "riders.html",
+        results: "results.html",
       },
       output: {
         // Content-hashed filenames so browsers can't serve a stale cached

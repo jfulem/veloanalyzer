@@ -12,9 +12,14 @@ export interface RaceStat {
   uci_category: string;
   category: string;
   total: number;
+  /** Entrants who are UCI-ranked riders — a field-strength signal, true even
+   *  before the race has been run. Not a proxy for "has results". */
   ranked: number;
   best: number | null;
   avg: number | null;
+  /** Entrants with a captured finishing position. The correct signal for
+   *  "this race has been run and has results". */
+  finished: number;
 }
 
 export interface SiteStats {
