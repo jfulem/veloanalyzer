@@ -70,19 +70,29 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
     Country is extracted from flag SVG URL (ISO 2-letter → IOC 3-letter).
 
     Some raceresult.com projects are a whole season rather than one race — the
-    Skoda Swiss Bike Cup and Vittoria-Fischer MTB Cup both run their entire
-    calendar through a single event ID, with one participants "list" per
-    stage (e.g. "TN Lostorf", "TN Haegglingen"). Auto-picking by row count, as
-    this parser otherwise does, would silently return whichever stage happens
-    to have the most entrants rather than the one actually requested. A
-    ?list=<substring> query parameter on the races.yml URL — never present on
-    a single-race event, so every other caller of this parser is unaffected —
-    restricts the search to lists whose name contains it.
+    Vittoria-Fischer MTB Cup runs its entire calendar through a single event
+    ID, with one participants "list" per stage (e.g. "TN Lostorf", "TN
+    Haegglingen"). Auto-picking by row count, as this parser otherwise does,
+    would silently return whichever stage happens to have the most entrants
+    rather than the one actually requested. A ?list=<substring> query
+    parameter on the races.yml URL — never present on a single-race event, so
+    every other caller of this parser is unaffected — restricts the search to
+    lists whose name contains it.
+
+    The Skoda Swiss Bike Cup runs the same way but its project exposes only
+    one flat "Start list" for the whole season with no per-stage list to
+    match against — the split is a per-row filter instead, driven by a
+    ?selectorResult=<N> parameter (1-based, in chronological stage order;
+    found by watching the site's own Network tab, since it isn't in any
+    config response this parser can introspect). Passed straight through as
+    an extra query param on /participants/list when present.
     """
     parsed   = urlparse(url)
     event_id = parsed.path.strip("/").split("/")[0]
     origin   = f"{parsed.scheme}://{parsed.netloc}"
-    list_filter = parse_qs(parsed.query).get("list", [None])[0]
+    query       = parse_qs(parsed.query)
+    list_filter = query.get("list", [None])[0]
+    selector_result = query.get("selectorResult", [None])[0]
 
     try:
         resp = requests.get(f"{origin}/{event_id}/RRPublish/data/config",
@@ -101,16 +111,17 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
         except Exception as e:
             console.print(f"[red]Error fetching raceresult config: {e}[/red]")
             return []
-        return _parse_participants(origin, event_id, p_config.get("key", ""), category_filter, list_filter)
+        return _parse_participants(origin, event_id, p_config.get("key", ""), category_filter,
+                                    list_filter, selector_result)
 
     key = config.get("key", "")
 
     # A season-long project (see docstring) can have showResults=true even
     # though what we actually want is one stage's entrants, not the season's
-    # cumulative standings — an explicit ?list= always means participants
-    # mode, regardless of what else the event exposes.
-    if config.get("showParticipants") and (list_filter or not config.get("showResults")):
-        return _parse_participants(origin, event_id, key, category_filter, list_filter)
+    # cumulative standings — an explicit ?list= or ?selectorResult= always
+    # means participants mode, regardless of what else the event exposes.
+    if config.get("showParticipants") and (list_filter or selector_result or not config.get("showResults")):
+        return _parse_participants(origin, event_id, key, category_filter, list_filter, selector_result)
 
     lists = config.get("lists", [])
     if not lists:
@@ -143,7 +154,7 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
     fields = data.get("DataFields", [])
     name_col = _find_col(fields, "AnzeigeName")
     name_col = name_col if name_col is not None else 3
-    team_col = _find_col(fields, "CLUB")
+    team_col = _find_col(fields, "CLUB", "DisplayTeamOrClub")
     team_col = team_col if team_col is not None else 6
     year_col = _find_col(fields, "YEAR")
     # NATION.UCINAME / NATION.IOCNAME contain the IOC alpha-3 code directly
@@ -163,7 +174,7 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
         # Groups with no gender subgroup (grp_val is a list) carry a trailing
         # rider-count suffix in their name, e.g. "Elite Men (2)" — strip it so
         # category_matches() isn't thrown off by the extra word.
-        name_no_prefix = re.sub(r"^#\d+_", "", grp_key)
+        name_no_prefix = _extract_locale_label(re.sub(r"^#\d+_", "", grp_key))
         name_no_count  = re.sub(r"\s*\(\d+\)\s*$", "", name_no_prefix)
         category_base  = normalize_category_name(name_no_count)
         subgroups = grp_val.items() if isinstance(grp_val, dict) else [(grp_key, grp_val)]
@@ -190,6 +201,10 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
                     continue
                 if "," in name_raw:
                     last, first = (p.strip().title() for p in name_raw.split(",", 1))
+                elif _surname_last_allcaps(name_raw):
+                    parts = name_raw.rsplit(None, 1)
+                    first = parts[0].title() if len(parts) > 1 else ""
+                    last  = parts[-1].title()
                 else:
                     parts = name_raw.split(None, 1)
                     last  = parts[0].title()
@@ -210,8 +225,8 @@ def parse_raceresult(url: str, category_filter: str = None) -> list:
     return riders
 
 
-def _parse_participants(origin: str, event_id: str, key: str,
-                        category_filter: str = None, list_filter: str = None) -> list:
+def _parse_participants(origin: str, event_id: str, key: str, category_filter: str = None,
+                        list_filter: str = None, selector_result: str = None) -> list:
     """
     Participants-mode parser for events that publish startlists but not results.
     Uses /{event_id}/participants/config + /{event_id}/participants/list.
@@ -221,6 +236,11 @@ def _parse_participants(origin: str, event_id: str, key: str,
     list_filter restricts the search to lists whose name contains it
     (case-insensitive) — see parse_raceresult's docstring for why a
     season-spanning project needs this to isolate one stage.
+
+    selector_result, when given, is passed straight through as an extra
+    query param — see parse_raceresult's docstring for the Swiss Bike Cup
+    case this exists for, where the single list itself needs a per-row
+    filter rather than there being a separate list per stage.
     """
     base = f"{origin}/{event_id}/participants"
 
@@ -256,11 +276,11 @@ def _parse_participants(origin: str, event_id: str, key: str,
     # filter was given).
     best_riders, best_score = [], -1
     for lst in lists:
+        params = {"lang": "en", "listname": lst["Name"], "contest": "0", "r": "all", "key": key}
+        if selector_result:
+            params["selectorResult"] = selector_result
         try:
-            resp = requests.get(f"{base}/list",
-                                params={"lang": "en", "listname": lst["Name"],
-                                        "contest": "0", "r": "all", "key": key},
-                                headers=HEADERS, timeout=30)
+            resp = requests.get(f"{base}/list", params=params, headers=HEADERS, timeout=30)
             resp.raise_for_status()
             candidate = resp.json()
         except Exception as e:
@@ -280,6 +300,37 @@ def _parse_participants(origin: str, event_id: str, key: str,
 
 _CONTEST_NOISE_RE = re.compile(r"\s*[,-]\s*\(?[\d].*$")   # trailing age range / years, e.g. ", 17-18 let(2008-2009)"
 _CONTEST_U23_RE   = re.compile(r"/\S+\s*U23\s*$", re.IGNORECASE)  # redundant "/Muži U23" combo suffix
+_LOCALE_BUNDLE_RE = re.compile(r"^\{(.*)\}$")
+
+
+def _extract_locale_label(raw: str, lang: str = "EN") -> str:
+    """Some raceresult.com projects (seen on the GOLAZO-platform Swiss Bike
+    Cup) give a contest/category name as a multi-locale bundle —
+    '{EN:Elite Men|DE:Elite Herren|FR:Elite Hommes|IT:Elite Uomini}' —
+    instead of a plain string. Splitting that on whitespace for
+    normalize_category_name() produces garbage that matches no filter, so
+    pull out just the requested language's label first. Any plain string
+    (the common case, every other site) passes through unchanged."""
+    m = _LOCALE_BUNDLE_RE.match(raw.strip())
+    if not m:
+        return raw
+    labels = dict(p.split(":", 1) for p in m.group(1).split("|") if ":" in p)
+    return labels.get(lang) or next(iter(labels.values()), raw)
+
+
+def _surname_last_allcaps(name_raw: str) -> bool:
+    """True when a comma-less name is 'Given Name(s) SURNAME' — surname last,
+    in caps — rather than the plain 'Last First' the no-comma branch below
+    otherwise assumes. Seen on a generic 'DisplayName' column (GOLAZO-
+    platform events like the Swiss Bike Cup) that isn't recognized as the
+    already-handled FLNAME case, but follows the identical given-then-
+    surname order; only the column name differs. Requires the first token to
+    NOT also be all-caps, so a genuinely ambiguous name falls through to the
+    existing default instead of being guessed wrong."""
+    parts = name_raw.split()
+    if len(parts) < 2:
+        return False
+    return len(parts[-1]) > 1 and parts[-1].isupper() and not parts[0].isupper()
 
 
 def _extract_participant_rows(data: dict, category_filter: str = None) -> list:
@@ -311,12 +362,13 @@ def _extract_participant_rows(data: dict, category_filter: str = None) -> list:
 
     year_col   = _find_col(fields, "YEAR")
     gender_col = _find_col(fields, "GeschlechtMW")
-    team_col   = _find_col(fields, "CLUB")
+    team_col   = _find_col(fields, "CLUB", "DisplayTeamOrClub")
     team_col   = team_col if team_col is not None else 6
 
     riders = []
     for grp_key, rows in data.get("data", {}).items():
-        contest_raw  = _CONTEST_U23_RE.sub("", _CONTEST_NOISE_RE.sub("", re.sub(r"^#\d+_", "", grp_key)))
+        contest_raw  = _extract_locale_label(re.sub(r"^#\d+_", "", grp_key))
+        contest_raw  = _CONTEST_U23_RE.sub("", _CONTEST_NOISE_RE.sub("", contest_raw))
         contest_name = normalize_category_name(contest_raw)
         if not isinstance(rows, list):
             continue
@@ -336,6 +388,10 @@ def _extract_participant_rows(data: dict, category_filter: str = None) -> list:
                     continue
                 if "," in name_raw:
                     last, first = (p.strip().title() for p in name_raw.split(",", 1))
+                elif _surname_last_allcaps(name_raw):
+                    parts = name_raw.rsplit(None, 1)
+                    first = parts[0].title() if len(parts) > 1 else ""
+                    last  = parts[-1].title()
                 else:
                     parts = name_raw.split(None, 1)
                     last  = parts[0].title()

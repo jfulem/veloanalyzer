@@ -650,9 +650,13 @@ races:
   output: hagglingen-c3-vittoria-fischer-mtb-cup-wj.html
   location: "Hägglingen, Switzerland"
 
-# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
-# organizer site: https://www.swissbikecup.ch
-- url: "https://www.swissbikecup.ch/en/startliste"
+# organizer site: https://www.swissbikecup.ch — one RaceResult project (372967)
+# runs the whole 7-round season with a single flat "Start list", no per-round
+# list to filter by. The per-round split is instead a row filter via
+# selectorResult=<N> (1-based, chronological stage order — found by watching
+# the site's own Network tab while picking a round from its dropdown, not
+# from anything in the API's own config). Huttwil is round 6 of 7.
+- url: "https://my.raceresult.com/372967/participants?list=Participants&selectorResult=6"
   name: Skoda Swiss Bike Cup Huttwil 2026 — Men Elite
   date: '2026-09-06'
   category: Men Elite
@@ -660,7 +664,7 @@ races:
   uci_competition_id: 77719
   output: skoda-swiss-bike-cup-huttwil-me.html
   location: "Huttwil, Switzerland"
-- url: "https://www.swissbikecup.ch/en/startliste"
+- url: "https://my.raceresult.com/372967/participants?list=Participants&selectorResult=6"
   name: Skoda Swiss Bike Cup Huttwil 2026 — Men Juniors
   date: '2026-09-06'
   category: Men Juniors
@@ -668,7 +672,7 @@ races:
   uci_competition_id: 77719
   output: skoda-swiss-bike-cup-huttwil-mj.html
   location: "Huttwil, Switzerland"
-- url: "https://www.swissbikecup.ch/en/startliste"
+- url: "https://my.raceresult.com/372967/participants?list=Participants&selectorResult=6"
   name: Skoda Swiss Bike Cup Huttwil 2026 — Women Elite
   date: '2026-09-06'
   category: Women Elite
@@ -676,7 +680,7 @@ races:
   uci_competition_id: 77719
   output: skoda-swiss-bike-cup-huttwil-we.html
   location: "Huttwil, Switzerland"
-- url: "https://www.swissbikecup.ch/en/startliste"
+- url: "https://my.raceresult.com/372967/participants?list=Participants&selectorResult=6"
   name: Skoda Swiss Bike Cup Huttwil 2026 — Women Juniors
   date: '2026-09-06'
   category: Women Juniors
@@ -685,9 +689,10 @@ races:
   output: skoda-swiss-bike-cup-huttwil-wj.html
   location: "Huttwil, Switzerland"
 
-# --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
-# organizer site: https://www.swissbikecup.ch
-- url: "https://www.swissbikecup.ch/en/startliste"
+# organizer site: https://www.swissbikecup.ch — same project 372967 as
+# Huttwil above; Gränichen is round 7 of 7. See the note there for why
+# selectorResult is needed instead of a ?list= filter.
+- url: "https://my.raceresult.com/372967/participants?list=Participants&selectorResult=7"
   name: Skoda Swiss Bike Cup Gränichen 2026 — Men Elite
   date: '2026-09-12'
   category: Men Elite
@@ -695,7 +700,7 @@ races:
   uci_competition_id: 77722
   output: skoda-swiss-bike-cup-granichen-me.html
   location: "Gränichen, Switzerland"
-- url: "https://www.swissbikecup.ch/en/startliste"
+- url: "https://my.raceresult.com/372967/participants?list=Participants&selectorResult=7"
   name: Skoda Swiss Bike Cup Gränichen 2026 — Men Juniors
   date: '2026-09-12'
   category: Men Juniors
@@ -703,7 +708,7 @@ races:
   uci_competition_id: 77722
   output: skoda-swiss-bike-cup-granichen-mj.html
   location: "Gränichen, Switzerland"
-- url: "https://www.swissbikecup.ch/en/startliste"
+- url: "https://my.raceresult.com/372967/participants?list=Participants&selectorResult=7"
   name: Skoda Swiss Bike Cup Gränichen 2026 — Women Elite
   date: '2026-09-12'
   category: Women Elite
@@ -711,7 +716,7 @@ races:
   uci_competition_id: 77722
   output: skoda-swiss-bike-cup-granichen-we.html
   location: "Gränichen, Switzerland"
-- url: "https://www.swissbikecup.ch/en/startliste"
+- url: "https://my.raceresult.com/372967/participants?list=Participants&selectorResult=7"
   name: Skoda Swiss Bike Cup Gränichen 2026 — Women Juniors
   date: '2026-09-12'
   category: Women Juniors
