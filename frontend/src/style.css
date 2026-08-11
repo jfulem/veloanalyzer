@@ -125,7 +125,11 @@ body {
 @media (max-width: 720px) {
   .widgets { flex-direction: column; }
   .widgets .calendar { flex: none; width: 100%; }
-  .widgets #map { height: 220px; }
+  /* flex-direction switches to column here, so the desktop rule's
+     "flex: 1" (flex-basis: 0%) would otherwise apply to height, not width,
+     and win over the explicit height below — collapsing the map to 0px
+     tall. Reset to a fixed-size item so the explicit height actually holds. */
+  .widgets #map { flex: none; width: 100%; height: 220px; }
 }
 
 /* Dark-theme overrides for Leaflet's default (light) chrome. */
