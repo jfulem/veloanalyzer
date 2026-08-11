@@ -1,6 +1,7 @@
 import { getRaceStats, getSiteStats, getMeta, todayIso, el, RaceStat } from "./raceStats.js";
-import { renderCalendar } from "./calendar.js";
-import { renderMap } from "./map.js";
+import { renderCalendar, CalendarController } from "./calendar.js";
+import { renderMap, MapController } from "./map.js";
+import { renderRaceList } from "./raceList.js";
 
 const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
 
@@ -112,8 +113,20 @@ function wireRequestForm(): void {
       next ? `./app.html#race=${encodeURIComponent(next.slug)}` : "./races.html",
     ));
 
-    renderCalendar($("#calendar"), stats);
-    renderMap($("#map"), stats);
+    // Selecting a race (or a day's/venue's worth of races) in either widget
+    // highlights the same set in the other and lists them all in the shared
+    // panel below. The circular reference between the two controllers is
+    // safe: neither callback runs until a later user click, by which point
+    // both are assigned.
+    const raceListCtrl = renderRaceList($("#race-list"), stats);
+    let calendarCtrl: CalendarController;
+    let mapCtrl: MapController;
+    calendarCtrl = renderCalendar($("#calendar"), stats, {
+      onSelect: (raceIds) => { raceListCtrl.show(raceIds); mapCtrl.highlight(raceIds); },
+    });
+    mapCtrl = renderMap($("#map"), stats, {
+      onSelect: (raceIds) => { raceListCtrl.show(raceIds); calendarCtrl.highlight(raceIds); },
+    });
 
     $("#generated-at").textContent = meta["generated_at"] ?? "";
   } catch (err) {

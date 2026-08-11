@@ -1,4 +1,4 @@
-import { RaceStat, catBadge, el } from "./raceStats.js";
+import { RaceStat, el } from "./raceStats.js";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTH_NAMES = [
@@ -6,17 +6,27 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-/** Destination for a given race: results once it has finished results,
- *  otherwise the (upcoming) start list — same rule used by results.ts. */
-function raceHref(race: RaceStat): string {
-  const page = race.finished > 0 ? "./results.html" : "./app.html";
-  return `${page}#race=${encodeURIComponent(race.slug)}`;
+export interface CalendarOptions {
+  /** Fired when the user clicks a day: every race on it, or [] when the day
+   *  is toggled closed again. Lets the caller sync the shared race list and
+   *  the map's highlight. */
+  onSelect?: (raceIds: number[]) => void;
+}
+
+export interface CalendarController {
+  /** Selects races from outside (e.g. a map marker click): jumps to the
+   *  first one's month if needed and rings its day. Empty array clears.
+   *  Doesn't itself fire onSelect — this is the receiving half of the sync,
+   *  not a simulated click, so it can't loop back into the map. */
+  highlight(raceIds: number[]): void;
 }
 
 /** Renders a month calendar with race days highlighted. `races` is the full
  *  set (not just upcoming) so past months show results too. Re-renders in
  *  place on month navigation; the caller mounts it once. */
-export function renderCalendar(container: HTMLElement, races: RaceStat[]): void {
+export function renderCalendar(
+  container: HTMLElement, races: RaceStat[], opts: CalendarOptions = {},
+): CalendarController {
   const byDate = new Map<string, RaceStat[]>();
   for (const r of races) {
     if (!r.date) continue;
@@ -29,7 +39,9 @@ export function renderCalendar(container: HTMLElement, races: RaceStat[]): void 
   const todayIso = today.toISOString().slice(0, 10);
   let viewYear = today.getFullYear();
   let viewMonth = today.getMonth(); // 0-based
-  let openDay: string | null = null;
+  // The single ringed day — doubles as both "what the user clicked" and
+  // "what an external highlight() selected", so the two never disagree.
+  let selectedDay: string | null = null;
 
   function draw(): void {
     container.innerHTML = "";
@@ -43,14 +55,16 @@ export function renderCalendar(container: HTMLElement, races: RaceStat[]): void 
     prev.addEventListener("click", () => {
       viewMonth -= 1;
       if (viewMonth < 0) { viewMonth = 11; viewYear -= 1; }
-      openDay = null;
+      selectedDay = null;
       draw();
+      opts.onSelect?.([]);
     });
     next.addEventListener("click", () => {
       viewMonth += 1;
       if (viewMonth > 11) { viewMonth = 0; viewYear += 1; }
-      openDay = null;
+      selectedDay = null;
       draw();
+      opts.onSelect?.([]);
     });
     nav.appendChild(prev);
     nav.appendChild(next);
@@ -71,27 +85,28 @@ export function renderCalendar(container: HTMLElement, races: RaceStat[]): void 
       const dayRaces = byDate.get(iso) ?? [];
       // Chronological, not data-driven: a race whose date has passed is
       // "past" even if results haven't been captured yet (organizer hasn't
-      // published them, scrape missed them, etc). raceHref() below still
-      // uses finished > 0 to decide the link target, since that's genuinely
-      // about whether results.html has anything to show.
+      // published them, scrape missed them, etc). raceHref in raceList.ts
+      // still uses finished > 0 to decide the link target, since that's
+      // genuinely about whether results.html has anything to show.
       const isPast = iso < todayIso;
       const classes = ["cal-day", "in-month"];
       if (iso === todayIso) classes.push("today");
       if (dayRaces.length > 0) {
         classes.push("has-race", isPast ? "past" : "future");
       }
+      if (iso === selectedDay) classes.push("selected");
       const cell = el("div", { class: classes.join(" ") }, String(day));
       if (dayRaces.length > 0) {
         cell.appendChild(el("span", { class: `cal-dot ${isPast ? "past" : "future"}` }));
         cell.setAttribute("role", "button");
         cell.setAttribute("tabindex", "0");
+        // Toggles the day rather than sometimes jumping straight to a single
+        // race — matches the map's click-to-preview pattern, and the shared
+        // race-list panel below both widgets shows the details either way.
         const activate = (): void => {
-          if (dayRaces.length === 1) {
-            window.location.href = raceHref(dayRaces[0]!);
-          } else {
-            openDay = openDay === iso ? null : iso;
-            draw();
-          }
+          selectedDay = selectedDay === iso ? null : iso;
+          draw();
+          opts.onSelect?.(selectedDay ? dayRaces.map((r) => r.id) : []);
         };
         cell.addEventListener("click", activate);
         cell.addEventListener("keydown", (e) => {
@@ -99,18 +114,6 @@ export function renderCalendar(container: HTMLElement, races: RaceStat[]): void 
         });
       }
       grid.appendChild(cell);
-    }
-
-    if (openDay) {
-      const dayRaces = byDate.get(openDay) ?? [];
-      const list = el("div", { class: "cal-daylist" });
-      for (const race of dayRaces) {
-        const link = el("a", { href: raceHref(race) });
-        link.appendChild(document.createTextNode(`${race.name} `));
-        link.appendChild(catBadge(race.uci_category));
-        list.appendChild(link);
-      }
-      grid.appendChild(list);
     }
 
     container.appendChild(grid);
@@ -132,4 +135,22 @@ export function renderCalendar(container: HTMLElement, races: RaceStat[]): void 
   }
 
   draw();
+
+  return {
+    highlight(raceIds: number[]): void {
+      if (raceIds.length === 0) {
+        if (selectedDay === null) return;
+        selectedDay = null;
+        draw();
+        return;
+      }
+      const race = races.find((r) => r.id === raceIds[0]);
+      if (!race?.date) return;
+      const [y, m] = race.date.split("-").map(Number);
+      viewYear = y!;
+      viewMonth = m! - 1;
+      selectedDay = race.date;
+      draw();
+    },
+  };
 }

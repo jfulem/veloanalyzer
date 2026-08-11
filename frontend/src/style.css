@@ -100,11 +100,12 @@ body {
 .cal-day.has-race:hover { background: #374357; }
 .cal-day.has-race.future { box-shadow: inset 0 0 0 1px #63b3ed55; }
 .cal-day.has-race.past   { box-shadow: inset 0 0 0 1px #68d39155; }
+/* Wins over the future/past insets above (same specificity, declared later):
+   the currently-open day, whether clicked here or highlighted from the map. */
+.cal-day.selected { box-shadow: inset 0 0 0 2px #f6e05e; }
 .cal-dot { position: absolute; bottom: .22rem; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; }
 .cal-dot.future { background: #63b3ed; }
 .cal-dot.past   { background: #68d391; }
-.cal-daylist { grid-column: 1 / -1; background: #2d3748; border-radius: 8px; padding: .6rem .8rem; margin-top: .25rem; font-size: .8rem; }
-.cal-daylist a { display: block; padding: .15rem 0; }
 .cal-empty { color: #718096; font-size: .82rem; padding: .2rem 0 0; }
 .cal-legend { display: flex; gap: 1rem; margin-top: .6rem; font-size: .68rem; color: #718096; }
 .cal-legend span { display: inline-flex; align-items: center; gap: .35rem; }
@@ -131,6 +132,26 @@ body {
      tall. Reset to a fixed-size item so the explicit height actually holds. */
   .widgets #map { flex: none; width: 100%; height: 220px; }
 }
+
+/* Shared selection panel: whichever races the calendar or map has selected,
+   full width below both — not inside either widget, so neither widget's box
+   ever changes size when a selection is made (see the note in raceList.ts). */
+.race-list { margin: 0 0 1.5rem; display: flex; flex-direction: column; gap: .75rem; }
+.race-list-group {
+  background: #1a202c; border: 1px solid #2d3748; border-radius: 10px; overflow: hidden;
+}
+.race-list-location {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: .55rem .9rem; background: #2d3748; font-size: .82rem; font-weight: 600; color: #e2e8f0;
+}
+.race-list-location .race-list-date { font-weight: 400; color: #a0aec0; font-size: .75rem; }
+.race-list-row {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .5rem .9rem; font-size: .85rem; color: #e2e8f0;
+  border-top: 1px solid #2d3748;
+}
+.race-list-row:hover { background: #1f2836; }
+.race-list-name { flex: 1; }
 
 /* Dark-theme overrides for Leaflet's default (light) chrome. */
 .leaflet-container { background: #1a202c; font-family: inherit; }

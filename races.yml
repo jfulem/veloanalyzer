@@ -14,7 +14,7 @@ races:
   cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   uci_competition_id: 77488
   output: bedrichov-xco-2026-mj.html
-  location: "Bedřichov 380, 46812 Bedřichov, Liberec Region, Czechia"
+  location: "Bedřichov, Liberec Region, Czechia"
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
   name: ČP XCO MTB BEDŘICHOV - UCI C1 Women Juniors
   date: '2026-06-06'
@@ -23,7 +23,7 @@ races:
   cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   uci_competition_id: 77488
   output: bedrichov-xco-2026-wj.html
-  location: "Bedřichov 380, 46812 Bedřichov, Liberec Region, Czechia"
+  location: "Bedřichov, Liberec Region, Czechia"
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
   name: ČP XCO MTB BEDŘICHOV - UCI C1 Women Elite
   date: '2026-06-06'
@@ -32,7 +32,7 @@ races:
   cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   uci_competition_id: 77488
   output: bedrichov-xco-2026-we.html
-  location: "Bedřichov 380, 46812 Bedřichov, Liberec Region, Czechia"
+  location: "Bedřichov, Liberec Region, Czechia"
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3545
   name: ČP XCO MTB BEDŘICHOV - UCI C1 Men Elite
   date: '2026-06-06'
@@ -41,7 +41,7 @@ races:
   cp_xco_standings_url: https://cpxcmtb.sportsoft.cz/2026/results.aspx
   uci_competition_id: 77488
   output: bedrichov-xco-2026-me.html
-  location: "Bedřichov 380, 46812 Bedřichov, Liberec Region, Czechia"
+  location: "Bedřichov, Liberec Region, Czechia"
 
 - url: https://hynekmusil.cz/resreg/?designindex=data/registry.php&seiresepyt=auu&rebmunyavd=2&dohzormhenyh=1&swordssapll=&langtext=
   name: AŠ XCO UCI C1 2026 — Men Juniors
@@ -302,7 +302,7 @@ races:
   uci_category: MJ
   uci_competition_id: 77410
   output: jwf-2026-xco-c1-mj.html
-  location: "Gratz, Austria"
+  location: "Graz, Austria"
 - url: https://my.raceresult.com/381877/participants
   name: MTB Junior World Festival 2026 — XCO UCI C1 Women
   date: '2026-07-07'
@@ -310,7 +310,7 @@ races:
   uci_category: WJ
   uci_competition_id: 77410
   output: jwf-2026-xco-c1-wj.html
-  location: "Gratz, Austria"
+  location: "Graz, Austria"
 - url: https://my.raceresult.com/381877/participants
   name: MTB Junior World Festival 2026 — XCO UCI C2 Men
   date: '2026-07-11'
@@ -318,7 +318,7 @@ races:
   uci_category: MJ
   uci_competition_id: 77413
   output: jwf-2026-xco-c2-mj.html
-  location: "Gratz, Austria"
+  location: "Graz, Austria"
 - url: https://my.raceresult.com/381877/participants
   name: MTB Junior World Festival 2026 — XCO UCI C2 Women
   date: '2026-07-11'
@@ -326,7 +326,7 @@ races:
   uci_category: WJ
   uci_competition_id: 77413
   output: jwf-2026-xco-c2-wj.html
-  location: "Gratz, Austria"
+  location: "Graz, Austria"
 - url: https://my.raceresult.com/381877/participants
   name: MTB Junior World Festival 2026 — XCO UCI C3 Men
   date: '2026-07-08'
@@ -334,7 +334,7 @@ races:
   uci_category: MJ
   uci_competition_id: 77411
   output: jwf-2026-xco-c3-mj.html
-  location: "Gratz, Austria"
+  location: "Graz, Austria"
 - url: https://my.raceresult.com/381877/participants
   name: MTB Junior World Festival 2026 — XCO UCI C3 Women
   date: '2026-07-08'
@@ -342,7 +342,7 @@ races:
   uci_category: WJ
   uci_competition_id: 77411
   output: jwf-2026-xco-c3-wj.html
-  location: "Gratz, Austria"
+  location: "Graz, Austria"
 - url: https://my.raceresult.com/381877/participants
   name: MTB Junior World Festival 2026 — XCO UCI C3 Short Men
   date: '2026-07-10'
@@ -350,7 +350,7 @@ races:
   uci_category: MJ
   uci_competition_id: 77412
   output: jwf-2026-xco-c3-short-mj.html
-  location: "Gratz, Austria"
+  location: "Graz, Austria"
 - url: https://my.raceresult.com/381877/participants
   name: MTB Junior World Festival 2026 — XCO UCI C3 Short Women
   date: '2026-07-10'
@@ -358,7 +358,7 @@ races:
   uci_category: WJ
   uci_competition_id: 77412
   output: jwf-2026-xco-c3-short-wj.html
-  location: "Gratz, Austria"
+  location: "Graz, Austria"
 # Added 2026-08-06 — four Czech UCI XCO one-day races (competitions 77484-77487).
 # Touškov and Vimperk are rounds of the same Czech Cup (ČP) series as Bedřichov,
 # with live, verified sportsoft start lists (41 and 47 Men Elite riders resp.).
@@ -517,7 +517,8 @@ races:
   uci_category: ME
   uci_competition_id: 78637
   output: cba-paprsek-xco-me.html
-  location: "Staré Město, Czech Republic"
+  lat: 50.2101400
+  lon: 16.9889456
 - url: "https://my.raceresult.com/409537/participants#0_9C0EDD"  # TODO: find start list URL
   name: CBA Paprsek XCO 2026 — Men Juniors
   date: '2026-08-01'
@@ -525,7 +526,8 @@ races:
   uci_category: MJ
   uci_competition_id: 78637
   output: cba-paprsek-xco-mj.html
-  location: "Staré Město, Czech Republic"
+  lat: 50.2101400
+  lon: 16.9889456
 - url: "https://my.raceresult.com/409537/participants#0_9C0EDD"  # TODO: find start list URL
   name: CBA Paprsek XCO 2026 — Women Elite
   date: '2026-08-01'
@@ -533,7 +535,8 @@ races:
   uci_category: WE
   uci_competition_id: 78637
   output: cba-paprsek-xco-we.html
-  location: "Staré Město, Czech Republic"
+  lat: 50.2101400
+  lon: 16.9889456
 - url: "https://my.raceresult.com/409537/participants#0_9C0EDD"  # TODO: find start list URL
   name: CBA Paprsek XCO 2026 — Women Juniors
   date: '2026-08-01'
@@ -541,7 +544,8 @@ races:
   uci_category: WJ
   uci_competition_id: 78637
   output: cba-paprsek-xco-wj.html
-  location: "Staré Město, Czech Republic"
+  lat: 50.2101400
+  lon: 16.9889456
 
 - url: "https://registrace.sportsoft.cz/startlist.aspx?e=3641"  # TODO: find start list URL
   name: SP Oslany XCO 2026 — Men Elite
