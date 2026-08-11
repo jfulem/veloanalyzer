@@ -517,6 +517,7 @@ races:
   uci_category: ME
   uci_competition_id: 78637
   output: cba-paprsek-xco-me.html
+  location: "Paprsek, Czech Republic"
   lat: 50.2101400
   lon: 16.9889456
 - url: "https://my.raceresult.com/409537/participants#0_9C0EDD"  # TODO: find start list URL
@@ -526,6 +527,7 @@ races:
   uci_category: MJ
   uci_competition_id: 78637
   output: cba-paprsek-xco-mj.html
+  location: "Paprsek, Czech Republic"
   lat: 50.2101400
   lon: 16.9889456
 - url: "https://my.raceresult.com/409537/participants#0_9C0EDD"  # TODO: find start list URL
@@ -535,6 +537,7 @@ races:
   uci_category: WE
   uci_competition_id: 78637
   output: cba-paprsek-xco-we.html
+  location: "Paprsek, Czech Republic"
   lat: 50.2101400
   lon: 16.9889456
 - url: "https://my.raceresult.com/409537/participants#0_9C0EDD"  # TODO: find start list URL
@@ -544,6 +547,7 @@ races:
   uci_category: WJ
   uci_competition_id: 78637
   output: cba-paprsek-xco-wj.html
+  location: "Paprsek, Czech Republic"
   lat: 50.2101400
   lon: 16.9889456
 
@@ -656,7 +660,7 @@ races:
 # selectorResult=<N> (1-based, chronological stage order — found by watching
 # the site's own Network tab while picking a round from its dropdown, not
 # from anything in the API's own config). Huttwil is round 6 of 7.
-- url: "https://my.raceresult.com/372967/participants?list=Participants&selectorResult=6"
+- url: "https://my.raceresult.com/372967/participants?list=Participants"
   name: Skoda Swiss Bike Cup Huttwil 2026 — Men Elite
   date: '2026-09-06'
   category: Men Elite
@@ -664,7 +668,7 @@ races:
   uci_competition_id: 77719
   output: skoda-swiss-bike-cup-huttwil-me.html
   location: "Huttwil, Switzerland"
-- url: "https://my.raceresult.com/372967/participants?list=Participants&selectorResult=6"
+- url: "https://my.raceresult.com/372967/participants?list=Participants"
   name: Skoda Swiss Bike Cup Huttwil 2026 — Men Juniors
   date: '2026-09-06'
   category: Men Juniors
@@ -672,7 +676,7 @@ races:
   uci_competition_id: 77719
   output: skoda-swiss-bike-cup-huttwil-mj.html
   location: "Huttwil, Switzerland"
-- url: "https://my.raceresult.com/372967/participants?list=Participants&selectorResult=6"
+- url: "https://my.raceresult.com/372967/participants?list=Participants"
   name: Skoda Swiss Bike Cup Huttwil 2026 — Women Elite
   date: '2026-09-06'
   category: Women Elite
@@ -680,7 +684,7 @@ races:
   uci_competition_id: 77719
   output: skoda-swiss-bike-cup-huttwil-we.html
   location: "Huttwil, Switzerland"
-- url: "https://my.raceresult.com/372967/participants?list=Participants&selectorResult=6"
+- url: "https://my.raceresult.com/372967/participants?list=Participants"
   name: Skoda Swiss Bike Cup Huttwil 2026 — Women Juniors
   date: '2026-09-06'
   category: Women Juniors
