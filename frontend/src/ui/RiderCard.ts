@@ -437,7 +437,18 @@ export function renderRiderCard(
     for (const res of sortResults(results, sortCol, sortDir)) {
       const tr = el("tr");
       tr.appendChild(el("td", {}, res.date || "—"));
-      tr.appendChild(el("td", {}, res.race_name || "—"));
+
+      // The UCI's own history feed often reuses one generic name across every
+      // round of a domestic series (several "Czech Cup" rows with nothing but
+      // the date to tell them apart), so the venue goes underneath whenever
+      // the feed supplied one.
+      const raceTd = el("td");
+      raceTd.appendChild(el("span", {}, res.race_name || "—"));
+      if (res.location) {
+        raceTd.appendChild(el("span", { class: "time-label" }, res.location));
+      }
+      tr.appendChild(raceTd);
+
       tr.appendChild(el("td", {}, res.cat || "—"));
 
       if (hasClass) {
