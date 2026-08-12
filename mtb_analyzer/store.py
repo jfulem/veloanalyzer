@@ -138,7 +138,19 @@ def _resolve_rider(conn: Connection, rider) -> int:
         if uci_id:
             updates["uci_id"] = uci_id
         if birth_year:
-            updates["birth_year"] = birth_year
+            # Skip if another row already has (normalized_name, birth_year) —
+            # that would violate uq_riders_name_birth_year. Happens when a
+            # UCI-ID lookup adopts one row while a separate same-named row
+            # already carries the wildcard birth_year '*'.
+            conflict = conn.execute(
+                select(riders.c.id).where(
+                    riders.c.normalized_name == norm,
+                    riders.c.birth_year == birth_year,
+                    riders.c.id != rider_id,
+                )
+            ).first()
+            if not conflict:
+                updates["birth_year"] = birth_year
         if rider.country:
             updates["country"] = rider.country
         if rider.xcodata_slug:
