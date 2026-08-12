@@ -99,8 +99,7 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
     for rider in riders:
         lookup_rider(rider, cache)
         rider.race_results = _lookup_rider_history(history_db, rider.first_name, rider.last_name)
-        if rider.uci_rank is None:
-            rider.computed_points = compute_points_from_history(rider.race_results, uci_category)
+        rider.computed_points = compute_points_from_history(rider.race_results, uci_category)
         if not rider.country and rider.race_results:
             rider.country = next(
                 (r.get("nationality", "") for r in rider.race_results if r.get("nationality")),

@@ -62,6 +62,7 @@ jobs:
       - name: Ingest into Neon
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MTB_RANKING_CACHE_DAYS: "0"
         run: uv run python scripts/ingest.py
 
       - name: Report row counts
