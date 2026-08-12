@@ -25,7 +25,7 @@ jobs:
   ingest:
     runs-on: ubuntu-latest
     # A cold cache means ~1800 UCI requests with rate-limiting sleeps.
-    timeout-minutes: 70
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v4
