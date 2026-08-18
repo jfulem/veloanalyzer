@@ -1,5 +1,5 @@
 import { Rider, RaceResult } from "../api.js";
-import { flagEmoji, posLabel, timeGap, tierClass, el, parseResultDate } from "../utils.js";
+import { flagEmoji, posLabel, timeGap, tierClass, el, parseResultDate, applyTwemoji } from "../utils.js";
 
 export function renderH2H(
   container: HTMLElement,
@@ -33,6 +33,8 @@ export function renderH2H(
 
   container.appendChild(buildCards(r1, r2, w1, w2, ties));
   container.appendChild(buildRacesTable(shared, map1, r1, r2));
+
+  applyTwemoji(container);
 }
 
 function buildCards(r1: Rider, r2: Rider, w1: number, w2: number, ties: number): HTMLElement {

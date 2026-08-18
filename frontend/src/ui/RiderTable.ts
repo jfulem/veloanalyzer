@@ -1,5 +1,5 @@
 import { Rider } from "../api.js";
-import { flagEmoji, tierClass, el, Trend } from "../utils.js";
+import { flagEmoji, tierClass, el, Trend, applyTwemoji } from "../utils.js";
 
 type SelectCallback = (riderId: number) => void;
 type DetailCallback = (riderId: number) => void;
@@ -29,6 +29,8 @@ export function renderRiderTable(
     }
     container.appendChild(buildTable(group, selectedIds, onSelect, onDetail, trends));
   }
+
+  applyTwemoji(container);
 }
 
 function buildTable(
