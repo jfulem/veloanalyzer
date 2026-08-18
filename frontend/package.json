@@ -15,6 +15,7 @@
     "vite": "^6.3.5"
   },
   "dependencies": {
-    "leaflet": "^1.9.4"
+    "leaflet": "^1.9.4",
+    "twemoji": "^14.0.2"
   }
 }
