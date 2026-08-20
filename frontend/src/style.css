@@ -33,6 +33,15 @@ body {
   color: inherit; text-decoration: none;
 }
 .brand-emoji { font-size: 1.7rem; line-height: 1; }
+
+/* Twemoji SVGs (flags) render at intrinsic size otherwise — pin them to the
+   surrounding text like a native emoji glyph. */
+img.emoji {
+  height: 1em;
+  width: 1em;
+  margin: 0 .05em 0 .1em;
+  vertical-align: -0.1em;
+}
 .brand-name  { font-size: 1.2rem; font-weight: 700; color: #90cdf4; letter-spacing: -.01em; }
 
 .side-nav { display: flex; flex-direction: column; gap: .15rem; }

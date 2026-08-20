@@ -1,3 +1,5 @@
+import twemoji from "twemoji";
+
 // IOC 3-letter code → ISO 3166-1 alpha-2 (for flag emoji)
 const IOC_TO_ISO2: Record<string, string> = {
   CZE:"CZ", SVK:"SK", GER:"DE", AUT:"AT", POL:"PL", HUN:"HU", SUI:"CH",
@@ -17,6 +19,16 @@ export function flagEmoji(country: string): string {
   // Regional indicator letters: 0x1F1E6 = 🇦
   const cp = (c: string) => 0x1f1e6 + c.charCodeAt(0) - 65;
   return String.fromCodePoint(cp(iso2[0]!), cp(iso2[1]!));
+}
+
+// Windows has no native flag-emoji glyphs (regional indicator pairs render as
+// bare letters), so replace flagEmoji() output with Twemoji SVGs after render.
+export function applyTwemoji(node: HTMLElement): void {
+  try {
+    twemoji.parse(node, { folder: "svg", ext: ".svg" });
+  } catch {
+    // non-fatal — falls back to the native emoji glyph
+  }
 }
 
 export function rankDisp(rank: number | null): string {

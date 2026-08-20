@@ -1,5 +1,5 @@
 import { Rider, RaceResult, XcoRaceFinisher, getXcoRaceResults } from "../api.js";
-import { flagEmoji, posLabel, tierClass, el, parseResultDate } from "../utils.js";
+import { flagEmoji, posLabel, tierClass, el, parseResultDate, applyTwemoji } from "../utils.js";
 
 type SortCol = "date" | "race" | "cat" | "class" | "rank" | "time" | "pts";
 type SortDir = "asc" | "desc";
@@ -563,4 +563,6 @@ export function renderRiderCard(
     ));
     container.appendChild(note);
   }
+
+  applyTwemoji(container);
 }

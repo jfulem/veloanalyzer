@@ -1,5 +1,5 @@
 import { Rider } from "../api.js";
-import { flagEmoji, el } from "../utils.js";
+import { flagEmoji, el, applyTwemoji } from "../utils.js";
 
 export function renderCountryChart(container: HTMLElement, riders: Rider[]): void {
   const counts: Record<string, number> = {};
@@ -19,6 +19,7 @@ export function renderCountryChart(container: HTMLElement, riders: Rider[]): voi
     const tr = el("tr");
 
     const flagCell = el("td", { class: "flag-cell" });
+    // Render the regional-indicator emoji; applyTwemoji will replace it with an SVG
     flagCell.textContent = country !== "—" ? `${flagEmoji(country)} ${country}` : "—";
 
     const countCell = el("td", { class: "count-cell" }, String(count));
@@ -38,4 +39,6 @@ export function renderCountryChart(container: HTMLElement, riders: Rider[]): voi
 
   table.appendChild(tbody);
   container.appendChild(table);
+
+  applyTwemoji(container);
 }

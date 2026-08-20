@@ -3,7 +3,7 @@ import {
   RiderListItem,
 } from "./api.js";
 import { catBadge, el, UCI_CAT_LABEL } from "./raceStats.js";
-import { $, flagEmoji, tierClass } from "./utils.js";
+import { $, flagEmoji, tierClass, applyTwemoji } from "./utils.js";
 
 function openRider(id: number): void {
   location.href = `./rider.html?id=${id}&from=${encodeURIComponent(location.href)}`;
@@ -147,6 +147,7 @@ function buildLegend(container: HTMLElement, present: Set<string>, onChange: (ca
   searchInput.addEventListener("input", applyFilters);
 
   tableArea.appendChild(buildTable(riders, openRider));
+  applyTwemoji(tableArea);
 
   // Restore filters from URL query params (preserved in the "from" back-link)
   const urlParams = new URLSearchParams(location.search);
