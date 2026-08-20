@@ -10,7 +10,6 @@ import { renderStatsBar } from "./ui/StatsBar.js";
 import { renderCountryChart } from "./ui/CountryChart.js";
 import { renderRiderTable, filterRiderTable } from "./ui/RiderTable.js";
 import { renderH2H } from "./ui/H2H.js";
-import { renderRiderCard } from "./ui/RiderCard.js";
 import { renderTeamChart } from "./ui/TeamChart.js";
 import { $, computeTrends } from "./utils.js";
 
@@ -37,18 +36,15 @@ export async function bootRaceBrowser(opts: RaceBrowserOptions): Promise<void> {
   const tableArea    = $<HTMLElement>("#table-area");
   const countryArea  = $<HTMLElement>("#country-area");
   const teamArea     = $<HTMLElement>("#team-area");
-  const h2hPanel      = $<HTMLElement>("#h2h-panel");
-  const h2hBackdrop   = $<HTMLElement>("#h2h-backdrop");
-  const h2hClose      = $<HTMLElement>("#h2h-close");
-  const riderCard     = $<HTMLElement>("#rider-card");
-  const riderBackdrop = $<HTMLElement>("#rider-backdrop");
-  const riderClose    = $<HTMLElement>("#rider-close");
-  const loadingEl    = $<HTMLElement>("#loading");
-  const appEl        = $<HTMLElement>("#app");
-  const generatedAt  = $<HTMLElement>("#generated-at");
+  const h2hPanel    = $<HTMLElement>("#h2h-panel");
+  const h2hBackdrop = $<HTMLElement>("#h2h-backdrop");
+  const h2hClose    = $<HTMLElement>("#h2h-close");
+  const loadingEl   = $<HTMLElement>("#loading");
+  const appEl       = $<HTMLElement>("#app");
+  const generatedAt = $<HTMLElement>("#generated-at");
 
   // ── Load race ────────────────────────────────────────────────────────────
-  async function loadRace(race: Race): Promise<void> {
+  async function loadRace(race: Race, preserveSearch = false): Promise<void> {
     selectedIds.clear();
     // Both requests are independent, so overlap them rather than paying two
     // round trips in series.
@@ -67,7 +63,19 @@ export async function bootRaceBrowser(opts: RaceBrowserOptions): Promise<void> {
     renderCountryChart(countryArea, currentRiders);
     renderTeamChart(teamArea, currentRiders);
     renderH2H(h2hPanel, currentRiders, currentResults, [...selectedIds]);
-    searchInput.value = "";
+
+    if (!preserveSearch) searchInput.value = "";
+    else filterRiderTable(tableArea, searchInput.value);
+
+    // Keep the hash in sync so the "from" URL passed to rider.html always
+    // reflects the currently selected race and search term.
+    updateHash(race.slug, searchInput.value);
+  }
+
+  function updateHash(slug: string, search: string): void {
+    const p = new URLSearchParams({ race: slug });
+    if (search) p.set("search", search);
+    history.replaceState(null, "", `#${p.toString()}`);
   }
 
   // ── Selection ────────────────────────────────────────────────────────────
@@ -108,37 +116,30 @@ export async function bootRaceBrowser(opts: RaceBrowserOptions): Promise<void> {
     if (e.target === h2hBackdrop) closeModal();
   });
 
-  // ── Rider detail modal ───────────────────────────────────────────────────
+  // ── Rider detail — full page navigation ─────────────────────────────────
   function openRiderCard(riderId: number): void {
+    // Cache pre-loaded data so rider.html can render instantly without a
+    // round trip. The rider page still fetches fresh data in the background
+    // when opened from a context that didn't pre-load (riders list, direct link).
     const rider = currentRiders.find((r) => r.id === riderId);
-    if (!rider) return;
-    // The whole field's history is already loaded, so the card opens instantly
-    // instead of waiting on a request.
     const results = currentResults.filter((r) => r.rider_id === riderId);
-    renderRiderCard(riderCard, rider, results);
-    riderBackdrop.removeAttribute("hidden");
-    document.body.style.overflow = "hidden";
-  }
-
-  function closeRiderCard(): void {
-    riderBackdrop.setAttribute("hidden", "");
-    document.body.style.overflow = "";
-  }
-
-  riderClose.addEventListener("click", closeRiderCard);
-  riderBackdrop.addEventListener("click", (e) => {
-    if (e.target === riderBackdrop) closeRiderCard();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      if (!riderBackdrop.hasAttribute("hidden")) closeRiderCard();
-      else closeModal();
+    if (rider) {
+      try {
+        sessionStorage.setItem(`rider_${riderId}`, JSON.stringify({ rider, results }));
+      } catch { /* storage full — fall through to normal fetch */ }
     }
+    location.href = `./rider.html?id=${riderId}&from=${encodeURIComponent(location.href)}`;
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeModal();
   });
 
   // ── Search ───────────────────────────────────────────────────────────────
   searchInput.addEventListener("input", () => {
     filterRiderTable(tableArea, searchInput.value);
+    const slug = races.find((r) => r.id === Number(raceSelect.value))?.slug ?? "";
+    if (slug) updateHash(slug, searchInput.value);
   });
 
   // ── Boot ─────────────────────────────────────────────────────────────────
@@ -160,7 +161,9 @@ export async function bootRaceBrowser(opts: RaceBrowserOptions): Promise<void> {
   // servers (e.g. `serve`'s clean-URLs redirect from /app.html -> /app) can
   // drop query strings on redirect; fragments are client-side only and
   // always survive.
-  const requestedSlug = new URLSearchParams(window.location.hash.replace(/^#/, "")).get("race");
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const requestedSlug = hashParams.get("race");
+  const restoredSearch = hashParams.get("search") ?? "";
   const requestedRace = requestedSlug
     ? allRaces.find((r) => r.slug === requestedSlug)
     : undefined;
@@ -181,7 +184,7 @@ export async function bootRaceBrowser(opts: RaceBrowserOptions): Promise<void> {
     const id = Number(raceSelect.value);
     const race = races.find((r) => r.id === id);
     if (race) {
-      loadRace(race).catch((err) => {
+      loadRace(race, false).catch((err) => {
         raceName.textContent = `Failed to load race: ${err}`;
       });
     }
@@ -193,7 +196,8 @@ export async function bootRaceBrowser(opts: RaceBrowserOptions): Promise<void> {
   if (races.length > 0) {
     const initial = requestedRace ?? races[0]!;
     raceSelect.value = String(initial.id);
-    await loadRace(initial);
+    if (restoredSearch) searchInput.value = restoredSearch;
+    await loadRace(initial, !!restoredSearch);
   } else {
     raceName.textContent = opts.emptyText;
   }

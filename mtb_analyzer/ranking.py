@@ -289,6 +289,20 @@ def _parse_comp_end_date(dates_str: str) -> "datetime | None":
 
 
 _uci_xco_history_cache: dict = {}
+# Parallel cache: {uci_cat: {xco_race_id: [finisher_row, ...]}}
+# A finisher_row has: comp_name, date_raw, date, race_class, rank, first_name,
+# last_name, nationality, race_time, uci_pts.
+_uci_xco_race_results_cache: dict = {}
+
+
+def get_uci_xco_race_results_cache() -> dict:
+    """Return the race-level finisher data collected by build_uci_xco_history.
+
+    Keys are UCI categories (MJ/WJ/ME/WE); values are dicts of
+    {xco_race_id: [finisher_row, ...]}. Only populated for categories that
+    have been built during the current process lifetime.
+    """
+    return _uci_xco_race_results_cache
 
 
 def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
@@ -313,6 +327,7 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
     cutoff = datetime.now() - timedelta(days=months_back * 30)
     now    = datetime.now()
     by_name: dict = {}
+    race_results_by_id: dict = {}  # {xco_race_id: [finisher_row, ...]}
     seen_comp_ids: set = set()
 
     for year in sorted({cutoff.year, now.year}):
@@ -338,7 +353,9 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
             comp_name  = entry.get("name", "")
             dates_str  = entry.get("dates", "")
             race_date  = dates_str.split(" - ")[-1].strip() if " - " in dates_str else dates_str
+            xco_race_id = f"{race_date}|{comp_name}"
 
+            race_finishers: list = []
             for er in event_results:
                 fn = er.get("first_name", "").strip()
                 ln = er.get("last_name",  "").strip()
@@ -346,14 +363,16 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
                     continue
 
                 pts_raw = er.get("points", "")
+                rank = int(er["rank"]) if er.get("rank") and str(er["rank"]).isdigit() else None
+                uci_pts = int(pts_raw) if str(pts_raw).isdigit() else None
                 result = {
-                    "race_id":     f"{race_date}|{comp_name}",
+                    "race_id":     xco_race_id,
                     "race_name":   comp_name,
                     "date":        race_date,
                     "location":    entry.get("venue", ""),
-                    "rank":        int(er["rank"]) if er.get("rank") and str(er["rank"]).isdigit() else None,
+                    "rank":        rank,
                     "time":        er.get("time", ""),
-                    "uci_pts":     int(pts_raw) if str(pts_raw).isdigit() else None,
+                    "uci_pts":     uci_pts,
                     "nationality": er.get("nationality", ""),
                     "cat":         uci_cat,
                     "race_class":  race_class,
@@ -366,7 +385,23 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
                 if stripped != key:
                     by_name.setdefault(stripped, []).append(result)
 
+                race_finishers.append({
+                    "comp_name":   comp_name,
+                    "date_raw":    race_date,
+                    "race_class":  race_class,
+                    "rank":        rank,
+                    "first_name":  fn,
+                    "last_name":   ln,
+                    "nationality": er.get("nationality", ""),
+                    "race_time":   er.get("time", ""),
+                    "uci_pts":     uci_pts,
+                })
+
+            if race_finishers:
+                race_results_by_id[xco_race_id] = race_finishers
+
     _uci_xco_history_cache[uci_cat] = by_name
+    _uci_xco_race_results_cache[uci_cat] = race_results_by_id
     return by_name
 
 

@@ -133,3 +133,21 @@ export function getRiderDetail(id: number): Promise<RiderDetail> {
 export function getRiderHistory(id: number): Promise<RaceResult[]> {
   return getJson<RaceResult[]>(`/api/riders/${id}/results`);
 }
+
+export interface XcoRaceFinisher {
+  rank: number | null;
+  first_name: string;
+  last_name: string;
+  nationality: string;
+  race_time: string;
+  uci_pts: number | null;
+  comp_name: string;
+  date: string;
+  race_class: string;
+}
+
+export function getXcoRaceResults(xcoRaceId: string, category: string): Promise<XcoRaceFinisher[]> {
+  return getJson<XcoRaceFinisher[]>(
+    `/api/xco-race/${encodeURIComponent(category)}/${encodeURIComponent(xcoRaceId)}`,
+  );
+}

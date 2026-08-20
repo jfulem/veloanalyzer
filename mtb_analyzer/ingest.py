@@ -12,7 +12,8 @@ from .config import console
 from .db import bootstrap
 from .geocode import geocode
 from .pipeline import fetch_riders
-from .store import save_all
+from .ranking import get_uci_xco_race_results_cache
+from .store import save_all, save_uci_race_results
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 RACES_FILE = os.environ.get("RACES_FILE") or os.path.normpath(
@@ -76,6 +77,12 @@ def run() -> None:
     console.print(
         f"\n[green]✓ Wrote {len(race_configs)} races / {total} entries to Postgres[/green]"
     )
+
+    # build_uci_xco_history (called inside fetch_riders) already fetched and
+    # cached full finisher lists for every UCI XCO event. Persist them so the
+    # frontend can show complete race results when a user clicks on a race.
+    console.print("[dim]  Saving UCI XCO race results...[/dim]")
+    save_uci_race_results(get_uci_xco_race_results_cache())
 
     if failed:
         console.print(f"\n[yellow]{len(failed)} of {len(races)} races failed to scrape:[/yellow]")

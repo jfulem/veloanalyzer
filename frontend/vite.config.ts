@@ -25,6 +25,7 @@ export default defineConfig({
         app:     "app.html",
         races:   "races.html",
         riders:  "riders.html",
+        rider:   "rider.html",
         results: "results.html",
         about:   "about.html",
       },

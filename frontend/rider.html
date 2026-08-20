@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VeloAnalyzer — Rider Profile</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="layout">
+      <aside class="sidebar">
+        <a class="brand" href="./index.html">
+          <span class="brand-emoji">🚵</span>
+          <span class="brand-name">VeloAnalyzer</span>
+        </a>
+
+        <nav class="side-nav">
+          <a href="./app.html"><span class="icon">🏁</span> Start List</a>
+          <a href="./results.html"><span class="icon">🏆</span> Results</a>
+          <a href="./races.html"><span class="icon">🗓</span> Races</a>
+          <a href="./riders.html"><span class="icon">👤</span> Riders</a>
+          <a href="./about.html"><span class="icon">ℹ️</span> About</a>
+        </nav>
+
+        <div class="side-meta">
+          Updated <span id="generated-at">—</span><br />
+          Ranking data © <a href="https://www.uci.org" target="_blank" rel="noopener">uci.org</a><br />
+          <a href="https://github.com/jfulem/veloanalyzer" target="_blank" rel="noopener">Source on GitHub</a>
+        </div>
+      </aside>
+
+      <div class="main">
+        <div id="back-bar"></div>
+        <p id="loading">Loading…</p>
+        <div id="rider-card" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/rider.ts"></script>
+</body>
+</html>

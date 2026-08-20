@@ -507,6 +507,30 @@ body {
 .gap-cell   { color: #a0aec0; font-size: .8rem; }
 .h2h-empty  { color: #718096; font-size: .9rem; padding: .5rem 0; }
 
+.rc-race-link:hover span:first-child { color: #90cdf4; text-decoration: underline; }
+
+.rider-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .85rem;
+  color: #718096;
+  text-decoration: none;
+  margin-bottom: 1.25rem;
+  padding: .3rem .6rem;
+  border: 1px solid #2d3748;
+  border-radius: 6px;
+  transition: color .15s, border-color .15s;
+}
+.rider-back-btn:hover { color: #e2e8f0; border-color: #4a5568; }
+
+.rc-race-panel {
+  margin-top: .75rem;
+  border-top: 1px solid #2d3748;
+  padding-top: .75rem;
+  overflow-x: auto;
+}
+
 /* Footer */
 .site-footer {
   margin-top: 2rem;

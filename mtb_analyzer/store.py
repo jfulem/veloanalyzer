@@ -16,7 +16,7 @@ from sqlalchemy.engine import Connection
 from .config import console
 from .db import get_engine
 from .ranking import _strip_diacritics
-from .schema import meta, race_entries, races, rider_results, riders
+from .schema import meta, race_entries, races, rider_results, riders, uci_xco_race_results
 
 _MONTHS = {m: i for i, m in enumerate(
     ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -305,3 +305,45 @@ def save_all(race_configs: list, rider_groups: list) -> None:
         conn.execute(stmt.on_conflict_do_update(
             index_elements=[meta.c.key], set_={"value": stmt.excluded.value},
         ))
+
+
+def save_uci_race_results(race_results_cache: dict) -> None:
+    """Persist the full finisher lists built by build_uci_xco_history.
+
+    race_results_cache is {uci_cat: {xco_race_id: [finisher_row, ...]}} as
+    returned by get_uci_xco_race_results_cache(). Inserts are idempotent via
+    ON CONFLICT DO NOTHING, so re-running ingest is always safe.
+    """
+    rows_to_insert: list = []
+    for category, races_by_id in race_results_cache.items():
+        for xco_race_id, finishers in races_by_id.items():
+            for f in finishers:
+                rows_to_insert.append({
+                    "xco_race_id": xco_race_id,
+                    "category":    category,
+                    "comp_name":   f.get("comp_name", ""),
+                    "date_raw":    f.get("date_raw", ""),
+                    "date":        parse_result_date(f.get("date_raw", "")),
+                    "race_class":  f.get("race_class", ""),
+                    "rank":        f.get("rank"),
+                    "first_name":  f.get("first_name", ""),
+                    "last_name":   f.get("last_name", ""),
+                    "nationality": f.get("nationality", ""),
+                    "race_time":   f.get("race_time", ""),
+                    "uci_pts":     f.get("uci_pts"),
+                })
+
+    if not rows_to_insert:
+        return
+
+    # Postgres caps bind parameters at 65 535. With 12 columns per row that
+    # allows ~5 400 rows per statement; use 1 000 to stay well clear.
+    _CHUNK = 1000
+    with get_engine().begin() as conn:
+        for i in range(0, len(rows_to_insert), _CHUNK):
+            chunk = rows_to_insert[i : i + _CHUNK]
+            stmt = insert(uci_xco_race_results).values(chunk)
+            conn.execute(stmt.on_conflict_do_nothing(
+                constraint="uq_uci_xco_race_results_rider"
+            ))
+    console.print(f"[green]  ✓ Saved {len(rows_to_insert)} UCI race result rows[/green]")

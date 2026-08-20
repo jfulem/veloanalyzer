@@ -1,4 +1,4 @@
-import { Rider, RaceResult } from "../api.js";
+import { Rider, RaceResult, XcoRaceFinisher, getXcoRaceResults } from "../api.js";
 import { flagEmoji, posLabel, tierClass, el, parseResultDate } from "../utils.js";
 
 type SortCol = "date" | "race" | "cat" | "class" | "rank" | "time" | "pts";
@@ -171,15 +171,6 @@ function summarizeByBucket(results: RaceResult[]): BucketSummaryRow[] {
   return rows.sort((a, b) => b.points - a.points);
 }
 
-/** Derived from countingResultIds so the highlighted rows always sum to the
- *  figure shown in the stat chip — if they ever disagreed, the highlight would
- *  be worse than no highlight at all. */
-function computeCappedPoints(results: RaceResult[]): number {
-  const counting = countingResultIds(results);
-  return results
-    .filter((r) => counting.has(r.id))
-    .reduce((s, r) => s + (r.uci_pts ?? 0), 0);
-}
 
 function buildPointsChart(results: RaceResult[]): HTMLElement | null {
   const sorted = [...results]
@@ -328,19 +319,13 @@ export function renderRiderCard(
     const avgPts     = ptsResults.length
       ? (totalPts / ptsResults.length).toFixed(1)
       : "—";
-    // "UCI pts" reflects only the best-N results that actually count toward
-    // the ranking (art. 4.16.008), not every point-scoring race — this can
-    // be lower than totalPts above.
-    const cappedPts  = computeCappedPoints(results);
-
     const stats = el("div", { class: "rc-stats" });
     for (const [label, value] of [
-      ["Starts",   String(results.length)],
-      ["Best",     bestRank != null ? posLabel(bestRank) : "—"],
-      ["Wins",     String(wins)],
-      ["Podiums",  String(podiums)],
-      ["Avg pts",  avgPts],
-      ["UCI pts",  String(cappedPts)],
+      ["Starts",  String(results.length)],
+      ["Best",    bestRank != null ? posLabel(bestRank) : "—"],
+      ["Wins",    String(wins)],
+      ["Podiums", String(podiums)],
+      ["Avg pts", avgPts],
     ] as [string, string][]) {
       const chip = el("div", { class: "rc-chip" });
       chip.appendChild(el("span", { class: "rc-chip-val" }, value));
@@ -432,6 +417,73 @@ export function renderRiderCard(
     }
   }
 
+  // Panel shown below the table when the user clicks a race name
+  const racePanel = el("div", { class: "rc-race-panel", hidden: "" });
+  let activePanelKey = "";
+
+  async function openRacePanel(res: RaceResult): Promise<void> {
+    const key = `${res.xco_race_id}|${res.cat}`;
+    if (activePanelKey === key) {
+      // Toggle off
+      racePanel.setAttribute("hidden", "");
+      activePanelKey = "";
+      return;
+    }
+    activePanelKey = key;
+    racePanel.removeAttribute("hidden");
+    racePanel.innerHTML = "<p class='h2h-empty'>Loading…</p>";
+    racePanel.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    let finishers: XcoRaceFinisher[];
+    try {
+      finishers = await getXcoRaceResults(res.xco_race_id, res.cat);
+    } catch {
+      racePanel.innerHTML = "<p class='h2h-empty'>Could not load race results.</p>";
+      return;
+    }
+
+    // Bail if the user clicked a different race before the fetch finished
+    if (activePanelKey !== key) return;
+
+    racePanel.innerHTML = "";
+    if (finishers.length === 0) {
+      racePanel.appendChild(el("p", { class: "h2h-empty" }, "No results stored yet."));
+      return;
+    }
+
+    const header = finishers[0]!;
+    racePanel.appendChild(el("p", { class: "section-title" },
+      `${header.comp_name} — ${res.cat} (${header.date})`));
+
+    const t = el("table", { class: "h2h-table" });
+    const th = el("thead");
+    const hr = el("tr");
+    for (const h of ["Pos", "Name", "NAT", "Time", "Pts"]) hr.appendChild(el("th", {}, h));
+    th.appendChild(hr);
+    t.appendChild(th);
+
+    const tb = el("tbody");
+    for (const f of finishers) {
+      const tr = el("tr");
+      const posTd = el("td", { class: "num-cell" });
+      const posSpan = el("span", {}, posLabel(f.rank));
+      if (f.rank === 1) posSpan.style.color = "#f6e05e";
+      else if (f.rank != null && f.rank <= 3) posSpan.style.fontWeight = "700";
+      posTd.appendChild(posSpan);
+      tr.appendChild(posTd);
+      tr.appendChild(el("td", {}, `${f.first_name} ${f.last_name}`.trim()));
+      tr.appendChild(el("td", { class: "country-cell" },
+        f.nationality ? `${flagEmoji(f.nationality)} ${f.nationality}` : "—"));
+      tr.appendChild(el("td", { class: "time-cell", style: "font-size:.82rem; color:#a0aec0" },
+        f.race_time || "—"));
+      tr.appendChild(el("td", { class: "num-cell", style: "font-size:.82rem; color:#68d391" },
+        f.uci_pts != null ? String(f.uci_pts) : "—"));
+      tb.appendChild(tr);
+    }
+    t.appendChild(tb);
+    racePanel.appendChild(t);
+  }
+
   function buildBody(): void {
     tbody.innerHTML = "";
     for (const res of sortResults(results, sortCol, sortDir)) {
@@ -442,7 +494,10 @@ export function renderRiderCard(
       // round of a domestic series (several "Czech Cup" rows with nothing but
       // the date to tell them apart), so the venue goes underneath whenever
       // the feed supplied one.
-      const raceTd = el("td");
+      const raceTd = el("td", { class: "rc-race-link" });
+      raceTd.style.cursor = "pointer";
+      raceTd.title = "Click to see full race results";
+      raceTd.addEventListener("click", () => openRacePanel(res));
       raceTd.appendChild(el("span", {}, res.race_name || "—"));
       if (res.location) {
         raceTd.appendChild(el("span", { class: "time-label" }, res.location));
@@ -487,6 +542,7 @@ export function renderRiderCard(
 
   buildHeaders();
   buildBody();
+  container.appendChild(racePanel);
 
   // Without this the dimming looks like missing data rather than a deliberate
   // distinction.

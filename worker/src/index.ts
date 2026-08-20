@@ -259,6 +259,22 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     }
   }
 
+  // ── /api/xco-race/{category}/{xco_race_id} ──────────────────────────────
+  // Full finisher list for one UCI XCO event (a specific category at a
+  // specific competition). xco_race_id is the "{date}|{comp_name}" composite
+  // key from rider_results.xco_race_id, URL-encoded by the caller.
+  if (parts[1] === "xco-race" && parts.length === 4) {
+    const category  = decodeURIComponent(parts[2]!);
+    const xcoRaceId = decodeURIComponent(parts[3]!);
+    return json(await sql`
+      SELECT rank, first_name, last_name, nationality, race_time, uci_pts,
+             comp_name, date_raw AS date, race_class
+      FROM uci_xco_race_results
+      WHERE xco_race_id = ${xcoRaceId} AND category = ${category}
+      ORDER BY (rank IS NULL), rank, last_name
+    `);
+  }
+
   return null;
 }
 

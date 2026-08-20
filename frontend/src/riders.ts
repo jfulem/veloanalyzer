@@ -1,10 +1,13 @@
 import {
-  getAllRiders, getMeta, getRiderDetail, getRiderHistory,
-  Rider, RiderListItem,
+  getAllRiders, getMeta,
+  RiderListItem,
 } from "./api.js";
 import { catBadge, el, UCI_CAT_LABEL } from "./raceStats.js";
 import { $, flagEmoji, tierClass } from "./utils.js";
-import { renderRiderCard } from "./ui/RiderCard.js";
+
+function openRider(id: number): void {
+  location.href = `./rider.html?id=${id}&from=${encodeURIComponent(location.href)}`;
+}
 
 // ── Table ────────────────────────────────────────────────────────────────
 function buildRow(rider: RiderListItem, index: number, onOpen: (id: number) => void): HTMLTableRowElement {
@@ -100,66 +103,12 @@ function buildLegend(container: HTMLElement, present: Set<string>, onChange: (ca
 
 // ── Boot ─────────────────────────────────────────────────────────────────
 (async () => {
-  const loading = $<HTMLElement>("#loading");
-  const content = $<HTMLElement>("#content");
-  const tableArea = $<HTMLElement>("#table-area");
+  const loading     = $<HTMLElement>("#loading");
+  const content     = $<HTMLElement>("#content");
+  const tableArea   = $<HTMLElement>("#table-area");
   const searchInput = $<HTMLInputElement>("#search-input");
-  const countEl = $<HTMLElement>("#riders-count");
-  const legendEl = $<HTMLElement>("#cat-legend");
-
-  const riderBackdrop = $<HTMLElement>("#rider-backdrop");
-  const riderClose    = $<HTMLElement>("#rider-close");
-  const riderCardEl   = $<HTMLElement>("#rider-card");
-
-  function closeRiderModal(): void {
-    riderBackdrop.setAttribute("hidden", "");
-    document.body.style.overflow = "";
-  }
-  riderClose.addEventListener("click", closeRiderModal);
-  riderBackdrop.addEventListener("click", (e) => {
-    if (e.target === riderBackdrop) closeRiderModal();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !riderBackdrop.hasAttribute("hidden")) closeRiderModal();
-  });
-
-  async function openRider(id: number): Promise<void> {
-    try {
-      const [detail, history] = await Promise.all([getRiderDetail(id), getRiderHistory(id)]);
-      // Shim into the race-context Rider shape RiderCard.ts expects. The
-      // fields with no meaning outside a specific start list — bib, entry
-      // category text, official result, corrected spelling, match confidence —
-      // are left at neutral defaults; renderRiderCard only shows them when set.
-      const shim: Rider = {
-        id: detail.id,
-        race_id: 0,
-        first_name: detail.first_name,
-        last_name: detail.last_name,
-        corrected_name: "",
-        country: detail.country,
-        birth_year: detail.birth_year,
-        start_nr: "",
-        uci_id: detail.uci_id,
-        uci_rank: detail.uci_rank,
-        uci_points: detail.uci_points,
-        cp_xco_points: null,
-        computed_points: null,
-        result_rank: null,
-        result_time: null,
-        team: detail.team,
-        category: "",
-        match_confidence: 100,
-        xcodata_slug: detail.xcodata_slug,
-        race_name: "",
-        last_points_date: null,
-      };
-      renderRiderCard(riderCardEl, shim, history);
-      riderBackdrop.removeAttribute("hidden");
-      document.body.style.overflow = "hidden";
-    } catch (err) {
-      console.error("failed to open rider", id, err);
-    }
-  }
+  const countEl     = $<HTMLElement>("#riders-count");
+  const legendEl    = $<HTMLElement>("#cat-legend");
 
   let riders: RiderListItem[];
   let meta: Record<string, string>;
@@ -176,6 +125,14 @@ function buildLegend(container: HTMLElement, present: Set<string>, onChange: (ca
   const present = new Set(riders.map((r) => r.uci_category).filter(Boolean));
   let activeCategory: string | null = null;
 
+  function updateUrl(): void {
+    const p = new URLSearchParams();
+    if (searchInput.value.trim()) p.set("search", searchInput.value.trim());
+    if (activeCategory) p.set("cat", activeCategory);
+    const qs = p.toString();
+    history.replaceState(null, "", qs ? `?${qs}` : location.pathname);
+  }
+
   function applyFilters(): void {
     const q = searchInput.value.trim().toLowerCase();
     tableArea.querySelectorAll<HTMLTableRowElement>("tbody tr").forEach((row) => {
@@ -183,12 +140,28 @@ function buildLegend(container: HTMLElement, present: Set<string>, onChange: (ca
       const matchesText = !q || (row.textContent ?? "").toLowerCase().includes(q);
       row.style.display = matchesCat && matchesText ? "" : "none";
     });
+    updateUrl();
   }
 
   buildLegend(legendEl, present, (cat) => { activeCategory = cat; applyFilters(); });
   searchInput.addEventListener("input", applyFilters);
 
   tableArea.appendChild(buildTable(riders, openRider));
+
+  // Restore filters from URL query params (preserved in the "from" back-link)
+  const urlParams = new URLSearchParams(location.search);
+  const restoredSearch = urlParams.get("search") ?? "";
+  const restoredCat    = urlParams.get("cat") ?? "";
+  if (restoredSearch) {
+    searchInput.value = restoredSearch;
+  }
+  if (restoredCat) {
+    activeCategory = restoredCat;
+    legendEl.querySelectorAll<HTMLElement>(".legend-item").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset["cat"] === restoredCat);
+    });
+  }
+  if (restoredSearch || restoredCat) applyFilters();
 
   loading.style.display = "none";
   content.style.display = "block";

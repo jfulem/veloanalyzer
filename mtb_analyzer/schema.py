@@ -137,6 +137,31 @@ race_requests = Table(
     Column("created_at", DateTime(timezone=True), nullable=False),
 )
 
+# Full finisher list for every UCI XCO event in the last 12 months.
+# One row per finisher per race per category. Populated by ingest and queried
+# by /api/xco-race to let the rider card link to a full race result view.
+uci_xco_race_results = Table(
+    "uci_xco_race_results", metadata,
+    Column("id", Integer, primary_key=True),
+    # Matches rider_results.xco_race_id — the composite "{date}|{comp_name}" key
+    # used throughout the ranking pipeline. Used as the lookup key so the
+    # frontend can fetch full results from a RaceResult row without extra columns.
+    Column("xco_race_id", Text, nullable=False),
+    Column("category", String(8), nullable=False),
+    Column("comp_name", Text, nullable=False, server_default=""),
+    Column("date_raw", Text, nullable=False, server_default=""),
+    Column("date", Date),
+    Column("race_class", String(8), nullable=False, server_default=""),
+    Column("rank", Integer),
+    Column("first_name", Text, nullable=False, server_default=""),
+    Column("last_name", Text, nullable=False, server_default=""),
+    Column("nationality", String(3), nullable=False, server_default=""),
+    Column("race_time", Text, nullable=False, server_default=""),
+    Column("uci_pts", Integer),
+    UniqueConstraint("xco_race_id", "category", "first_name", "last_name",
+                     name="uq_uci_xco_race_results_rider"),
+)
+
 meta = Table(
     "meta", metadata,
     Column("key", Text, primary_key=True),
@@ -160,3 +185,4 @@ Index(
 
 Index("idx_race_requests_status", race_requests.c.status, race_requests.c.created_at)
 Index("idx_race_requests_submitter", race_requests.c.submitter_hash, race_requests.c.created_at)
+Index("idx_uci_xco_race_results_lookup", uci_xco_race_results.c.xco_race_id, uci_xco_race_results.c.category)
