@@ -540,6 +540,9 @@ img.emoji {
   overflow-x: auto;
 }
 
+.rc-me-row { background: rgba(144, 205, 244, 0.12); }
+.rc-me-row td { font-weight: 600; color: #90cdf4; }
+
 /* Footer */
 .site-footer {
   margin-top: 2rem;

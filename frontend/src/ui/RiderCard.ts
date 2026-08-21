@@ -432,7 +432,7 @@ export function renderRiderCard(
     activePanelKey = key;
     racePanel.removeAttribute("hidden");
     racePanel.innerHTML = "<p class='h2h-empty'>Loading…</p>";
-    racePanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    racePanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
     let finishers: XcoRaceFinisher[];
     try {
@@ -462,9 +462,16 @@ export function renderRiderCard(
     th.appendChild(hr);
     t.appendChild(th);
 
+    const myFirst = rider.first_name.trim().toLowerCase();
+    const myLast  = rider.last_name.trim().toLowerCase();
+    let myRow: HTMLElement | null = null;
+
     const tb = el("tbody");
     for (const f of finishers) {
-      const tr = el("tr");
+      const isMe = f.first_name.trim().toLowerCase() === myFirst
+                && f.last_name.trim().toLowerCase()  === myLast;
+      const tr = el("tr", isMe ? { class: "rc-me-row" } : {});
+      if (isMe) myRow = tr;
       const posTd = el("td", { class: "num-cell" });
       const posSpan = el("span", {}, posLabel(f.rank));
       if (f.rank === 1) posSpan.style.color = "#f6e05e";
@@ -482,6 +489,11 @@ export function renderRiderCard(
     }
     t.appendChild(tb);
     racePanel.appendChild(t);
+
+    // Scroll after the browser has laid out the now-full panel
+    requestAnimationFrame(() => {
+      (myRow ?? racePanel).scrollIntoView({ behavior: "smooth", block: "center" });
+    });
   }
 
   function buildBody(): void {
