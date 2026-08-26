@@ -12,7 +12,7 @@ from .config import console
 from .db import bootstrap
 from .geocode import geocode
 from .pipeline import fetch_riders
-from .ranking import get_uci_xco_race_results_cache
+from .ranking import build_uci_xco_country_archive, get_uci_xco_race_results_cache
 from .store import save_all, save_uci_race_results
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -24,6 +24,11 @@ RACES_FILE = os.environ.get("RACES_FILE") or os.path.normpath(
 def load_races() -> list:
     with open(RACES_FILE, encoding="utf-8") as f:
         return yaml.safe_load(f).get("races", [])
+
+
+def load_discovery_countries() -> list:
+    with open(RACES_FILE, encoding="utf-8") as f:
+        return yaml.safe_load(f).get("discovery_countries", [])
 
 
 def _resolve_locations(races: list) -> None:
@@ -79,8 +84,21 @@ def run() -> None:
     )
 
     # build_uci_xco_history (called inside fetch_riders) already fetched and
-    # cached full finisher lists for every UCI XCO event. Persist them so the
-    # frontend can show complete race results when a user clicks on a race.
+    # cached full finisher lists for every UCI XCO event within its rolling
+    # 12-month window. Broaden that with a country-scoped, multi-year sweep so
+    # the archive page can browse further back than any one rider's history
+    # needs — races.yml's own discovery_countries list is reused here as the
+    # scope, not just as scouting for new starts lists to track. Must run
+    # after every fetch_riders() call above (each one may have called
+    # build_uci_xco_history for a category this hasn't touched yet), so it
+    # only fills in gaps rather than being overwritten by a later one.
+    discovery_countries = load_discovery_countries()
+    if discovery_countries:
+        console.print(f"[dim]  Broadening UCI XCO archive for {', '.join(discovery_countries)}...[/dim]")
+        build_uci_xco_country_archive(discovery_countries)
+
+    # Persist everything the two steps above cached so the frontend can show
+    # complete race results when a user clicks on a race.
     console.print("[dim]  Saving UCI XCO race results...[/dim]")
     save_uci_race_results(get_uci_xco_race_results_cache())
 

@@ -3,21 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VeloAnalyzer — Riders</title>
-  <meta name="description" content="Every rider tracked across VeloAnalyzer's races, with UCI rank, points and race history." />
-  <link rel="canonical" href="https://www.veloanalyzer.com/riders" />
+  <title>VeloAnalyzer — Archive</title>
+  <meta name="description" content="Every UCI XCO race VeloAnalyzer has found across Central Europe, whether or not it's tracked as a start list — with full results and a per-country breakdown." />
+  <link rel="canonical" href="https://www.veloanalyzer.com/archive" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="VeloAnalyzer" />
-  <meta property="og:title" content="VeloAnalyzer — Riders" />
-  <meta property="og:description" content="Every rider tracked across VeloAnalyzer's races, with UCI rank, points and race history." />
-  <meta property="og:url" content="https://www.veloanalyzer.com/riders" />
+  <meta property="og:title" content="VeloAnalyzer — Archive" />
+  <meta property="og:description" content="Every UCI XCO race VeloAnalyzer has found across Central Europe, whether or not it's tracked as a start list — with full results and a per-country breakdown." />
+  <meta property="og:url" content="https://www.veloanalyzer.com/archive" />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="VeloAnalyzer — Riders" />
-  <meta name="twitter:description" content="Every rider tracked across VeloAnalyzer's races, with UCI rank, points and race history." />
+  <meta name="twitter:title" content="VeloAnalyzer — Archive" />
+  <meta name="twitter:description" content="Every UCI XCO race VeloAnalyzer has found across Central Europe, whether or not it's tracked as a start list — with full results and a per-country breakdown." />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/src/style.css" />
   <style>
-    .cat-legend { margin-bottom: 1.2rem; display: flex; gap: .6rem; flex-wrap: wrap; }
+    .cat-legend, .country-legend { margin-bottom: 1.2rem; display: flex; gap: .6rem; flex-wrap: wrap; }
     .legend-item {
       font-size: .82rem; color: #a0aec0; display: flex; align-items: center; gap: .4rem;
       background: transparent; border: 1px solid transparent; border-radius: 6px;
@@ -25,7 +25,7 @@
     }
     .legend-item:hover { border-color: #4a5568; }
     .legend-item.active { border-color: #90cdf4; background: #2d3748; color: #e2e8f0; }
-    .riders-count { color: #718096; font-size: .82rem; margin: 0 0 1.2rem; }
+    .archive-count { color: #718096; font-size: .82rem; margin: 0 0 1.2rem; }
   </style>
 </head>
 <body>
@@ -41,8 +41,8 @@
           <a href="./app.html"><span class="icon">🏁</span> Start List</a>
           <a href="./results.html"><span class="icon">🏆</span> Results</a>
           <a href="./races.html"><span class="icon">🗓</span> Races</a>
-          <a href="./riders.html" class="active"><span class="icon">👤</span> Riders</a>
-          <a href="./archive.html"><span class="icon">📜</span> Archive</a>
+          <a href="./riders.html"><span class="icon">👤</span> Riders</a>
+          <a href="./archive.html" class="active"><span class="icon">📜</span> Archive</a>
           <a href="./about.html"><span class="icon">ℹ️</span> About</a>
         </nav>
 
@@ -54,29 +54,38 @@
       </aside>
 
       <div class="main">
-        <h1 class="page-title">Riders</h1>
+        <h1 class="page-title">Archive</h1>
+        <p class="header-sub">
+          Every UCI XCO race found in the region, whether or not it's tracked as a start list.
+        </p>
 
         <p id="loading">Loading…</p>
 
         <div id="content" style="display:none">
+          <p class="section-title">Races by country</p>
+          <div id="country-chart-area"></div>
+
+          <p class="section-title" style="margin-top:1.5rem">Browse</p>
           <div class="cat-legend" id="cat-legend"></div>
+          <div class="country-legend" id="country-legend"></div>
 
           <input
             id="search-input"
             class="search-box"
             type="search"
-            placeholder="Search by name, country or team…"
-            aria-label="Search riders"
+            placeholder="Search by race name or venue…"
+            aria-label="Search archived races"
           />
 
-          <p class="riders-count" id="riders-count"></p>
+          <p class="archive-count" id="archive-count"></p>
 
           <div id="table-area"></div>
+          <div id="results-panel" class="rc-race-panel" hidden></div>
         </div>
       </div>
     </div>
   </div>
 
-  <script type="module" src="/src/riders.ts"></script>
+  <script type="module" src="/src/archive.ts"></script>
 </body>
 </html>

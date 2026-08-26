@@ -259,6 +259,26 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     }
   }
 
+  // ── /api/xco-races ────────────────────────────────────────────────────
+  // Browse the whole UCI XCO archive at competition granularity (one row per
+  // competition+category, not per finisher) — venue/country/date/class plus
+  // a finisher count, so the archive page can list and filter without
+  // pulling every result row. country is blank for the rolling-12-month
+  // worldwide sweep build_uci_xco_history does on its own (it doesn't know
+  // or care about country); only rows the country-scoped archive sweep
+  // touched have one, which is also what keeps this list scoped to
+  // discovery_countries rather than the whole world.
+  if (parts[1] === "xco-races" && parts.length === 2) {
+    return json(await sql`
+      SELECT xco_race_id, category, comp_name, date::text AS date, race_class,
+             venue, country, count(*)::int AS finishers
+      FROM uci_xco_race_results
+      WHERE country <> ''
+      GROUP BY xco_race_id, category, comp_name, date, race_class, venue, country
+      ORDER BY date DESC NULLS LAST, comp_name
+    `, 200, 600);
+  }
+
   // ── /api/xco-race/{category}/{xco_race_id} ──────────────────────────────
   // Full finisher list for one UCI XCO event (a specific category at a
   // specific competition). xco_race_id is the "{date}|{comp_name}" composite

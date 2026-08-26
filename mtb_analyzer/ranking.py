@@ -395,6 +395,8 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
                     "nationality": er.get("nationality", ""),
                     "race_time":   er.get("time", ""),
                     "uci_pts":     uci_pts,
+                    "venue":       entry.get("venue", ""),
+                    "country":     entry.get("country", ""),
                 })
 
             if race_finishers:
@@ -403,6 +405,87 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
     _uci_xco_history_cache[uci_cat] = by_name
     _uci_xco_race_results_cache[uci_cat] = race_results_by_id
     return by_name
+
+
+# Riders' own UCI ranking categories only — U23 riders already appear in the
+# Elite results (the UCI has no standalone U23 XCO ranking), so sweeping
+# MU23/WU23 separately would just re-fetch the same event codes for nothing.
+_ARCHIVE_CATEGORIES = ("ME", "WE", "MJ", "WJ")
+
+
+def build_uci_xco_country_archive(countries: list, years_back: int = 2) -> None:
+    """
+    Broaden the UCI XCO results archive with competitions from `countries`
+    going back `years_back` years — beyond build_uci_xco_history's normal
+    rolling-12-month / races.yml-categories-only scope, which exists to
+    support rider history and points, not to be a general archive.
+
+    Merges directly into the same in-process cache build_uci_xco_history
+    populates (get_uci_xco_race_results_cache()), so callers persist the
+    result the same way as always: save_uci_race_results(get_uci_xco_...()).
+    Must run after build_uci_xco_history has been called for every races.yml
+    category in this process (i.e. after the main races.yml scrape loop),
+    or a later build_uci_xco_history call would overwrite what this adds.
+
+    countries are races.yml discovery_countries: full English names like
+    "Czech Republic", normalized to IOC codes via normalize_country().
+    """
+    country_codes = {normalize_country(c) for c in countries}
+    now    = datetime.now()
+    cutoff = now - timedelta(days=years_back * 365)
+
+    for year in range(cutoff.year, now.year + 1):
+        catalog = _get_uci_competition_catalog(year)
+        for comp_id, entry in catalog.get("by_id", {}).items():
+            if entry.get("country") not in country_codes:
+                continue
+            end_dt = _parse_comp_end_date(entry.get("dates", ""))
+            if end_dt is None or end_dt < cutoff or end_dt > now:
+                continue
+
+            comp_name   = entry.get("name", "")
+            dates_str   = entry.get("dates", "")
+            race_date   = dates_str.split(" - ")[-1].strip() if " - " in dates_str else dates_str
+            xco_race_id = f"{race_date}|{comp_name}"
+
+            details    = _get_competition_details(comp_id, year)
+            race_class = details.get("class", "")
+
+            for uci_cat in _ARCHIVE_CATEGORIES:
+                event_code = details.get("events", {}).get(uci_cat)
+                if not event_code:
+                    continue
+                by_id = _uci_xco_race_results_cache.setdefault(uci_cat, {})
+                if xco_race_id in by_id:
+                    continue  # already collected by build_uci_xco_history
+
+                event_results = _get_uci_event_results(event_code)
+                if not event_results:
+                    continue
+
+                finishers = []
+                for er in event_results:
+                    fn = er.get("first_name", "").strip()
+                    ln = er.get("last_name", "").strip()
+                    if not fn or not ln:
+                        continue
+                    pts_raw = er.get("points", "")
+                    finishers.append({
+                        "comp_name":   comp_name,
+                        "date_raw":    race_date,
+                        "race_class":  race_class,
+                        "rank":        int(er["rank"]) if er.get("rank") and str(er["rank"]).isdigit() else None,
+                        "first_name":  fn,
+                        "last_name":   ln,
+                        "nationality": er.get("nationality", ""),
+                        "race_time":   er.get("time", ""),
+                        "uci_pts":     int(pts_raw) if str(pts_raw).isdigit() else None,
+                        "venue":       entry.get("venue", ""),
+                        "country":     entry.get("country", ""),
+                    })
+
+                if finishers:
+                    by_id[xco_race_id] = finishers
 
 
 def counting_result_ids(race_results: list, uci_cat: str) -> set:

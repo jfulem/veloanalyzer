@@ -27,6 +27,7 @@ export default defineConfig({
         riders:  "riders.html",
         rider:   "rider.html",
         results: "results.html",
+        archive: "archive.html",
         about:   "about.html",
       },
       output: {

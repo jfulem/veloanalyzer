@@ -308,17 +308,31 @@ def save_all(race_configs: list, rider_groups: list) -> None:
 
 
 def save_uci_race_results(race_results_cache: dict) -> None:
-    """Persist the full finisher lists built by build_uci_xco_history.
+    """Persist the full finisher lists built by build_uci_xco_history and
+    build_uci_xco_country_archive.
 
     race_results_cache is {uci_cat: {xco_race_id: [finisher_row, ...]}} as
-    returned by get_uci_xco_race_results_cache(). Inserts are idempotent via
-    ON CONFLICT DO NOTHING, so re-running ingest is always safe.
+    returned by get_uci_xco_race_results_cache(). venue/country update on
+    conflict rather than no-op: they were added after this table already had
+    rows, and a plain DO NOTHING would leave those rows blank forever since
+    the finisher identity they conflict on never changes.
     """
-    rows_to_insert: list = []
+    # Keyed by the same tuple as the table's unique constraint. A dict rather
+    # than a plain list because ON CONFLICT DO UPDATE — unlike the DO NOTHING
+    # this used before venue/country existed — errors out ("cannot affect row
+    # a second time") if two proposed rows in the same statement share a
+    # conflict key. That happens for real: the UCI's own results feed
+    # occasionally repeats a DNF rider, and build_uci_xco_history plus
+    # build_uci_xco_country_archive both feed this cache, so the same finisher
+    # can in principle arrive from two different sweeps. Last one wins; for a
+    # genuine duplicate the rows are equivalent anyway.
+    rows_by_key: dict = {}
     for category, races_by_id in race_results_cache.items():
         for xco_race_id, finishers in races_by_id.items():
             for f in finishers:
-                rows_to_insert.append({
+                first_name = f.get("first_name", "")
+                last_name  = f.get("last_name", "")
+                rows_by_key[(xco_race_id, category, first_name, last_name)] = {
                     "xco_race_id": xco_race_id,
                     "category":    category,
                     "comp_name":   f.get("comp_name", ""),
@@ -326,24 +340,28 @@ def save_uci_race_results(race_results_cache: dict) -> None:
                     "date":        parse_result_date(f.get("date_raw", "")),
                     "race_class":  f.get("race_class", ""),
                     "rank":        f.get("rank"),
-                    "first_name":  f.get("first_name", ""),
-                    "last_name":   f.get("last_name", ""),
+                    "first_name":  first_name,
+                    "last_name":   last_name,
                     "nationality": f.get("nationality", ""),
                     "race_time":   f.get("race_time", ""),
                     "uci_pts":     f.get("uci_pts"),
-                })
+                    "venue":       f.get("venue", ""),
+                    "country":     f.get("country", ""),
+                }
 
+    rows_to_insert = list(rows_by_key.values())
     if not rows_to_insert:
         return
 
-    # Postgres caps bind parameters at 65 535. With 12 columns per row that
-    # allows ~5 400 rows per statement; use 1 000 to stay well clear.
+    # Postgres caps bind parameters at 65 535. With 14 columns per row that
+    # allows ~4 600 rows per statement; use 1 000 to stay well clear.
     _CHUNK = 1000
     with get_engine().begin() as conn:
         for i in range(0, len(rows_to_insert), _CHUNK):
             chunk = rows_to_insert[i : i + _CHUNK]
             stmt = insert(uci_xco_race_results).values(chunk)
-            conn.execute(stmt.on_conflict_do_nothing(
-                constraint="uq_uci_xco_race_results_rider"
+            conn.execute(stmt.on_conflict_do_update(
+                constraint="uq_uci_xco_race_results_rider",
+                set_={"venue": stmt.excluded.venue, "country": stmt.excluded.country},
             ))
     console.print(f"[green]  ✓ Saved {len(rows_to_insert)} UCI race result rows[/green]")

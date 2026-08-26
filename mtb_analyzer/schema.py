@@ -158,6 +158,14 @@ uci_xco_race_results = Table(
     Column("nationality", String(3), nullable=False, server_default=""),
     Column("race_time", Text, nullable=False, server_default=""),
     Column("uci_pts", Integer),
+    # Competition-level, so identical on every finisher row of the same
+    # xco_race_id — denormalized here rather than a separate competitions
+    # table because this table already carries other per-competition fields
+    # (comp_name, date, race_class) the same way. country is the IOC code
+    # straight from the UCI calendar API, used to browse/group the archive
+    # by country without a geocoding step.
+    Column("venue", Text, nullable=False, server_default=""),
+    Column("country", String(3), nullable=False, server_default=""),
     UniqueConstraint("xco_race_id", "category", "first_name", "last_name",
                      name="uq_uci_xco_race_results_rider"),
 )
@@ -186,3 +194,5 @@ Index(
 Index("idx_race_requests_status", race_requests.c.status, race_requests.c.created_at)
 Index("idx_race_requests_submitter", race_requests.c.submitter_hash, race_requests.c.created_at)
 Index("idx_uci_xco_race_results_lookup", uci_xco_race_results.c.xco_race_id, uci_xco_race_results.c.category)
+# Backs the archive-browsing query, which groups the whole table by country.
+Index("idx_uci_xco_race_results_country", uci_xco_race_results.c.country)

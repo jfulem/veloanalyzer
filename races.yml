@@ -4,6 +4,14 @@ discovery_countries:
   - Austria
   - Hungary
   - Switzerland
+  - Germany
+  - Italy
+  - France
+  - Poland
+  - Slovenia
+  - Croatia
+  - Serbia
+  - Spain
 
 races:
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3545

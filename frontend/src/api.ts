@@ -151,3 +151,21 @@ export function getXcoRaceResults(xcoRaceId: string, category: string): Promise<
     `/api/xco-race/${encodeURIComponent(category)}/${encodeURIComponent(xcoRaceId)}`,
   );
 }
+
+/** One competition+category in the UCI XCO archive (browse granularity, not
+ *  per-finisher) — every past race the archive sweep found in
+ *  discovery_countries, independent of whether it's tracked in races.yml. */
+export interface UciArchiveRace {
+  xco_race_id: string;
+  category: string;
+  comp_name: string;
+  date: string;
+  race_class: string;
+  venue: string;
+  country: string;
+  finishers: number;
+}
+
+export function getUciArchive(): Promise<UciArchiveRace[]> {
+  return getJson<UciArchiveRace[]>("/api/xco-races");
+}

@@ -24,8 +24,14 @@ concurrency:
 jobs:
   ingest:
     runs-on: ubuntu-latest
-    # A cold cache means ~1800 UCI requests with rate-limiting sleeps.
-    timeout-minutes: 120
+    # A cold cache means ~1800 UCI requests with rate-limiting sleeps, plus a
+    # country-scoped multi-year archive sweep (build_uci_xco_country_archive)
+    # on top of that — cold, the extra sweep alone didn't finish in 150s
+    # locally against a handful of countries, so 120 wasn't enough headroom
+    # once all of discovery_countries is swept for 2 years. Every cache-miss
+    # request here is disk-cached afterwards, so a run that still times out
+    # simply picks up warmer next time rather than losing data.
+    timeout-minutes: 180
 
     steps:
       - uses: actions/checkout@v4
@@ -73,7 +79,7 @@ jobs:
           from mtb_analyzer.db import get_engine
           from sqlalchemy import text
           with get_engine().connect() as c:
-              for t in ('races','riders','race_entries','rider_results'):
+              for t in ('races','riders','race_entries','rider_results','uci_xco_race_results'):
                   print(f'{t:15}', c.execute(text(f'select count(*) from {t}')).scalar_one())
               empty = c.execute(text('''
                   select count(*) from races r
