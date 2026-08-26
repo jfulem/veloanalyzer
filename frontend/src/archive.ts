@@ -1,45 +1,14 @@
-import {
-  getUciArchive, getXcoRaceResults, getMeta,
-  UciArchiveRace, XcoRaceFinisher,
-} from "./api.js";
-import { catBadge, el, UCI_CAT_LABEL } from "./raceStats.js";
-import { $, flagEmoji, applyTwemoji, posLabel } from "./utils.js";
+import { getUciArchive, getMeta, UciArchiveRace } from "./api.js";
+import { catBadge, el } from "./raceStats.js";
+import { GroupedRace, groupByCompetition, sortedCategories } from "./uciArchive.js";
+import { $, flagEmoji, applyTwemoji } from "./utils.js";
 
-// Preferred tab order when a race has more than one category on record.
-const CAT_ORDER = ["ME", "WE", "MJ", "WJ", "MU23", "WU23"];
-
-// One row per competition, not per category — a race's categories become a
-// choice made inside the results panel instead of duplicating the row for
-// each one, which used to make a 4-category race look like 4 races.
-interface GroupedRace {
-  xco_race_id: string;
-  comp_name: string;
-  date: string;
-  venue: string;
-  country: string;
-  categories: Record<string, number>;   // category → finisher count
-}
-
-function groupByCompetition(races: UciArchiveRace[]): GroupedRace[] {
-  const byId = new Map<string, GroupedRace>();
-  for (const r of races) {
-    let g = byId.get(r.xco_race_id);
-    if (!g) {
-      g = { xco_race_id: r.xco_race_id, comp_name: r.comp_name, date: r.date,
-            venue: r.venue, country: r.country, categories: {} };
-      byId.set(r.xco_race_id, g);
-    }
-    g.categories[r.category] = r.finishers;
-  }
-  return [...byId.values()].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-}
-
-function sortedCategories(categories: Record<string, number>): string[] {
-  const cats = Object.keys(categories);
-  return cats.sort((a, b) => {
-    const ia = CAT_ORDER.indexOf(a), ib = CAT_ORDER.indexOf(b);
-    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-  });
+function openRace(race: GroupedRace): void {
+  // Stash this race's metadata so race.html can render instantly instead of
+  // re-fetching and re-grouping the whole archive just to find one row.
+  sessionStorage.setItem(`uci_race_${race.xco_race_id}`, JSON.stringify(race));
+  const params = new URLSearchParams({ id: race.xco_race_id, from: location.href });
+  location.href = `./race.html?${params.toString()}`;
 }
 
 // ── Table ────────────────────────────────────────────────────────────────
@@ -85,104 +54,12 @@ function buildTable(races: GroupedRace[], onOpen: (race: GroupedRace) => void): 
   return table;
 }
 
-// ── Results panel ────────────────────────────────────────────────────────
-// One shared panel below the table. A race with several categories on record
-// gets a small tab row so the category choice happens here, after picking a
-// race — not up front in the browse list.
-let activeRaceId    = "";
-let activeCategory  = "";
-
-async function loadCategoryResults(panel: HTMLElement, race: GroupedRace, category: string): Promise<void> {
-  activeCategory = category;
-  const body = panel.querySelector<HTMLElement>(".archive-panel-body")!;
-  body.innerHTML = "<p class='h2h-empty'>Loading…</p>";
-
-  let finishers: XcoRaceFinisher[];
-  try {
-    finishers = await getXcoRaceResults(race.xco_race_id, category);
-  } catch {
-    body.innerHTML = "<p class='h2h-empty'>Could not load race results.</p>";
-    return;
-  }
-  if (activeRaceId !== race.xco_race_id || activeCategory !== category) return;
-
-  body.innerHTML = "";
-  if (finishers.length === 0) {
-    body.appendChild(el("p", { class: "h2h-empty" }, "No results stored yet."));
-    return;
-  }
-
-  const t  = el("table", { class: "h2h-table" });
-  const th = el("thead");
-  const hr = el("tr");
-  for (const h of ["Pos", "Name", "NAT", "Time", "Pts"]) hr.appendChild(el("th", {}, h));
-  th.appendChild(hr);
-  t.appendChild(th);
-
-  const tb = el("tbody");
-  for (const f of finishers) {
-    const tr = el("tr");
-    const posTd   = el("td", { class: "num-cell" });
-    const posSpan = el("span", {}, posLabel(f.rank));
-    if (f.rank === 1) posSpan.style.color = "#f6e05e";
-    else if (f.rank != null && f.rank <= 3) posSpan.style.fontWeight = "700";
-    posTd.appendChild(posSpan);
-    tr.appendChild(posTd);
-    tr.appendChild(el("td", {}, `${f.first_name} ${f.last_name}`.trim()));
-    tr.appendChild(el("td", { class: "country-cell" },
-      f.nationality ? `${flagEmoji(f.nationality)} ${f.nationality}` : "—"));
-    tr.appendChild(el("td", { class: "time-cell", style: "font-size:.82rem; color:#a0aec0" },
-      f.race_time || "—"));
-    tr.appendChild(el("td", { class: "num-cell", style: "font-size:.82rem; color:#68d391" },
-      f.uci_pts != null ? String(f.uci_pts) : "—"));
-    tb.appendChild(tr);
-  }
-  t.appendChild(tb);
-  body.appendChild(t);
-  applyTwemoji(body);
-}
-
-function openResultsPanel(panel: HTMLElement, race: GroupedRace): void {
-  if (activeRaceId === race.xco_race_id) {
-    panel.setAttribute("hidden", "");
-    activeRaceId = "";
-    return;
-  }
-  activeRaceId = race.xco_race_id;
-  panel.removeAttribute("hidden");
-  panel.innerHTML = "";
-  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
-
-  panel.appendChild(el("p", { class: "section-title" }, `${race.comp_name} (${race.date})`));
-
-  const cats = sortedCategories(race.categories);
-  const tabs = el("div", { class: "cat-legend" });
-  for (const cat of cats) {
-    const btn = el("button", { class: "legend-item" }) as HTMLButtonElement;
-    btn.appendChild(catBadge(cat));
-    btn.appendChild(document.createTextNode(` ${UCI_CAT_LABEL[cat] ?? cat}`));
-    btn.addEventListener("click", () => {
-      tabs.querySelectorAll(".legend-item").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      loadCategoryResults(panel, race, cat);
-    });
-    tabs.appendChild(btn);
-  }
-  panel.appendChild(tabs);
-  panel.appendChild(el("div", { class: "archive-panel-body" }));
-  applyTwemoji(tabs);
-
-  const defaultCat = cats[0]!;
-  tabs.querySelector<HTMLElement>(".legend-item")?.classList.add("active");
-  loadCategoryResults(panel, race, defaultCat);
-}
-
 // ── Country legend ───────────────────────────────────────────────────────
 function buildCountryLegend(
   container: HTMLElement,
   races: GroupedRace[],
   onChange: (country: string | null) => void,
-): string[] {
+): void {
   const counts: Record<string, number> = {};
   for (const r of races) if (r.country) counts[r.country] = (counts[r.country] ?? 0) + 1;
   const sorted = Object.keys(counts).sort((a, b) => counts[b]! - counts[a]!);
@@ -202,7 +79,6 @@ function buildCountryLegend(
     btn.classList.add("active");
     onChange(btn.dataset["value"] ?? null);
   });
-  return sorted;
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────
@@ -213,7 +89,6 @@ function buildCountryLegend(
   const searchInput     = $<HTMLInputElement>("#search-input");
   const countEl         = $<HTMLElement>("#archive-count");
   const countryLegendEl = $<HTMLElement>("#country-legend");
-  const resultsPanel    = $<HTMLElement>("#results-panel");
 
   let raw: UciArchiveRace[];
   let meta: Record<string, string>;
@@ -253,7 +128,7 @@ function buildCountryLegend(
   buildCountryLegend(countryLegendEl, races, (country) => { activeCountry = country; applyFilters(); });
   searchInput.addEventListener("input", applyFilters);
 
-  tableArea.appendChild(buildTable(races, (race) => openResultsPanel(resultsPanel, race)));
+  tableArea.appendChild(buildTable(races, openRace));
   applyTwemoji(tableArea);
   applyTwemoji(countryLegendEl);
 

@@ -28,6 +28,7 @@ export default defineConfig({
         rider:   "rider.html",
         results: "results.html",
         archive: "archive.html",
+        race:    "race.html",
         about:   "about.html",
       },
       output: {
