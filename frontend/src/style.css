@@ -234,6 +234,17 @@ img.emoji {
   margin-right: .3rem;
 }
 
+/* Toggle legends (category/country filters on riders.html, archive.html;
+   category tabs on race.html) */
+.cat-legend, .country-legend { margin-bottom: 1rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+.legend-item {
+  font-size: .82rem; color: #a0aec0; display: flex; align-items: center; gap: .4rem;
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  padding: .25rem .5rem; cursor: pointer; font-family: inherit;
+}
+.legend-item:hover { border-color: #4a5568; }
+.legend-item.active { border-color: #90cdf4; background: #2d3748; color: #e2e8f0; }
+
 /* Search */
 .search-box {
   width: 100%;
