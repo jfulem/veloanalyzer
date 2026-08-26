@@ -3,13 +3,48 @@ import {
   UciArchiveRace, XcoRaceFinisher,
 } from "./api.js";
 import { catBadge, el, UCI_CAT_LABEL } from "./raceStats.js";
-import { renderRaceCountryChart } from "./ui/RaceCountryChart.js";
 import { $, flagEmoji, applyTwemoji, posLabel } from "./utils.js";
 
+// Preferred tab order when a race has more than one category on record.
+const CAT_ORDER = ["ME", "WE", "MJ", "WJ", "MU23", "WU23"];
+
+// One row per competition, not per category — a race's categories become a
+// choice made inside the results panel instead of duplicating the row for
+// each one, which used to make a 4-category race look like 4 races.
+interface GroupedRace {
+  xco_race_id: string;
+  comp_name: string;
+  date: string;
+  venue: string;
+  country: string;
+  categories: Record<string, number>;   // category → finisher count
+}
+
+function groupByCompetition(races: UciArchiveRace[]): GroupedRace[] {
+  const byId = new Map<string, GroupedRace>();
+  for (const r of races) {
+    let g = byId.get(r.xco_race_id);
+    if (!g) {
+      g = { xco_race_id: r.xco_race_id, comp_name: r.comp_name, date: r.date,
+            venue: r.venue, country: r.country, categories: {} };
+      byId.set(r.xco_race_id, g);
+    }
+    g.categories[r.category] = r.finishers;
+  }
+  return [...byId.values()].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+}
+
+function sortedCategories(categories: Record<string, number>): string[] {
+  const cats = Object.keys(categories);
+  return cats.sort((a, b) => {
+    const ia = CAT_ORDER.indexOf(a), ib = CAT_ORDER.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+}
+
 // ── Table ────────────────────────────────────────────────────────────────
-function buildRow(race: UciArchiveRace, onOpen: (race: UciArchiveRace) => void): HTMLTableRowElement {
+function buildRow(race: GroupedRace, onOpen: (race: GroupedRace) => void): HTMLTableRowElement {
   const tr = el("tr") as HTMLTableRowElement;
-  tr.dataset["cat"]     = race.category;
   tr.dataset["country"] = race.country;
   tr.style.cursor = "pointer";
   tr.title = "Click to see full race results";
@@ -19,27 +54,26 @@ function buildRow(race: UciArchiveRace, onOpen: (race: UciArchiveRace) => void):
 
   const nameTd = el("td", { class: "rc-race-link" });
   nameTd.appendChild(el("span", {}, race.comp_name || "—"));
-  if (race.venue) nameTd.appendChild(el("span", { class: "time-label" }, race.venue));
+  const sub = [race.venue, race.country ? `${flagEmoji(race.country)} ${race.country}` : ""]
+    .filter(Boolean).join(" · ");
+  if (sub) nameTd.appendChild(el("span", { class: "time-label" }, sub));
   tr.appendChild(nameTd);
 
-  tr.appendChild(el("td", { class: "country-cell" },
-    race.country ? `${flagEmoji(race.country)} ${race.country}` : "—"));
-
-  const catTd = el("td");
-  catTd.appendChild(catBadge(race.category));
+  const catTd = el("td", { class: "archive-cats" });
+  for (const cat of sortedCategories(race.categories)) catTd.appendChild(catBadge(cat));
   tr.appendChild(catTd);
 
-  tr.appendChild(el("td", { class: "num-cell" }, race.race_class || "—"));
-  tr.appendChild(el("td", { class: "num-cell" }, String(race.finishers)));
+  const total = Object.values(race.categories).reduce((s, n) => s + n, 0);
+  tr.appendChild(el("td", { class: "num-cell" }, String(total)));
 
   return tr;
 }
 
-function buildTable(races: UciArchiveRace[], onOpen: (race: UciArchiveRace) => void): HTMLTableElement {
+function buildTable(races: GroupedRace[], onOpen: (race: GroupedRace) => void): HTMLTableElement {
   const table = el("table", { class: "rider-table" }) as HTMLTableElement;
   const thead = el("thead");
   const hRow  = el("tr");
-  for (const h of ["Date", "Race", "Country", "Category", "Class", "Finishers"]) {
+  for (const h of ["Date", "Race", "Categories", "Finishers"]) {
     hRow.appendChild(el("th", {}, h));
   }
   thead.appendChild(hRow);
@@ -52,40 +86,31 @@ function buildTable(races: UciArchiveRace[], onOpen: (race: UciArchiveRace) => v
 }
 
 // ── Results panel ────────────────────────────────────────────────────────
-// One shared panel below the table, toggled open/closed by row clicks —
-// mirrors RiderCard.ts's openRacePanel, minus the "is this me" highlighting
-// that only makes sense inside a specific rider's own history.
-let activePanelKey = "";
+// One shared panel below the table. A race with several categories on record
+// gets a small tab row so the category choice happens here, after picking a
+// race — not up front in the browse list.
+let activeRaceId    = "";
+let activeCategory  = "";
 
-async function openResultsPanel(panel: HTMLElement, race: UciArchiveRace): Promise<void> {
-  const key = `${race.xco_race_id}|${race.category}`;
-  if (activePanelKey === key) {
-    panel.setAttribute("hidden", "");
-    activePanelKey = "";
-    return;
-  }
-  activePanelKey = key;
-  panel.removeAttribute("hidden");
-  panel.innerHTML = "<p class='h2h-empty'>Loading…</p>";
-  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+async function loadCategoryResults(panel: HTMLElement, race: GroupedRace, category: string): Promise<void> {
+  activeCategory = category;
+  const body = panel.querySelector<HTMLElement>(".archive-panel-body")!;
+  body.innerHTML = "<p class='h2h-empty'>Loading…</p>";
 
   let finishers: XcoRaceFinisher[];
   try {
-    finishers = await getXcoRaceResults(race.xco_race_id, race.category);
+    finishers = await getXcoRaceResults(race.xco_race_id, category);
   } catch {
-    panel.innerHTML = "<p class='h2h-empty'>Could not load race results.</p>";
+    body.innerHTML = "<p class='h2h-empty'>Could not load race results.</p>";
     return;
   }
-  if (activePanelKey !== key) return;   // user clicked a different row meanwhile
+  if (activeRaceId !== race.xco_race_id || activeCategory !== category) return;
 
-  panel.innerHTML = "";
+  body.innerHTML = "";
   if (finishers.length === 0) {
-    panel.appendChild(el("p", { class: "h2h-empty" }, "No results stored yet."));
+    body.appendChild(el("p", { class: "h2h-empty" }, "No results stored yet."));
     return;
   }
-
-  panel.appendChild(el("p", { class: "section-title" },
-    `${race.comp_name} — ${race.category} (${race.date})`));
 
   const t  = el("table", { class: "h2h-table" });
   const th = el("thead");
@@ -113,22 +138,59 @@ async function openResultsPanel(panel: HTMLElement, race: UciArchiveRace): Promi
     tb.appendChild(tr);
   }
   t.appendChild(tb);
-  panel.appendChild(t);
-  applyTwemoji(panel);
-
-  requestAnimationFrame(() => panel.scrollIntoView({ behavior: "smooth", block: "nearest" }));
+  body.appendChild(t);
+  applyTwemoji(body);
 }
 
-// ── Legends ──────────────────────────────────────────────────────────────
-function buildToggleLegend(
-  container: HTMLElement,
-  items: [string, HTMLElement][],  // [value, label-element] pairs
-  onChange: (value: string | null) => void,
-): void {
-  for (const [value, label] of items) {
+function openResultsPanel(panel: HTMLElement, race: GroupedRace): void {
+  if (activeRaceId === race.xco_race_id) {
+    panel.setAttribute("hidden", "");
+    activeRaceId = "";
+    return;
+  }
+  activeRaceId = race.xco_race_id;
+  panel.removeAttribute("hidden");
+  panel.innerHTML = "";
+  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+  panel.appendChild(el("p", { class: "section-title" }, `${race.comp_name} (${race.date})`));
+
+  const cats = sortedCategories(race.categories);
+  const tabs = el("div", { class: "cat-legend" });
+  for (const cat of cats) {
     const btn = el("button", { class: "legend-item" }) as HTMLButtonElement;
-    btn.dataset["value"] = value;
-    btn.appendChild(label);
+    btn.appendChild(catBadge(cat));
+    btn.appendChild(document.createTextNode(` ${UCI_CAT_LABEL[cat] ?? cat}`));
+    btn.addEventListener("click", () => {
+      tabs.querySelectorAll(".legend-item").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      loadCategoryResults(panel, race, cat);
+    });
+    tabs.appendChild(btn);
+  }
+  panel.appendChild(tabs);
+  panel.appendChild(el("div", { class: "archive-panel-body" }));
+  applyTwemoji(tabs);
+
+  const defaultCat = cats[0]!;
+  tabs.querySelector<HTMLElement>(".legend-item")?.classList.add("active");
+  loadCategoryResults(panel, race, defaultCat);
+}
+
+// ── Country legend ───────────────────────────────────────────────────────
+function buildCountryLegend(
+  container: HTMLElement,
+  races: GroupedRace[],
+  onChange: (country: string | null) => void,
+): string[] {
+  const counts: Record<string, number> = {};
+  for (const r of races) if (r.country) counts[r.country] = (counts[r.country] ?? 0) + 1;
+  const sorted = Object.keys(counts).sort((a, b) => counts[b]! - counts[a]!);
+
+  for (const country of sorted) {
+    const btn = el("button", { class: "legend-item" }) as HTMLButtonElement;
+    btn.dataset["value"] = country;
+    btn.appendChild(el("span", {}, `${flagEmoji(country)} ${country} (${counts[country]})`));
     container.appendChild(btn);
   }
   container.addEventListener("click", (e) => {
@@ -140,24 +202,23 @@ function buildToggleLegend(
     btn.classList.add("active");
     onChange(btn.dataset["value"] ?? null);
   });
+  return sorted;
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────
 (async () => {
-  const loading      = $<HTMLElement>("#loading");
-  const content       = $<HTMLElement>("#content");
-  const tableArea      = $<HTMLElement>("#table-area");
-  const countryChartArea = $<HTMLElement>("#country-chart-area");
-  const searchInput   = $<HTMLInputElement>("#search-input");
-  const countEl        = $<HTMLElement>("#archive-count");
-  const catLegendEl     = $<HTMLElement>("#cat-legend");
+  const loading         = $<HTMLElement>("#loading");
+  const content         = $<HTMLElement>("#content");
+  const tableArea       = $<HTMLElement>("#table-area");
+  const searchInput     = $<HTMLInputElement>("#search-input");
+  const countEl         = $<HTMLElement>("#archive-count");
   const countryLegendEl = $<HTMLElement>("#country-legend");
   const resultsPanel    = $<HTMLElement>("#results-panel");
 
-  let races: UciArchiveRace[];
+  let raw: UciArchiveRace[];
   let meta: Record<string, string>;
   try {
-    [races, meta] = await Promise.all([getUciArchive(), getMeta()]);
+    [raw, meta] = await Promise.all([getUciArchive(), getMeta()]);
   } catch (err) {
     loading.textContent = `Failed to reach the API: ${err}`;
     return;
@@ -165,19 +226,15 @@ function buildToggleLegend(
 
   $<HTMLElement>("#generated-at").textContent = meta["generated_at"] ?? "";
 
-  const distinctCompetitions = new Set(races.map((r) => r.xco_race_id)).size;
+  const races = groupByCompetition(raw);
   const countries = new Set(races.map((r) => r.country).filter(Boolean));
-  countEl.textContent = `${distinctCompetitions} races across ${countries.size} countries`;
+  countEl.textContent = `${races.length} races across ${countries.size} countries`;
 
-  renderRaceCountryChart(countryChartArea, races);
-
-  let activeCategory: string | null = null;
-  let activeCountry: string | null  = null;
+  let activeCountry: string | null = null;
 
   function updateUrl(): void {
     const p = new URLSearchParams();
     if (searchInput.value.trim()) p.set("search", searchInput.value.trim());
-    if (activeCategory) p.set("cat", activeCategory);
     if (activeCountry) p.set("country", activeCountry);
     const qs = p.toString();
     history.replaceState(null, "", qs ? `?${qs}` : location.pathname);
@@ -186,40 +243,14 @@ function buildToggleLegend(
   function applyFilters(): void {
     const q = searchInput.value.trim().toLowerCase();
     tableArea.querySelectorAll<HTMLTableRowElement>("tbody tr").forEach((row) => {
-      const matchesCat     = !activeCategory || row.dataset["cat"] === activeCategory;
-      const matchesCountry = !activeCountry  || row.dataset["country"] === activeCountry;
+      const matchesCountry = !activeCountry || row.dataset["country"] === activeCountry;
       const matchesText    = !q || (row.textContent ?? "").toLowerCase().includes(q);
-      row.style.display = matchesCat && matchesCountry && matchesText ? "" : "none";
+      row.style.display = matchesCountry && matchesText ? "" : "none";
     });
     updateUrl();
   }
 
-  const presentCats = new Set(races.map((r) => r.category).filter(Boolean));
-  buildToggleLegend(
-    catLegendEl,
-    Object.entries(UCI_CAT_LABEL)
-      .filter(([cat]) => presentCats.has(cat))
-      .map(([cat, label]) => {
-        const wrap = document.createElement("span");
-        wrap.style.display = "flex";
-        wrap.style.alignItems = "center";
-        wrap.style.gap = ".3rem";
-        wrap.appendChild(catBadge(cat));
-        wrap.appendChild(document.createTextNode(label));
-        return [cat, wrap] as [string, HTMLElement];
-      }),
-    (cat) => { activeCategory = cat; applyFilters(); },
-  );
-
-  const countryCounts: Record<string, number> = {};
-  for (const r of races) if (r.country) countryCounts[r.country] = (countryCounts[r.country] ?? 0) + 1;
-  const sortedCountries = Object.keys(countryCounts).sort((a, b) => countryCounts[b]! - countryCounts[a]!);
-  buildToggleLegend(
-    countryLegendEl,
-    sortedCountries.map((c) => [c, el("span", {}, `${flagEmoji(c)} ${c}`)]),
-    (country) => { activeCountry = country; applyFilters(); },
-  );
-
+  buildCountryLegend(countryLegendEl, races, (country) => { activeCountry = country; applyFilters(); });
   searchInput.addEventListener("input", applyFilters);
 
   tableArea.appendChild(buildTable(races, (race) => openResultsPanel(resultsPanel, race)));
@@ -229,22 +260,15 @@ function buildToggleLegend(
   // Restore filters from URL query params
   const urlParams       = new URLSearchParams(location.search);
   const restoredSearch  = urlParams.get("search") ?? "";
-  const restoredCat     = urlParams.get("cat") ?? "";
   const restoredCountry = urlParams.get("country") ?? "";
   if (restoredSearch) searchInput.value = restoredSearch;
-  if (restoredCat) {
-    activeCategory = restoredCat;
-    catLegendEl.querySelectorAll<HTMLElement>(".legend-item").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset["value"] === restoredCat);
-    });
-  }
   if (restoredCountry) {
     activeCountry = restoredCountry;
     countryLegendEl.querySelectorAll<HTMLElement>(".legend-item").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset["value"] === restoredCountry);
     });
   }
-  if (restoredSearch || restoredCat || restoredCountry) applyFilters();
+  if (restoredSearch || restoredCountry) applyFilters();
 
   loading.style.display = "none";
   content.style.display = "block";

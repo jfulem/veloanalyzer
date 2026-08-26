@@ -17,7 +17,7 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/src/style.css" />
   <style>
-    .cat-legend, .country-legend { margin-bottom: 1.2rem; display: flex; gap: .6rem; flex-wrap: wrap; }
+    .cat-legend, .country-legend { margin-bottom: 1rem; display: flex; gap: .5rem; flex-wrap: wrap; }
     .legend-item {
       font-size: .82rem; color: #a0aec0; display: flex; align-items: center; gap: .4rem;
       background: transparent; border: 1px solid transparent; border-radius: 6px;
@@ -25,7 +25,8 @@
     }
     .legend-item:hover { border-color: #4a5568; }
     .legend-item.active { border-color: #90cdf4; background: #2d3748; color: #e2e8f0; }
-    .archive-count { color: #718096; font-size: .82rem; margin: 0 0 1.2rem; }
+    .archive-count { color: #718096; font-size: .82rem; margin: 0 0 1rem; }
+    .archive-cats { display: flex; gap: .3rem; flex-wrap: wrap; }
   </style>
 </head>
 <body>
@@ -62,11 +63,6 @@
         <p id="loading">Loading…</p>
 
         <div id="content" style="display:none">
-          <p class="section-title">Races by country</p>
-          <div id="country-chart-area"></div>
-
-          <p class="section-title" style="margin-top:1.5rem">Browse</p>
-          <div class="cat-legend" id="cat-legend"></div>
           <div class="country-legend" id="country-legend"></div>
 
           <input
