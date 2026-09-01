@@ -16,7 +16,7 @@ from sqlalchemy.engine import Connection
 from .config import console
 from .db import get_engine
 from .ranking import _strip_diacritics
-from .schema import meta, race_entries, races, rider_results, riders, uci_xco_race_results
+from .schema import meta, race_entries, races, rider_results, riders, uci_ranking, uci_xco_race_results
 
 _MONTHS = {m: i for i, m in enumerate(
     ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -365,3 +365,121 @@ def save_uci_race_results(race_results_cache: dict) -> None:
                 set_={"venue": stmt.excluded.venue, "country": stmt.excluded.country},
             ))
     console.print(f"[green]  ✓ Saved {len(rows_to_insert)} UCI race result rows[/green]")
+
+
+def save_uci_ranking(uci_cat: str, entries: list) -> None:
+    """
+    Replace the stored official UCI ranking for one category with `entries`
+    (ranking.get_uci_cache(cat)["by_name"].values()), fusing each ranked
+    rider into the global `riders` table with the same identity rules
+    _resolve_rider uses for start-list ingest: UCI ID wins, then name +
+    birth year — a tracked rider with a blank birth year adopts the
+    ranking's real one rather than forking a duplicate row.
+
+    Every ranked rider gets a `riders` row even if they've never appeared on
+    a tracked start list, so the Riders page can show the whole ranking
+    fused with tracked riders with a single join — no runtime name matching.
+
+    This is a snapshot (this week's ranking), not history: the whole
+    category is deleted and reinserted each run rather than upserted by
+    rank, since UCI rankings can tie at 0 points, so rank isn't a safe key
+    either. A rider can only be ranked in one category at a time (rider_id
+    is unique on uci_ranking) — ON CONFLICT DO UPDATE handles the rare case
+    of someone moving category between runs by just moving their row.
+    """
+    with get_engine().begin() as conn:
+        existing = conn.execute(
+            select(riders.c.id, riders.c.uci_id, riders.c.normalized_name, riders.c.birth_year)
+        ).fetchall()
+        by_uci_id: dict = {}
+        by_norm_birth: dict = {}
+        by_norm_blank: dict = {}
+        for rid, uci_id, norm, birth in existing:
+            if uci_id:
+                by_uci_id[uci_id] = rid
+            by_norm_birth[(norm, birth)] = rid
+            if birth == "":
+                by_norm_blank.setdefault(norm, []).append(rid)
+
+        matched: list = []      # (rider_id, entry)
+        to_create: list = []    # (normalized_name, entry)
+        claimed_uci_ids: set = set()
+        claimed_norm_birth: set = set()
+        for e in entries:
+            norm   = normalize_name(e.get("first_name", ""), e.get("last_name", ""))
+            uci_id = e.get("uci_id", "")
+            birth  = e.get("birth_year", "")
+
+            rid = by_uci_id.get(uci_id) if uci_id else None
+            if rid is None:
+                rid = by_norm_birth.get((norm, birth))
+            if rid is None and birth:
+                candidates = by_norm_blank.get(norm, [])
+                if len(candidates) == 1:
+                    rid = candidates[0]
+
+            if rid is not None:
+                matched.append((rid, e))
+                continue
+
+            # Two different-enough-to-not-match-anything entries can still
+            # collide with each other (same uci_id data glitch, or two
+            # people who happen to share a name and birth year) — riders has
+            # a unique constraint on both, so the second one would abort the
+            # whole bulk insert. Drop it rather than crash the run; it's a
+            # rare edge case, and the loss is one ranking row, not the ingest.
+            if uci_id and uci_id in claimed_uci_ids:
+                continue
+            if (norm, birth) in claimed_norm_birth:
+                continue
+            if uci_id:
+                claimed_uci_ids.add(uci_id)
+            claimed_norm_birth.add((norm, birth))
+            to_create.append((norm, e))
+
+        new_ids: list = []
+        if to_create:
+            values = [{
+                "uci_id": e.get("uci_id") or None,
+                "first_name": e.get("first_name", ""),
+                "last_name": e.get("last_name", ""),
+                "normalized_name": norm,
+                "birth_year": e.get("birth_year", ""),
+                "country": e.get("country", ""),
+                "xcodata_slug": "",
+            } for norm, e in to_create]
+            # Row order matches input order for a plain multi-row INSERT ...
+            # RETURNING (no ON CONFLICT), so zipping back against to_create
+            # below is safe.
+            result = conn.execute(insert(riders).values(values).returning(riders.c.id))
+            new_ids = [row[0] for row in result.fetchall()]
+
+        def _ranking_row(rid: int, e: dict) -> dict:
+            return {
+                "rider_id": rid,
+                "uci_cat":  uci_cat,
+                "rank":     int(e["rank"]),
+                "points":   int(e.get("points") or 0),
+                "team":     e.get("team", ""),
+            }
+
+        ranking_rows  = [_ranking_row(rid, e) for rid, e in matched]
+        ranking_rows += [_ranking_row(rid, e) for rid, (_, e) in zip(new_ids, to_create)]
+
+        conn.execute(delete(uci_ranking).where(uci_ranking.c.uci_cat == uci_cat))
+
+        if ranking_rows:
+            _CHUNK = 1000
+            for i in range(0, len(ranking_rows), _CHUNK):
+                chunk = ranking_rows[i : i + _CHUNK]
+                stmt = insert(uci_ranking).values(chunk)
+                conn.execute(stmt.on_conflict_do_update(
+                    index_elements=[uci_ranking.c.rider_id],
+                    set_={"uci_cat": stmt.excluded.uci_cat, "rank": stmt.excluded.rank,
+                          "points": stmt.excluded.points, "team": stmt.excluded.team},
+                ))
+
+    console.print(
+        f"[green]  ✓ Saved UCI ranking ({uci_cat}): {len(matched)} matched to tracked "
+        f"riders, {len(new_ids)} new riders created[/green]"
+    )

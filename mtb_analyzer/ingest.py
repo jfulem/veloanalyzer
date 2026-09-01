@@ -12,8 +12,13 @@ from .config import console
 from .db import bootstrap
 from .geocode import geocode
 from .pipeline import fetch_riders
-from .ranking import build_uci_xco_country_archive, get_uci_xco_race_results_cache
-from .store import save_all, save_uci_race_results
+from .ranking import build_uci_xco_country_archive, get_uci_cache, get_uci_xco_race_results_cache
+from .store import save_all, save_uci_race_results, save_uci_ranking
+
+# MU23/WU23 have no standalone UCI ranking (see ranking._ranking_category) —
+# U23-eligible riders are already ranked within ME/WE, so these four are the
+# complete set of official UCI XCO rankings.
+_RANKING_CATEGORIES = ("ME", "WE", "MJ", "WJ")
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 RACES_FILE = os.environ.get("RACES_FILE") or os.path.normpath(
@@ -82,6 +87,23 @@ def run() -> None:
     console.print(
         f"\n[green]✓ Wrote {len(race_configs)} races / {total} entries to Postgres[/green]"
     )
+
+    # Bring in the full official UCI ranking for each category and fuse it
+    # into the same `riders` table save_all just wrote to — so the Riders
+    # page can show every officially ranked rider, not just the ones who
+    # happen to have appeared on a tracked start list. Must run after
+    # save_all() above: the fusion matches against whatever `riders` rows
+    # already exist, and this run's own tracked riders need to be among them.
+    #
+    # Reuses uci_caches from the race loop above where possible — with
+    # MTB_RANKING_CACHE_DAYS=0 (set for the scheduled ingest) get_uci_cache()
+    # re-downloads on every call, and fetch_riders() already fetched each
+    # category races.yml actually uses, so calling it again here would
+    # double every ranking download for nothing.
+    console.print("[dim]  Saving UCI ranking (ME/WE/MJ/WJ)...[/dim]")
+    for uci_cat in _RANKING_CATEGORIES:
+        cache = uci_caches.get(uci_cat) or get_uci_cache(uci_cat)
+        save_uci_ranking(uci_cat, list(cache.get("by_name", {}).values()))
 
     # build_uci_xco_history (called inside fetch_riders) already fetched and
     # cached full finisher lists for every UCI XCO event within its rolling

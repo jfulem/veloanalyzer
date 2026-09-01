@@ -170,6 +170,28 @@ uci_xco_race_results = Table(
                      name="uq_uci_xco_race_results_rider"),
 )
 
+# The official UCI ranking (ME/WE/MJ/WJ), refreshed wholesale on every
+# ingest — this is a snapshot of this week's ranking, not history, so a rider
+# has at most one row here at a time (rider_id is unique) and a category's
+# rows are fully replaced rather than upserted. Every ranked rider gets a
+# `riders` row even if they've never appeared in a tracked start list, via
+# the same identity rules (UCI ID, then name + birth year) store.py's
+# start-list ingest already uses — so this table only needs to point at that
+# global identity, not repeat name/country/etc.
+uci_ranking = Table(
+    "uci_ranking", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("uci_cat", String(8), nullable=False),
+    Column("rank", Integer, nullable=False),
+    Column("points", Integer, nullable=False, server_default="0"),
+    # From the ranking feed itself (dataride's TeamName) — the only team info
+    # available for a ranked rider who has never been on a tracked start
+    # list, where team instead comes from race_entries.
+    Column("team", Text, nullable=False, server_default=""),
+    Column("rider_id", Integer, ForeignKey("riders.id", ondelete="CASCADE"),
+           nullable=False, unique=True),
+)
+
 meta = Table(
     "meta", metadata,
     Column("key", Text, primary_key=True),
@@ -181,6 +203,7 @@ Index("idx_race_entries_rider", race_entries.c.rider_id)
 Index("idx_rider_results_rider", rider_results.c.rider_id)
 Index("idx_races_date", races.c.date)
 Index("idx_analysis_jobs_status", analysis_jobs.c.status)
+Index("idx_uci_ranking_cat", uci_ranking.c.uci_cat)
 
 # Trigram index for search-as-you-type over rider names. Requires the pg_trgm
 # extension, created by migrations/bootstrap before this index is built.

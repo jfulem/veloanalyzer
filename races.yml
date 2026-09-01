@@ -770,31 +770,35 @@ races:
 
 # --- Discovered 2026-06-24 — fill in url: and uncomment to activate ---
 # organizer site: https://www.rc-arboe-linz.at
-# - url: ""  # TODO: find start list URL
-#   name: 29. MTB Cross Country "Rund Um Den Roadlberg" 2026 — Men Elite
-#   date: '2026-09-20'
-#   category: Men Elite
-#   uci_category: ME
-#   uci_competition_id: 77334
-#   output: 29-mtb-cross-country-rund-um-den-roadlberg-me.html
-# - url: ""  # TODO: find start list URL
-#   name: 29. MTB Cross Country "Rund Um Den Roadlberg" 2026 — Men Juniors
-#   date: '2026-09-20'
-#   category: Men Juniors
-#   uci_category: MJ
-#   uci_competition_id: 77334
-#   output: 29-mtb-cross-country-rund-um-den-roadlberg-mj.html
-# - url: ""  # TODO: find start list URL
-#   name: 29. MTB Cross Country "Rund Um Den Roadlberg" 2026 — Women Elite
-#   date: '2026-09-20'
-#   category: Women Elite
-#   uci_category: WE
-#   uci_competition_id: 77334
-#   output: 29-mtb-cross-country-rund-um-den-roadlberg-we.html
-# - url: ""  # TODO: find start list URL
-#   name: 29. MTB Cross Country "Rund Um Den Roadlberg" 2026 — Women Juniors
-#   date: '2026-09-20'
-#   category: Women Juniors
-#   uci_category: WJ
-#   uci_competition_id: 77334
-#   output: 29-mtb-cross-country-rund-um-den-roadlberg-wj.html
+- url: "https://www.computerauswertung.at/starterliste.php?V_ID=260921&lang=en"
+  name: 29. MTB Cross Country "Rund Um Den Roadlberg" 2026 — Men Elite
+  date: '2026-09-20'
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 77334
+  output: 29-mtb-cross-country-rund-um-den-roadlberg-me.html
+  location: "Wintersdorf, Austria"
+- url: "https://www.computerauswertung.at/starterliste.php?V_ID=260921&lang=en"
+  name: 29. MTB Cross Country "Rund Um Den Roadlberg" 2026 — Men Juniors
+  date: '2026-09-20'
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 77334
+  output: 29-mtb-cross-country-rund-um-den-roadlberg-mj.html
+  location: "Wintersdorf, Austria"
+- url: "https://www.computerauswertung.at/starterliste.php?V_ID=260921&lang=en"
+  name: 29. MTB Cross Country "Rund Um Den Roadlberg" 2026 — Women Elite
+  date: '2026-09-20'
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 77334
+  output: 29-mtb-cross-country-rund-um-den-roadlberg-we.html
+  location: "Wintersdorf, Austria"
+- url: "https://www.computerauswertung.at/starterliste.php?V_ID=260921&lang=en"
+  name: 29. MTB Cross Country "Rund Um Den Roadlberg" 2026 — Women Juniors
+  date: '2026-09-20'
+  category: Women Juniors
+  uci_category: WJ
+  uci_competition_id: 77334
+  output: 29-mtb-cross-country-rund-um-den-roadlberg-wj.html
+  location: "Wintersdorf, Austria"

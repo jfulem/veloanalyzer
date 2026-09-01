@@ -192,17 +192,27 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
   }
 
   // ── /api/riders ────────────────────────────────────────────────────────
-  // Every tracked rider, one row each, regardless of how many races they
-  // appear in. uci_rank/uci_points/team/uci_category come from each rider's
-  // most recent race_entries row — the closest thing to a "current" value
-  // available, since none of those are stored per-rider.
+  // The fused set: every officially UCI-ranked rider (ME/WE/MJ/WJ) plus
+  // every rider tracked via a races.yml start list — the same `riders` row
+  // for anyone who is both, since ingest resolves ranking entries into that
+  // table by identity rather than this query trying to match them at read
+  // time. uci_ranking (refreshed every ingest) is preferred over the
+  // most-recent race_entries snapshot for rank/points/category, since the
+  // latter is only as fresh as whenever that one start list was last
+  // scraped — team prefers race_entries instead, since it reflects who a
+  // rider is actually registered with for a specific race, falling back to
+  // uci_ranking's team for riders with no tracked entry at all.
   if (parts[1] === "riders" && parts.length === 2) {
     return json(await sql`
       SELECT ri.id, ri.first_name, ri.last_name, ri.country, ri.birth_year,
              COALESCE(ri.uci_id, '') AS uci_id, ri.xcodata_slug,
-             le.uci_rank, le.uci_points, le.team, le.uci_category,
-             rc.races_count
+             COALESCE(ur.rank, le.uci_rank)      AS uci_rank,
+             COALESCE(ur.points, le.uci_points)  AS uci_points,
+             COALESCE(NULLIF(le.team, ''), ur.team, '') AS team,
+             COALESCE(ur.uci_cat, le.uci_category, '')  AS uci_category,
+             COALESCE(rc.races_count, 0) AS races_count
       FROM riders ri
+      LEFT JOIN uci_ranking ur ON ur.rider_id = ri.id
       LEFT JOIN LATERAL (
         SELECT e.uci_rank, e.uci_points, e.team, r.uci_category
         FROM race_entries e
@@ -215,8 +225,8 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
         SELECT count(*)::int AS races_count
         FROM race_entries e2 WHERE e2.rider_id = ri.id
       ) rc ON true
-      ORDER BY (le.uci_rank IS NULL), le.uci_rank, ri.last_name
-    `);
+      ORDER BY (COALESCE(ur.rank, le.uci_rank) IS NULL), COALESCE(ur.rank, le.uci_rank), ri.last_name
+    `, 200, 600);
   }
 
   if (parts[1] === "riders" && parts.length >= 3) {
@@ -224,15 +234,18 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     if (!Number.isInteger(riderId)) return notFound(`Invalid rider id '${parts[2]}'`);
 
     // ── /api/riders/{id} ──────────────────────────────────────────────────
-    // Same "most recent entry" join as the list above, so a rider opened
-    // directly from the index shows their current rank/points/team instead
-    // of the bare identity row.
+    // Same fused join as the list above, so a rider opened directly from the
+    // index shows the same rank/points/team/category, not a bare identity row.
     if (parts.length === 3) {
       const rows = (await sql`
         SELECT ri.id, ri.uci_id, ri.first_name, ri.last_name, ri.normalized_name,
                ri.birth_year, ri.country, ri.xcodata_slug,
-               le.uci_rank, le.uci_points, le.team, le.uci_category
+               COALESCE(ur.rank, le.uci_rank)      AS uci_rank,
+               COALESCE(ur.points, le.uci_points)  AS uci_points,
+               COALESCE(NULLIF(le.team, ''), ur.team, '') AS team,
+               COALESCE(ur.uci_cat, le.uci_category, '')  AS uci_category
         FROM riders ri
+        LEFT JOIN uci_ranking ur ON ur.rider_id = ri.id
         LEFT JOIN LATERAL (
           SELECT e.uci_rank, e.uci_points, e.team, r.uci_category
           FROM race_entries e

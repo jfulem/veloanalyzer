@@ -76,9 +76,13 @@ export interface RiderListItem {
   birth_year: string;
   uci_id: string;
   xcodata_slug: string;
-  /** All four fields below come from the rider's most recent race_entries row
-   *  — the closest thing to a "current" value, since none of these live on
-   *  the rider record itself. */
+  /** rank/points/category prefer the official UCI ranking (refreshed every
+   *  ingest) over the rider's most recent race_entries snapshot, which is
+   *  only as fresh as whenever that one start list was last scraped. team
+   *  prefers race_entries — who they're actually registered with for a
+   *  specific race — falling back to the ranking feed's team otherwise. A
+   *  rider who has never appeared on a tracked start list still gets a row
+   *  here if the UCI ranks them (races_count is then 0). */
   uci_rank: number | null;
   uci_points: number | null;
   team: string;

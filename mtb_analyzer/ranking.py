@@ -1433,8 +1433,8 @@ def _parse_dotnet_date(raw: str) -> "datetime | None":
         return None
 
 
-def _parse_dataride_name(display_name: str) -> str:
-    """Convert 'LASTNAME Firstname' (dataride.uci.ch format) to 'Firstname Lastname' title case.
+def _parse_dataride_name(display_name: str) -> tuple:
+    """Convert 'LASTNAME Firstname' (dataride.uci.ch format) to (firstname, lastname), title case.
 
     Tokens with no letters are dropped first. The Elite rankings prefix
     U23-eligible riders with '*', and left in place that marker does double
@@ -1450,10 +1450,15 @@ def _parse_dataride_name(display_name: str) -> str:
         len(parts),
     )
     if i == 0 or i == len(parts):
-        return display_name.title()
+        # No reliable ALL-CAPS/mixed-case split point — best effort, keeping
+        # this function's own "first token is the surname" convention.
+        titled = [p.title() for p in parts]
+        if not titled:
+            return display_name.title(), ""
+        return " ".join(titled[1:]), titled[0]
     lastname  = " ".join(p.title() for p in parts[:i])
     firstname = " ".join(parts[i:])
-    return f"{firstname} {lastname}"
+    return firstname, lastname
 
 
 def _dataride_get_ranking_params(uci_cat: str) -> tuple:
@@ -1561,7 +1566,8 @@ def build_uci_cache(uci_cat: str) -> dict:
 
     by_name: dict = {}
     for item in raw_riders:
-        name = _parse_dataride_name(item.get("DisplayName", ""))
+        first_name, last_name = _parse_dataride_name(item.get("DisplayName", ""))
+        name = f"{first_name} {last_name}".strip()
         if not name:
             continue
         country = item.get("NationName", "").strip()
@@ -1570,8 +1576,11 @@ def build_uci_cache(uci_cat: str) -> dict:
             "rank":      item["Rank"],
             "points":    item.get("Points", 0),
             "name":      name,
+            "first_name": first_name,
+            "last_name":  last_name,
             "slug":      "",
             "country":   country,
+            "team":      (item.get("TeamName") or "").strip(),
             "object_id": item.get("ObjectId", 0),
             # The rider's actual UCI ID (distinct from ObjectId, which is
             # dataride's own internal key) and birth year. Every ranked rider
