@@ -29,6 +29,7 @@ export default defineConfig({
         results: "results.html",
         archive: "archive.html",
         race:    "race.html",
+        h2h:     "h2h.html",
         about:   "about.html",
       },
       output: {

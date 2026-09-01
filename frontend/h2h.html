@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VeloAnalyzer — Head to Head</title>
+  <meta name="description" content="Compare any two riders head-to-head across every UCI XCO race they've both taken part in." />
+  <link rel="canonical" href="https://www.veloanalyzer.com/h2h" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="VeloAnalyzer" />
+  <meta property="og:title" content="VeloAnalyzer — Head to Head" />
+  <meta property="og:description" content="Compare any two riders head-to-head across every UCI XCO race they've both taken part in." />
+  <meta property="og:url" content="https://www.veloanalyzer.com/h2h" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="VeloAnalyzer — Head to Head" />
+  <meta name="twitter:description" content="Compare any two riders head-to-head across every UCI XCO race they've both taken part in." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="layout">
+      <aside class="sidebar">
+        <a class="brand" href="./index.html">
+          <span class="brand-emoji">🚵</span>
+          <span class="brand-name">VeloAnalyzer</span>
+        </a>
+
+        <nav class="side-nav">
+          <a href="./app.html"><span class="icon">🏁</span> Start List</a>
+          <a href="./results.html"><span class="icon">🏆</span> Results</a>
+          <a href="./races.html"><span class="icon">🗓</span> Races</a>
+          <a href="./riders.html"><span class="icon">👤</span> Riders</a>
+          <a href="./h2h.html" class="active"><span class="icon">⚔️</span> Head to Head</a>
+          <a href="./archive.html"><span class="icon">📜</span> Archive</a>
+          <a href="./about.html"><span class="icon">ℹ️</span> About</a>
+        </nav>
+
+        <div class="side-meta">
+          Updated <span id="generated-at">—</span><br />
+          Ranking data © <a href="https://www.uci.org" target="_blank" rel="noopener">uci.org</a><br />
+          <a href="https://github.com/jfulem/veloanalyzer" target="_blank" rel="noopener">Source on GitHub</a>
+        </div>
+      </aside>
+
+      <div class="main">
+        <h1 class="page-title">Head to Head</h1>
+        <p class="header-sub">
+          Compare any two riders across every UCI XCO race they've both taken part in.
+        </p>
+
+        <p id="loading">Loading…</p>
+
+        <div id="content" style="display:none">
+          <div class="h2h-picker-row">
+            <div id="picker1" class="h2h-picker-col"></div>
+            <div class="h2h-vs">vs</div>
+            <div id="picker2" class="h2h-picker-col"></div>
+          </div>
+
+          <div id="h2h-result"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/h2h.ts"></script>
+</body>
+</html>

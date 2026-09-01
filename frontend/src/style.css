@@ -146,6 +146,11 @@ img.emoji {
    full width below both — not inside either widget, so neither widget's box
    ever changes size when a selection is made (see the note in raceList.ts). */
 .race-list { margin: 0 0 1.5rem; display: flex; flex-direction: column; gap: .75rem; }
+/* Without this, the explicit `display` above beats the browser's default
+   [hidden]{display:none} (author styles win over the UA stylesheet even at
+   equal specificity), so container.hidden = true/false in raceList.ts would
+   set the attribute but the panel stayed visible regardless. */
+.race-list[hidden] { display: none; }
 .race-list-group {
   background: #1a202c; border: 1px solid #2d3748; border-radius: 10px; overflow: hidden;
 }
@@ -526,6 +531,73 @@ img.emoji {
 .time-label { display: block; font-size: .75rem; color: #718096; }
 .gap-cell   { color: #a0aec0; font-size: .8rem; }
 .h2h-empty  { color: #718096; font-size: .9rem; padding: .5rem 0; }
+
+/* ── Head-to-head picker (h2h.html) ──────────────────────────────────────── */
+.h2h-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.h2h-picker-col { flex: 1; min-width: 0; position: relative; }
+.h2h-vs {
+  font-size: .85rem;
+  font-weight: 700;
+  color: #718096;
+  flex-shrink: 0;
+}
+.rider-picker { position: relative; }
+.rider-picker .search-box { margin-bottom: 0; }
+.rider-picker-dropdown {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background: #2d3748;
+  border: 1px solid #4a5568;
+  border-radius: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.rider-picker-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem .7rem;
+  cursor: pointer;
+  font-size: .88rem;
+}
+.rider-picker-item:hover { background: #374357; }
+.rider-picker-meta { color: #718096; font-size: .78rem; white-space: nowrap; }
+.rider-picker-empty { color: #718096; font-size: .85rem; padding: .5rem .7rem; }
+.rider-picker-selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  background: #1a202c;
+  border: 1px solid #2d3748;
+  border-radius: 6px;
+  padding: .5rem .7rem;
+}
+/* An explicit `display` on the rule above would otherwise beat the browser's
+   default [hidden]{display:none} — author styles win over the UA stylesheet
+   even at equal specificity — so the "✕ clear" button's `.hidden = true`
+   would set the attribute but the badge stayed visible anyway. */
+.rider-picker-selected[hidden] { display: none; }
+.rider-picker-name { font-size: .9rem; font-weight: 600; }
+.rider-picker-clear {
+  background: transparent;
+  border: none;
+  color: #718096;
+  cursor: pointer;
+  font-size: .9rem;
+  line-height: 1;
+  padding: .2rem;
+}
+.rider-picker-clear:hover { color: #e2e8f0; }
 
 .rc-race-link:hover span:first-child { color: #90cdf4; text-decoration: underline; }
 
