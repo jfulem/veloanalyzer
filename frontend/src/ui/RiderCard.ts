@@ -1,5 +1,6 @@
 import { Rider, RaceResult, XcoRaceFinisher, getXcoRaceResults } from "../api.js";
-import { flagEmoji, posLabel, tierClass, el, parseResultDate, applyTwemoji } from "../utils.js";
+import { flagEmoji, posLabel, tierClass, el, parseResultDate, applyTwemoji,
+         rankingWindowStart, stillScoring } from "../utils.js";
 
 type SortCol = "date" | "race" | "cat" | "class" | "rank" | "time" | "pts";
 type SortDir = "asc" | "desc";
@@ -107,9 +108,13 @@ const UNCAPPED_KEY = "__UNCAPPED__";
  *  never disagree about which bucket it belongs to. */
 function groupByBucket(results: RaceResult[]): Map<string, RaceResult[]> {
   const cat = results.find((r) => r.cat)?.cat ?? "";
+  const windowStart = rankingWindowStart();
   const groups = new Map<string, RaceResult[]>();
   for (const r of results) {
     if ((r.uci_pts ?? 0) <= 0) continue;
+    // Expired results are still listed below — they happened — but the UCI has
+    // already subtracted them, so they must not reach a quota or a total.
+    if (!stillScoring(r.date, windowStart)) continue;
     const bucket = pointsBucket(cat, r.race_class, r.race_name) ?? UNCAPPED_KEY;
     const list = groups.get(bucket) ?? [];
     list.push(r);
@@ -311,11 +316,16 @@ export function renderRiderCard(
 
   // ── Stats chips ────────────────────────────────────────────────────────────
   if (results.length > 0) {
-    const totalPts   = results.reduce((s, r) => s + (r.uci_pts ?? 0), 0);
+    // Race counts cover the whole stored history — those are facts about the
+    // rider. Anything measured in points follows the ranking window instead,
+    // since points are the part that expires.
+    const scoringWindow = rankingWindowStart();
+    const current    = results.filter((r) => stillScoring(r.date, scoringWindow));
+    const totalPts   = current.reduce((s, r) => s + (r.uci_pts ?? 0), 0);
     const finishers  = results.filter((r) => r.rank != null);
     const wins       = finishers.filter((r) => r.rank === 1).length;
     const podiums    = finishers.filter((r) => r.rank! <= 3).length;
-    const ptsResults = results.filter((r) => r.uci_pts != null);
+    const ptsResults = current.filter((r) => r.uci_pts != null);
     const avgPts     = ptsResults.length
       ? (totalPts / ptsResults.length).toFixed(1)
       : "—";
@@ -385,6 +395,9 @@ export function renderRiderCard(
   const hasPts   = results.some((r) => r.uci_pts != null);
   const hasClass = results.some((r) => !!r.race_class);
   const countingIds = countingResultIds(results);
+  const windowStart = rankingWindowStart();
+  const hasExpired  = results.some(
+    (r) => (r.uci_pts ?? 0) > 0 && !stillScoring(r.date, windowStart));
   const COL_HEADERS = ALL_COL_HEADERS.filter((c) =>
     (c.key !== "time" || hasTimes) && (c.key !== "pts" || hasPts) && (c.key !== "class" || hasClass),
   );
@@ -533,16 +546,23 @@ export function renderRiderCard(
 
       if (hasTimes) tr.appendChild(el("td", { style: "font-size:.82rem; color:#a0aec0" }, res.time || "—"));
       if (hasPts) {
-        // Points that do not make the best-N cut are still shown — they are
-        // real results — but dimmed, so the rows adding up to the UCI total
-        // are obvious at a glance.
-        const counts = countingIds.has(res.id);
+        // Three states, because "not in the total" has two quite different
+        // causes and conflating them misleads: a result can have aged out of
+        // the rolling 12 months, or it can be a current result that simply
+        // lost its bucket's best-N cut.
+        const counts  = countingIds.has(res.id);
+        const expired = !stillScoring(res.date, windowStart);
         const td = el("td", {
           style: counts
             ? "font-size:.82rem; color:#68d391; font-weight:700"
-            : "font-size:.82rem; color:#718096",
+            : expired
+              ? "font-size:.82rem; color:#718096; text-decoration:line-through"
+              : "font-size:.82rem; color:#718096",
         }, res.uci_pts != null ? String(res.uci_pts) : "—");
-        if (res.uci_pts != null && !counts) {
+        if (res.uci_pts != null && expired) {
+          td.title = "Older than 12 months — the UCI has already subtracted "
+            + "these points, so they are no longer in the total";
+        } else if (res.uci_pts != null && !counts) {
           const cls = res.race_class ? `class ${res.race_class}` : "its class";
           td.title = `Outside this rider's counting results for ${cls}, so not included in the UCI points total`;
         }
@@ -558,7 +578,10 @@ export function renderRiderCard(
 
   // Without this the dimming looks like missing data rather than a deliberate
   // distinction.
-  if (hasPts && countingIds.size > 0) {
+  // Also shown when nothing counts any more but something expired — otherwise
+  // a rider whose every result has aged out gets struck-through points and no
+  // explanation for them.
+  if (hasPts && (countingIds.size > 0 || hasExpired)) {
     const note = el("p", {
       style: "font-size:.75rem; color:#718096; margin:.6rem 0 0; line-height:1.5",
     });
@@ -573,6 +596,15 @@ export function renderRiderCard(
           : "best 5 per class for HC, Continental Series and classes 1–3, best 3 across stage races")
       + ". World Cups and championships count without limit.",
     ));
+    if (hasExpired) {
+      note.appendChild(document.createTextNode(" "));
+      note.appendChild(el("span",
+        { style: "color:#718096; text-decoration:line-through" }, "Struck-through"));
+      note.appendChild(document.createTextNode(
+        " points are older than 12 months: the ranking is a rolling window, so"
+        + " the UCI has already subtracted them. The races stay listed here.",
+      ));
+    }
     container.appendChild(note);
   }
 

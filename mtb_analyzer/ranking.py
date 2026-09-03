@@ -384,6 +384,33 @@ _uci_xco_history_cache: dict = {}
 _uci_xco_race_results_cache: dict = {}
 
 
+def ranking_window_start(when: "datetime | None" = None, months_back: int = 12) -> datetime:
+    """Start of the rolling window a result still scores in.
+
+    Whole calendar months, not months x 30 days: the UCI drops a result on its
+    anniversary (art. 4.16.008 for MTB, C1026 for cyclo-cross), and 12 x 30 is
+    360 days, so the approximation expired results five days early and
+    disagreed with the same window applied in the browser.
+
+    Mirrored by rankingWindowStart() in frontend/src/utils.ts — the database
+    keeps results for longer than they score, so both sides have to agree on
+    where scoring stops.
+    """
+    when = when or datetime.now()
+    year, month = when.year, when.month - months_back
+    while month <= 0:
+        month += 12
+        year -= 1
+    day = when.day
+    # 29 Feb has no anniversary in a common year; step back to the 28th rather
+    # than overflowing into March.
+    while True:
+        try:
+            return when.replace(year=year, month=month, day=day)
+        except ValueError:
+            day -= 1
+
+
 def get_uci_xco_race_results_cache() -> dict:
     """Return the race-level finisher data collected by build_uci_xco_history.
 
@@ -420,8 +447,8 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12,
     # so junior point totals here are an estimate of form over the last 12
     # months rather than a reproduction of the official junior standings —
     # which is the more useful number for comparing start lists mid-season.
-    cutoff = datetime.now() - timedelta(days=months_back * 30)
     now    = datetime.now()
+    cutoff = ranking_window_start(now, months_back)
     by_name: dict = {}
     race_results_by_id: dict = {}  # {xco_race_id: [finisher_row, ...]}
     seen_comp_ids: set = set()
@@ -856,6 +883,47 @@ def _bucket_quota(bucket: str) -> int:
     return _CLASS_QUOTA.get(bucket, 0)
 
 
+# One competition can carry several disciplines' events, and the UCI names them
+# two different ways in the same feed: an abbreviation somewhere in the label
+# ("XCC Men Elite") on some competitions, and the discipline spelled out after
+# a dash ("Men Elite - Cross-country short circuit") on others — including
+# every World Cup round. Matching only the abbreviations meant a World Cup's
+# 22-minute short-track result, worth 30 points, was stored and displayed as
+# that rider's cross-country result, which is worth 250.
+# Stage races are deliberately absent: XCS is cross-country, not a sibling
+# discipline, and _STAGE_QUOTA exists precisely to score it. Excluding it here
+# would silently drop results the points rules expect to see.
+_SIBLING_EVENT_PHRASES = (
+    "short circuit", "eliminator", "marathon", "team relay", "point to point",
+    "point-to-point", "time trial", "downhill", "enduro", "four cross",
+    "four-cross", "pump track", "qualifying", "e-mtb",
+)
+_SIBLING_EVENT_WORDS = frozenset({
+    "xcc", "xce", "xcm", "xcr", "xcp", "xct",
+    "dhi", "dhp", "dho", "edr", "4x",
+})
+# The discipline we do want, in both spellings.
+_WANTED_EVENT_PHRASES = ("cross-country olympic", "cross country olympic")
+_WANTED_EVENT_WORDS = frozenset({"xco"})
+
+
+def _label_discipline(label: str) -> str:
+    """Classify a results-accordion label as 'wanted', 'other' or 'plain'.
+
+    'plain' means the label names no discipline at all ("Men Elite"), which is
+    what a single-discipline competition publishes — and what every cyclo-cross
+    competition publishes, since its only sibling is a mixed team relay whose
+    label never matches a category we map.
+    """
+    low = label.lower()
+    words = set(re.findall(r"[a-z0-9]+", low))
+    if words & _WANTED_EVENT_WORDS or any(p in low for p in _WANTED_EVENT_PHRASES):
+        return "wanted"
+    if words & _SIBLING_EVENT_WORDS or any(p in low for p in _SIBLING_EVENT_PHRASES):
+        return "other"
+    return "plain"
+
+
 def _get_competition_details(competition_id: str, year: int,
                              discipline: str = DEFAULT_DISCIPLINE) -> dict:
     """
@@ -864,11 +932,16 @@ def _get_competition_details(competition_id: str, year: int,
 
     The class drives the points quotas in art. 4.16.008, and it comes off the
     very same page as the event codes, so capturing it costs no extra request.
-    The cache file is suffixed v2 because the old format stored only the event
-    code mapping; a stale v1 file would silently yield no class.
+    The cache file carries a version suffix: v1 stored only the event code
+    mapping (a stale one would silently yield no class), and v2 could name the
+    wrong discipline's event entirely (see _label_discipline).
     """
     disc = get_discipline(discipline)
-    path = os.path.join(_uci_comp_dir(disc.code), f"{competition_id}.v2.json")
+    # v3: v2 files were written by a label filter that missed the spelled-out
+    # discipline names, so many of them name a short-track or downhill event
+    # where they claim a cross-country one. They cannot be repaired in place —
+    # the code is all that was kept — so the version moves and they are refetched.
+    path = os.path.join(_uci_comp_dir(disc.code), f"{competition_id}.v3.json")
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             return json.load(f)
@@ -890,33 +963,28 @@ def _get_competition_details(competition_id: str, year: int,
         label_to_cat = {v.lower(): k for k, v in _UCI_CATEGORY_LABELS.items()}
         # Sort longest first so "women elite" is tried before "men elite" (substring of it)
         sorted_labels = sorted(label_to_cat, key=len, reverse=True)
-        # Sibling disciplines to skip (XCE=endurance, XCR=relay, XCC=short
-        # track, DHI=downhill, EDR=enduro, XCM=marathon) — only relevant to
-        # MTB, whose competitions bundle several. A cyclo-cross competition
-        # labels its groups plainly ("Men Elite"), and the team relay it can
-        # also carry is a Mixed category we never map, so the same filter is
-        # harmless there.
-        _NON_XCO = frozenset({"xce", "xcr", "xcc", "edr", "enduro", "dhi", "dhp", "dho", "downhill", "xcm"})
-        # Two-pass: XCO-labelled groups win over plain (no-discipline) groups.
-        xco_codes: dict = {}
+        # Two-pass: a group whose label names the discipline we want beats a
+        # plain one, and a group naming a sibling discipline is skipped.
+        wanted_codes: dict = {}
         plain_codes: dict = {}
         for group in props.get("results", {}).get("accordion", []):
-            label = group.get("label", "").lower()
-            label_words = set(re.findall(r"[a-z]+", label))
-            if label_words & _NON_XCO:
+            label = group.get("label", "")
+            kind = _label_discipline(label)
+            if kind == "other":
                 continue
-            cat = next((label_to_cat[lbl] for lbl in sorted_labels if lbl in label), None)
+            cat = next((label_to_cat[lbl] for lbl in sorted_labels
+                        if lbl in label.lower()), None)
             if not cat:
                 continue
             for result in group.get("results", []):
                 code = result.get("eventCode", "")
                 if code:
-                    if "xco" in label_words:
-                        xco_codes[cat] = code
+                    if kind == "wanted":
+                        wanted_codes[cat] = code
                     else:
                         plain_codes.setdefault(cat, code)
                     break
-        event_codes = {**plain_codes, **xco_codes}
+        event_codes = {**plain_codes, **wanted_codes}
         details = {"events": event_codes, "class": comp_class, "name": comp_name}
         # Don't cache an empty result: it usually just means the UCI hasn't
         # published category entries for this competition yet (checked too

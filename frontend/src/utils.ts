@@ -86,6 +86,32 @@ export function parseResultDate(s: string): number {
   return Date.UTC(Number(m[3]), month - 1, Number(m[1]));
 }
 
+/** Start of the rolling window a UCI result still scores in.
+ *
+ *  Whole calendar months: the UCI drops a result on its anniversary (art.
+ *  4.16.008 for MTB, C1026 for cyclo-cross). Mirrors ranking_window_start()
+ *  in mtb_analyzer/ranking.py — the database deliberately keeps results after
+ *  they stop scoring, because a rider's page is a timeline and not just a
+ *  points sheet, so the two sides have to agree on where scoring stops.
+ */
+export function rankingWindowStart(now: Date = new Date(), monthsBack = 12): number {
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const day = d.getUTCDate();
+  d.setUTCMonth(d.getUTCMonth() - monthsBack);
+  // setUTCMonth overflows a short month (31 Aug minus 6 → 3 Mar), so pull the
+  // date back onto the last day of the intended month when that happens.
+  if (d.getUTCDate() !== day) d.setUTCDate(0);
+  return d.getTime();
+}
+
+/** Does this result still contribute UCI points, or has it aged out? */
+export function stillScoring(dateRaw: string, windowStart: number): boolean {
+  const ms = parseResultDate(dateRaw);
+  // A date we could not parse is left counting rather than silently zeroed —
+  // dropping points on a formatting quirk would be the worse failure.
+  return ms === 0 || ms >= windowStart;
+}
+
 export type Trend = "up" | "down" | "flat";
 
 /**

@@ -55,24 +55,35 @@ img.emoji {
 .side-nav a.active { background: #2a4a6b; border-color: #63b3ed; color: #e2e8f0; }
 .side-nav .icon { font-size: 1.05rem; width: 1.35rem; text-align: center; flex-shrink: 0; }
 
-/* Discipline switcher — rendered by src/discipline.ts only when the API
-   reports more than one discipline, so an MTB-only build shows nothing. */
+/* Discipline tabs — rendered by src/discipline.ts directly under the brand,
+   and only when the API reports more than one discipline, so an MTB-only
+   build shows nothing at all. Deliberately not styled like .side-nav: these
+   switch which sport the whole site is showing, and looking like one more
+   nav group would bury a choice that reframes every page below it. */
 #discipline-switch:empty { display: none; }
 .discipline-switch {
-  display: flex; flex-direction: column; gap: .15rem;
-  margin-top: .9rem; padding-top: .9rem; border-top: 1px solid #2d3748;
+  display: flex;
+  border-bottom: 1px solid #2d3748;
 }
 .discipline-option {
-  display: flex; align-items: center; gap: .5rem;
-  padding: .45rem .7rem; border-radius: 8px;
-  font: inherit; font-size: .85rem; font-weight: 600; text-align: left;
+  /* Equal halves, so neither label's length implies it is the main one. */
+  flex: 1 1 0; min-width: 0;
+  display: flex; align-items: center; justify-content: center; gap: .35rem;
+  padding: .42rem .3rem .48rem;
+  font: inherit; font-size: .8rem; font-weight: 600;
+  white-space: nowrap; text-decoration: none;
+  /* Same tone as any other secondary control: dimming the inactive tab
+     further would read as disabled rather than as the one not chosen. */
   color: #a0aec0; background: transparent; cursor: pointer;
-  border: 1px solid transparent; transition: background .15s, border-color .15s, color .15s;
+  border: 0; border-bottom: 2px solid transparent;
+  /* Pull the 2px underline over the container's 1px rule so the active tab
+     sits on the line rather than below it. */
+  margin-bottom: -1px;
+  transition: color .15s, border-color .15s;
 }
-.discipline-option:hover { background: #2d3748; border-color: #4a5568; color: #cbd5e0; }
-.discipline-option.is-active {
-  background: #2a4a6b; border-color: #63b3ed; color: #e2e8f0;
-}
+.discipline-option:hover { color: #e2e8f0; border-bottom-color: #4a5568; }
+.discipline-option.is-active { color: #90cdf4; border-bottom-color: #63b3ed; }
+.discipline-option .icon { font-size: .95rem; line-height: 1; }
 
 .side-meta {
   font-size: .75rem; color: #718096; line-height: 1.7;
@@ -88,6 +99,9 @@ img.emoji {
     flex-direction: row; flex-wrap: wrap; align-items: center; gap: 1.25rem;
   }
   .side-nav { flex-direction: row; flex-wrap: wrap; gap: .4rem; }
+  /* In the stacked row layout the tabs would otherwise shrink to their text.
+     A floor keeps them a deliberate control rather than two stray words. */
+  .discipline-switch { min-width: 15rem; }
   .side-meta { border-top: none; padding-top: 0; flex-basis: 100%; }
 }
 

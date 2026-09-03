@@ -19,6 +19,8 @@ discovery_countries:
   - Croatia
   - Serbia
   - Spain
+  - Belgium
+  - Netherlands
 
 races:
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3545

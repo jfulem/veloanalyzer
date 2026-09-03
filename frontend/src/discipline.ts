@@ -60,17 +60,20 @@ export function withDiscipline(href: string): string {
   return `${base}${sep}discipline=${disc}${hash ? `#${hash}` : ""}`;
 }
 
-function select(disc: Discipline): void {
+/** This page's URL with the discipline swapped — the tab's href. */
+function urlFor(disc: Discipline): string {
+  const url = new URL(location.href);
+  url.searchParams.set("discipline", disc);
+  return url.toString();
+}
+
+function remember(disc: Discipline): void {
   try {
     localStorage.setItem(STORAGE_KEY, disc);
   } catch {
-    // Storage unavailable — the query string below still carries the choice.
+    // Storage unavailable — the href still carries the choice, so the click
+    // works; only the preference between visits is lost.
   }
-  const url = new URL(location.href);
-  url.searchParams.set("discipline", disc);
-  // A full navigation, not a pushState: every page fetches its data once at
-  // boot, so switching discipline means re-running that boot anyway.
-  location.href = url.toString();
 }
 
 interface DisciplineRow {
@@ -103,17 +106,28 @@ export async function mountDisciplineSwitch(container: HTMLElement | null): Prom
   container.innerHTML = "";
   container.classList.add("discipline-switch");
 
+  // Links rather than buttons: choosing a discipline really is a navigation to
+  // a different URL, so this way middle-click and "open in new tab" work, the
+  // status bar previews the destination, and the choice survives even when
+  // localStorage throws. The click handler only records the preference — it
+  // never preventDefault()s, so the browser does the navigating.
   for (const disc of available) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "discipline-option";
-    button.textContent = `${DISCIPLINE_EMOJI[disc]} ${DISCIPLINE_LABEL[disc]}`;
+    const tab = document.createElement("a");
+    tab.className = "discipline-option";
+    tab.href = urlFor(disc);
+
+    const icon = document.createElement("span");
+    icon.className = "icon";
+    icon.textContent = DISCIPLINE_EMOJI[disc];
+    tab.appendChild(icon);
+    tab.appendChild(document.createTextNode(DISCIPLINE_LABEL[disc]));
+
     if (disc === active) {
-      button.classList.add("is-active");
-      button.setAttribute("aria-current", "true");
+      tab.classList.add("is-active");
+      tab.setAttribute("aria-current", "page");
     }
-    button.addEventListener("click", () => select(disc));
-    container.appendChild(button);
+    tab.addEventListener("click", () => remember(disc));
+    container.appendChild(tab);
   }
 }
 
@@ -137,11 +151,15 @@ export function labelDiscipline(root: ParentNode = document): void {
   });
 }
 
-/** Page chrome common to every entry point: the switcher under the sidebar
- *  nav, and discipline-preserving links. Called once per page rather than run
- *  as an import side effect, so a page that needs neither can simply not call
- *  it. The container is created here instead of being added to nine HTML
- *  files, which would only ever differ from each other by drifting. */
+/** Page chrome common to every entry point: the discipline tabs and
+ *  discipline-preserving links. Called once per page rather than run as an
+ *  import side effect, so a page that needs neither can simply not call it.
+ *  The container is created here instead of being added to nine HTML files,
+ *  which would only ever differ from each other by drifting.
+ *
+ *  The tabs go directly below the brand and above the nav: they change which
+ *  sport the entire site is showing, so they outrank the choice of page and
+ *  should be read before it, not found underneath it. */
 export function initChrome(): void {
   linkNav();
   labelDiscipline();
@@ -151,7 +169,7 @@ export function initChrome(): void {
   if (!host) {
     host = document.createElement("div");
     host.id = "discipline-switch";
-    nav.parentElement.insertBefore(host, nav.nextSibling);
+    nav.parentElement.insertBefore(host, nav);
   }
   // Deliberately not awaited: it is one small request, and no other content on
   // the page depends on the answer.

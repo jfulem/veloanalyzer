@@ -9,7 +9,7 @@ and rider profiles show the same athlete several times.
 import re
 from datetime import date, datetime, timezone
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import Connection
 
@@ -17,7 +17,7 @@ from .config import console
 from .db import get_engine
 from .discipline import DEFAULT_DISCIPLINE
 from .discipline import normalize as normalize_discipline
-from .ranking import _strip_diacritics
+from .ranking import _strip_diacritics, ranking_window_start
 from .schema import meta, race_entries, races, rider_results, riders, uci_ranking, uci_xco_race_results
 
 _MONTHS = {m: i for i, m in enumerate(
@@ -204,9 +204,23 @@ def _save_results(conn: Connection, rider_id: int, results: list,
                   discipline: str = DEFAULT_DISCIPLINE) -> None:
     """Upsert a rider's race history.
 
-    Rows are never deleted: each scrape only sees a rolling 12-month window, so
-    keeping older rows lets the database accumulate deeper history than any
-    single run could produce.
+    Older rows are never deleted: each scrape only sees a rolling 12-month
+    window, so keeping them lets the database accumulate deeper history than
+    any single run could produce. They stop counting toward the UCI total on
+    their first anniversary — that is applied at display time — but the races
+    still happened and still belong on the rider's page.
+
+    Inside the window it is the opposite: the freshly built history is
+    authoritative, and a stored row for a race the rider is no longer in gets
+    dropped. Without that, a result attributed to the wrong rider or the wrong
+    event stayed forever, because an upsert can only correct rows it collides
+    with — a phantom result nothing collides with was untouchable. That is how
+    a junior's enduro ride at a World Cup sat among his cross-country points.
+
+    The pruning is deliberately skipped when the rebuilt history is empty: that
+    means the lookup found nothing for this rider, usually a name that stopped
+    matching, and deleting a season of real results over a spelling change
+    would be far worse than keeping a stale row.
     """
     rows = []
     seen = set()
@@ -236,6 +250,22 @@ def _save_results(conn: Connection, rider_id: int, results: list,
         })
     if not rows:
         return
+
+    # Prune stale in-window rows before writing the fresh ones. Scoped per
+    # discipline so a rider's cyclo-cross winter is never pruned by a rebuild
+    # of their mountain-bike summer. Rows whose date would not parse have a
+    # NULL date and never satisfy the comparison, so they are left alone.
+    window_start = ranking_window_start().date()
+    keep_by_discipline: dict = {}
+    for row in rows:
+        keep_by_discipline.setdefault(row["discipline"], set()).add(row["xco_race_id"])
+    for disc, keep in keep_by_discipline.items():
+        conn.execute(delete(rider_results).where(
+            rider_results.c.rider_id == rider_id,
+            rider_results.c.discipline == disc,
+            rider_results.c.date >= window_start,
+            rider_results.c.xco_race_id.notin_(keep),
+        ))
 
     stmt = insert(rider_results).values(rows)
     conn.execute(stmt.on_conflict_do_update(
@@ -323,20 +353,28 @@ def save_uci_race_results(race_results_cache: dict) -> None:
     build_uci_xco_country_archive.
 
     race_results_cache is {discipline: {uci_cat: {xco_race_id: [finisher_row,
-    ...]}}} as returned by get_uci_xco_race_results_cache(). venue/country update on
-    conflict rather than no-op: they were added after this table already had
-    rows, and a plain DO NOTHING would leave those rows blank forever since
-    the finisher identity they conflict on never changes.
+    ...]}}} as returned by get_uci_xco_race_results_cache().
+
+    Every race this run rebuilt is replaced outright rather than merged into.
+    The table is a mirror of what the UCI publishes for an event, and a merge
+    cannot express a correction: an upsert keyed on the finisher would leave a
+    rider's rank, time and points at whatever was stored first, and a finisher
+    who should no longer be in the race at all would simply stay. That is not
+    hypothetical — competitions that bundle several disciplines were being read
+    for the wrong event (see ranking._label_discipline), so these rows held a
+    22-minute short-track result where the cross-country one belonged.
+
+    Only races present in `race_results_cache` are touched, so a competition
+    this run failed to fetch keeps whatever is already stored rather than being
+    deleted on a transient network error.
     """
-    # Keyed by the same tuple as the table's unique constraint. A dict rather
-    # than a plain list because ON CONFLICT DO UPDATE — unlike the DO NOTHING
-    # this used before venue/country existed — errors out ("cannot affect row
-    # a second time") if two proposed rows in the same statement share a
-    # conflict key. That happens for real: the UCI's own results feed
+    # Keyed by the same tuple as the table's unique constraint, because the
+    # same finisher really can arrive twice: the UCI's own results feed
     # occasionally repeats a DNF rider, and build_uci_xco_history plus
-    # build_uci_xco_country_archive both feed this cache, so the same finisher
-    # can in principle arrive from two different sweeps. Last one wins; for a
-    # genuine duplicate the rows are equivalent anyway.
+    # build_uci_xco_country_archive both feed this cache. Two such rows in one
+    # INSERT would now violate that constraint outright — the delete below
+    # clears the way for a plain insert, so there is no ON CONFLICT to absorb
+    # them. Last one wins; for a genuine duplicate the rows are equivalent.
     rows_by_key: dict = {}
     for discipline, by_category in race_results_cache.items():
         discipline = normalize_discipline(discipline)
@@ -368,18 +406,27 @@ def save_uci_race_results(race_results_cache: dict) -> None:
     if not rows_to_insert:
         return
 
+    rebuilt = {(r["xco_race_id"], r["category"], r["discipline"]) for r in rows_to_insert}
+
     # Postgres caps bind parameters at 65 535. With 15 columns per row that
-    # allows ~4 300 rows per statement; use 1 000 to stay well clear.
-    _CHUNK = 1000
+    # allows ~4 300 rows per statement; use 1 000 to stay well clear. The
+    # delete carries 3 parameters per race, so it can afford far larger
+    # batches — 5 000 races is still only 15 000 parameters.
+    _CHUNK, _DELETE_CHUNK = 1000, 5000
+    key = tuple_(uci_xco_race_results.c.xco_race_id,
+                 uci_xco_race_results.c.category,
+                 uci_xco_race_results.c.discipline)
+    rebuilt_list = sorted(rebuilt)
     with get_engine().begin() as conn:
+        for i in range(0, len(rebuilt_list), _DELETE_CHUNK):
+            conn.execute(delete(uci_xco_race_results).where(
+                key.in_(rebuilt_list[i : i + _DELETE_CHUNK])))
         for i in range(0, len(rows_to_insert), _CHUNK):
-            chunk = rows_to_insert[i : i + _CHUNK]
-            stmt = insert(uci_xco_race_results).values(chunk)
-            conn.execute(stmt.on_conflict_do_update(
-                constraint="uq_uci_xco_race_results_rider",
-                set_={"venue": stmt.excluded.venue, "country": stmt.excluded.country},
-            ))
-    console.print(f"[green]  ✓ Saved {len(rows_to_insert)} UCI race result rows[/green]")
+            conn.execute(insert(uci_xco_race_results).values(rows_to_insert[i : i + _CHUNK]))
+    console.print(
+        f"[green]  ✓ Saved {len(rows_to_insert)} UCI race result rows "
+        f"across {len(rebuilt)} races[/green]"
+    )
 
 
 def save_uci_ranking(uci_cat: str, entries: list,
