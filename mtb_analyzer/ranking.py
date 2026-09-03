@@ -2127,18 +2127,18 @@ def fetch_cp_xco_standings(standings_url: str, uci_cat: str) -> dict:
     return fetch_cup_standings(standings_url, uci_cat, XCO)
 
 
-def enrich_cup_points(riders: list, standings: dict, ranked_too: bool = False) -> None:
-    """Assign cp_xco_points from the domestic cup standings.
+def enrich_cup_points(riders: list, standings: dict) -> None:
+    """Assign cp_xco_points from the domestic cup standings, for every entrant.
 
-    By default only unranked riders get a value: in MTB XCO the UCI ranking
-    decides the grid and the cup standing is just the last tie-break, so
-    filling it in for ranked riders would be noise. `ranked_too` is for
-    cyclo-cross, where the cup standing *is* the grid (art. C0919) and every
-    entrant's standing matters regardless of their UCI rank.
+    Filled in regardless of UCI rank. It used to be limited to unranked riders,
+    on the grounds that in MTB XCO the UCI ranking decides the grid and the cup
+    standing is only the last tie-break — but the start list now shows the
+    standing as a column, and a blank against a rider sitting on 980 cup points
+    reads as "no standing" rather than "not needed here". It cannot disturb the
+    XCO order: ranked riders are already separated by uci_rank long before the
+    cup tie-break is reached.
     """
     for rider in riders:
-        if rider.uci_rank is not None and not ranked_too:
-            continue
         key = _strip_diacritics(rider.full_name.lower())
         if key in standings:
             rider.cp_xco_points = standings[key]

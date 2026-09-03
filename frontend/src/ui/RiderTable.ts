@@ -44,15 +44,31 @@ function buildTable(
   // show those as dedicated "Result"/"Time" columns instead of only the
   // pre-race UCI ranking context.
   const hasResults = riders.some((r) => r.result_rank != null || r.result_time);
+  // The domestic cup standing decides the order of everyone the UCI has not
+  // ranked, and in cyclo-cross it decides the whole grid — so without a column
+  // the table is sorted by a number the reader cannot see, and a correctly
+  // ordered field of unranked riders looks arbitrary. Only shown when the race
+  // actually has cup data, like Result/Time above.
+  const hasCup = riders.some((r) => (r.cp_xco_points ?? 0) > 0);
 
   const table = el("table", { class: "rider-table" });
   const thead = el("thead");
   const hRow = el("tr");
-  const headers = ["#", "Name", "Country"];
-  if (hasResults) headers.push("Result", "Time");
-  headers.push("UCI rank", "UCI pts", "Team");
+  const headers: { label: string; title?: string }[] =
+    [{ label: "#" }, { label: "Name" }, { label: "Country" }];
+  if (hasResults) headers.push({ label: "Result" }, { label: "Time" });
+  headers.push({ label: "UCI rank" }, { label: "UCI pts" });
+  if (hasCup) {
+    headers.push({
+      label: "Cup pts",
+      title: "Standing in the national cup this race belongs to. It sets the "
+        + "start order for riders the UCI has not ranked, and in cyclo-cross "
+        + "it sets the grid outright (art. C0919).",
+    });
+  }
+  headers.push({ label: "Team" });
   for (const h of headers) {
-    hRow.appendChild(el("th", {}, h));
+    hRow.appendChild(el("th", h.title ? { title: h.title } : {}, h.label));
   }
   thead.appendChild(hRow);
   table.appendChild(thead);
@@ -131,6 +147,16 @@ function buildTable(
       ptsCell.textContent = "0";
     }
     tr.appendChild(ptsCell);
+
+    // Cup pts — the number that actually orders the unranked part of the field
+    if (hasCup) {
+      const cup = rider.cp_xco_points ?? 0;
+      const cupCell = el("td", { class: "pts-cell" }, cup ? String(cup) : "—");
+      // Dimmed for riders the UCI ranks, since their rank is what places them
+      // and the cup standing is only a later tie-break.
+      if (rider.uci_rank != null) cupCell.style.color = "#718096";
+      tr.appendChild(cupCell);
+    }
 
     // Team
     const team = rider.team ? rider.team.slice(0, 50) : "—";

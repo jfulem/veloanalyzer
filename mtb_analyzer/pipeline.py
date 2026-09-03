@@ -8,7 +8,6 @@ scripts/generate_site.py so both callers cannot drift apart.
 from datetime import datetime, timezone
 
 from .config import console
-from .discipline import CX
 from .discipline import get as get_discipline
 from .discipline import normalize as normalize_discipline
 from .parsers import parse_start_list
@@ -173,8 +172,6 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
     cup_urls = race.get("cup_standings_url") or race.get("cp_xco_standings_url")
     if cup_urls:
         standings = fetch_first_cup_standings(cup_urls, uci_category, discipline)
-        # In cyclo-cross the domestic cup standing decides the grid outright,
-        # so it is recorded for every entrant, not only the UCI-unranked ones.
-        enrich_cup_points(riders, standings, ranked_too=(discipline == CX))
+        enrich_cup_points(riders, standings)
 
     return riders
