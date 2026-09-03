@@ -15,6 +15,8 @@ from sqlalchemy.engine import Connection
 
 from .config import console
 from .db import get_engine
+from .discipline import DEFAULT_DISCIPLINE
+from .discipline import normalize as normalize_discipline
 from .ranking import _strip_diacritics
 from .schema import meta, race_entries, races, rider_results, riders, uci_ranking, uci_xco_race_results
 
@@ -182,6 +184,7 @@ def _upsert_race(conn: Connection, race_cfg: dict) -> int:
         "date": parse_iso_date(race_cfg.get("date", "")),
         "uci_category": race_cfg.get("uci_category", ""),
         "category": race_cfg.get("category", ""),
+        "discipline": normalize_discipline(race_cfg.get("discipline")),
         "source_url": race_cfg.get("url", ""),
         "is_tracked": True,
         "location": race_cfg.get("location", "") or "",
@@ -197,7 +200,8 @@ def _upsert_race(conn: Connection, race_cfg: dict) -> int:
     ).scalar_one()
 
 
-def _save_results(conn: Connection, rider_id: int, results: list) -> None:
+def _save_results(conn: Connection, rider_id: int, results: list,
+                  discipline: str = DEFAULT_DISCIPLINE) -> None:
     """Upsert a rider's race history.
 
     Rows are never deleted: each scrape only sees a rolling 12-month window, so
@@ -208,13 +212,18 @@ def _save_results(conn: Connection, rider_id: int, results: list) -> None:
     seen = set()
     for res in results or []:
         xco_race_id = str(res.get("race_id", "") or "")
-        if not xco_race_id or xco_race_id in seen:
+        res_disc = normalize_discipline(res.get("disc") or discipline)
+        if not xco_race_id or (xco_race_id, res_disc) in seen:
             continue
-        seen.add(xco_race_id)
+        seen.add((xco_race_id, res_disc))
         raw_date = res.get("date", "") or ""
         rows.append({
             "rider_id": rider_id,
             "xco_race_id": xco_race_id,
+            # Trust the result's own discipline where the history carries one
+            # (build_uci_xco_history stamps every row), and fall back to the
+            # race's for anything assembled by hand.
+            "discipline": res_disc,
             "race_name": res.get("race_name", "") or "",
             "date_raw": raw_date,
             "date": parse_result_date(raw_date),
@@ -230,7 +239,8 @@ def _save_results(conn: Connection, rider_id: int, results: list) -> None:
 
     stmt = insert(rider_results).values(rows)
     conn.execute(stmt.on_conflict_do_update(
-        index_elements=[rider_results.c.rider_id, rider_results.c.xco_race_id],
+        index_elements=[rider_results.c.rider_id, rider_results.c.xco_race_id,
+                        rider_results.c.discipline],
         set_={k: stmt.excluded[k] for k in
               ("race_name", "date_raw", "date", "location", "rank", "time", "cat",
                "uci_pts", "race_class")},
@@ -240,6 +250,7 @@ def _save_results(conn: Connection, rider_id: int, results: list) -> None:
 def save_race(conn: Connection, race_cfg: dict, rider_list: list) -> int:
     """Write one race and its start list. Returns the race id."""
     race_id = _upsert_race(conn, race_cfg)
+    discipline = normalize_discipline(race_cfg.get("discipline"))
 
     # Timing sites take start lists down once a race is over, so a past race
     # scrapes as zero riders. Replacing entries with nothing would delete
@@ -288,7 +299,7 @@ def save_race(conn: Connection, race_cfg: dict, rider_list: list) -> int:
         ).on_conflict_do_nothing(
             index_elements=[race_entries.c.race_id, race_entries.c.rider_id],
         ))
-        _save_results(conn, rider_id, rider.race_results)
+        _save_results(conn, rider_id, rider.race_results, discipline)
 
     return race_id
 
@@ -311,8 +322,8 @@ def save_uci_race_results(race_results_cache: dict) -> None:
     """Persist the full finisher lists built by build_uci_xco_history and
     build_uci_xco_country_archive.
 
-    race_results_cache is {uci_cat: {xco_race_id: [finisher_row, ...]}} as
-    returned by get_uci_xco_race_results_cache(). venue/country update on
+    race_results_cache is {discipline: {uci_cat: {xco_race_id: [finisher_row,
+    ...]}}} as returned by get_uci_xco_race_results_cache(). venue/country update on
     conflict rather than no-op: they were added after this table already had
     rows, and a plain DO NOTHING would leave those rows blank forever since
     the finisher identity they conflict on never changes.
@@ -327,34 +338,38 @@ def save_uci_race_results(race_results_cache: dict) -> None:
     # can in principle arrive from two different sweeps. Last one wins; for a
     # genuine duplicate the rows are equivalent anyway.
     rows_by_key: dict = {}
-    for category, races_by_id in race_results_cache.items():
-        for xco_race_id, finishers in races_by_id.items():
-            for f in finishers:
-                first_name = f.get("first_name", "")
-                last_name  = f.get("last_name", "")
-                rows_by_key[(xco_race_id, category, first_name, last_name)] = {
-                    "xco_race_id": xco_race_id,
-                    "category":    category,
-                    "comp_name":   f.get("comp_name", ""),
-                    "date_raw":    f.get("date_raw", ""),
-                    "date":        parse_result_date(f.get("date_raw", "")),
-                    "race_class":  f.get("race_class", ""),
-                    "rank":        f.get("rank"),
-                    "first_name":  first_name,
-                    "last_name":   last_name,
-                    "nationality": f.get("nationality", ""),
-                    "race_time":   f.get("race_time", ""),
-                    "uci_pts":     f.get("uci_pts"),
-                    "venue":       f.get("venue", ""),
-                    "country":     f.get("country", ""),
-                }
+    for discipline, by_category in race_results_cache.items():
+        discipline = normalize_discipline(discipline)
+        for category, races_by_id in by_category.items():
+            for xco_race_id, finishers in races_by_id.items():
+                for f in finishers:
+                    first_name = f.get("first_name", "")
+                    last_name  = f.get("last_name", "")
+                    key = (xco_race_id, category, discipline, first_name, last_name)
+                    rows_by_key[key] = {
+                        "xco_race_id": xco_race_id,
+                        "category":    category,
+                        "discipline":  discipline,
+                        "comp_name":   f.get("comp_name", ""),
+                        "date_raw":    f.get("date_raw", ""),
+                        "date":        parse_result_date(f.get("date_raw", "")),
+                        "race_class":  f.get("race_class", ""),
+                        "rank":        f.get("rank"),
+                        "first_name":  first_name,
+                        "last_name":   last_name,
+                        "nationality": f.get("nationality", ""),
+                        "race_time":   f.get("race_time", ""),
+                        "uci_pts":     f.get("uci_pts"),
+                        "venue":       f.get("venue", ""),
+                        "country":     f.get("country", ""),
+                    }
 
     rows_to_insert = list(rows_by_key.values())
     if not rows_to_insert:
         return
 
-    # Postgres caps bind parameters at 65 535. With 14 columns per row that
-    # allows ~4 600 rows per statement; use 1 000 to stay well clear.
+    # Postgres caps bind parameters at 65 535. With 15 columns per row that
+    # allows ~4 300 rows per statement; use 1 000 to stay well clear.
     _CHUNK = 1000
     with get_engine().begin() as conn:
         for i in range(0, len(rows_to_insert), _CHUNK):
@@ -367,9 +382,11 @@ def save_uci_race_results(race_results_cache: dict) -> None:
     console.print(f"[green]  ✓ Saved {len(rows_to_insert)} UCI race result rows[/green]")
 
 
-def save_uci_ranking(uci_cat: str, entries: list) -> None:
+def save_uci_ranking(uci_cat: str, entries: list,
+                     discipline: str = DEFAULT_DISCIPLINE) -> None:
     """
-    Replace the stored official UCI ranking for one category with `entries`
+    Replace the stored official UCI ranking for one category (in one
+    discipline) with `entries`
     (ranking.get_uci_cache(cat)["by_name"].values()), fusing each ranked
     rider into the global `riders` table with the same identity rules
     _resolve_rider uses for start-list ingest: UCI ID wins, then name +
@@ -383,10 +400,14 @@ def save_uci_ranking(uci_cat: str, entries: list) -> None:
     This is a snapshot (this week's ranking), not history: the whole
     category is deleted and reinserted each run rather than upserted by
     rank, since UCI rankings can tie at 0 points, so rank isn't a safe key
-    either. A rider can only be ranked in one category at a time (rider_id
-    is unique on uci_ranking) — ON CONFLICT DO UPDATE handles the rare case
-    of someone moving category between runs by just moving their row.
+    either. A rider can only be ranked in one category at a time *per
+    discipline* ((rider_id, discipline) is unique on uci_ranking) — ON
+    CONFLICT DO UPDATE handles the rare case of someone moving category
+    between runs by just moving their row. Cross-discipline is a different
+    matter: a cyclo-cross regular who also races MTB legitimately holds two
+    rows, which is why the constraint is not on rider_id alone.
     """
+    discipline = normalize_discipline(discipline)
     with get_engine().begin() as conn:
         existing = conn.execute(
             select(riders.c.id, riders.c.uci_id, riders.c.normalized_name, riders.c.birth_year)
@@ -456,17 +477,21 @@ def save_uci_ranking(uci_cat: str, entries: list) -> None:
 
         def _ranking_row(rid: int, e: dict) -> dict:
             return {
-                "rider_id": rid,
-                "uci_cat":  uci_cat,
-                "rank":     int(e["rank"]),
-                "points":   int(e.get("points") or 0),
-                "team":     e.get("team", ""),
+                "rider_id":   rid,
+                "uci_cat":    uci_cat,
+                "discipline": discipline,
+                "rank":       int(e["rank"]),
+                "points":     int(e.get("points") or 0),
+                "team":       e.get("team", ""),
             }
 
         ranking_rows  = [_ranking_row(rid, e) for rid, e in matched]
         ranking_rows += [_ranking_row(rid, e) for rid, (_, e) in zip(new_ids, to_create)]
 
-        conn.execute(delete(uci_ranking).where(uci_ranking.c.uci_cat == uci_cat))
+        conn.execute(delete(uci_ranking).where(
+            uci_ranking.c.uci_cat == uci_cat,
+            uci_ranking.c.discipline == discipline,
+        ))
 
         if ranking_rows:
             _CHUNK = 1000
@@ -474,12 +499,12 @@ def save_uci_ranking(uci_cat: str, entries: list) -> None:
                 chunk = ranking_rows[i : i + _CHUNK]
                 stmt = insert(uci_ranking).values(chunk)
                 conn.execute(stmt.on_conflict_do_update(
-                    index_elements=[uci_ranking.c.rider_id],
+                    index_elements=[uci_ranking.c.rider_id, uci_ranking.c.discipline],
                     set_={"uci_cat": stmt.excluded.uci_cat, "rank": stmt.excluded.rank,
                           "points": stmt.excluded.points, "team": stmt.excluded.team},
                 ))
 
     console.print(
-        f"[green]  ✓ Saved UCI ranking ({uci_cat}): {len(matched)} matched to tracked "
-        f"riders, {len(new_ids)} new riders created[/green]"
+        f"[green]  ✓ Saved UCI ranking ({discipline} {uci_cat}): {len(matched)} matched "
+        f"to tracked riders, {len(new_ids)} new riders created[/green]"
     )

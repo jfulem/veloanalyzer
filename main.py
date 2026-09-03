@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-MTB Start List Analyzer
-=======================
+Start List Analyzer
+===================
 Fetches a race start list, enriches it with UCI ranking data and displays an overview.
 Can also compare two races based on the quality of registered riders.
 
@@ -10,12 +10,18 @@ Usage:
   python main.py --compare "https://race1..." "https://race2..."
   python main.py --url "https://..." --category "Junior" --export results.html
   python main.py --refresh-cache --uci-category MJ
+  python main.py --url "https://..." --discipline CX --uci-category ME
+
+Disciplines (--discipline):
+  XCO = MTB cross-country (default)
+  CX  = Cyclo-cross
 
 UCI categories (--uci-category):
   MJ   = Men Juniors    WJ   = Women Juniors
   ME   = Men Elite      WE   = Women Elite
   MU23 = Men U23         WU23 = Women U23
-  (U23 has no standalone UCI ranking; rank/points lookup falls back to Elite)
+  (U23 has no standalone UCI ranking; rank/points lookup falls back to Elite.
+   In cyclo-cross WJ does too — junior women are ranked with the women.)
 
 Export formats:
   --export results.html   → rich HTML report (auto-detected by extension)
@@ -30,6 +36,8 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from mtb_analyzer.config import console
+from mtb_analyzer.discipline import DEFAULT_DISCIPLINE, DISCIPLINES
+from mtb_analyzer.discipline import get as get_discipline
 from mtb_analyzer.display import display_comparison, display_riders
 from mtb_analyzer.export import export_csv, export_file, export_html
 from mtb_analyzer.parsers import parse_start_list
@@ -38,7 +46,7 @@ from mtb_analyzer.ranking import get_uci_cache, lookup_rider
 
 def main():
     parser = argparse.ArgumentParser(
-        description="MTB Start List Analyzer — fetches a start list and enriches it with UCI ranking",
+        description="Start List Analyzer — fetches a start list and enriches it with UCI ranking",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -50,6 +58,9 @@ def main():
     parser.add_argument("--uci-category", "-u", default="MJ",
                         choices=["MJ", "WJ", "ME", "WE", "MU23", "WU23"],
                         help="UCI ranking category to use (default: MJ = Men Juniors)")
+    parser.add_argument("--discipline", "-d", default=DEFAULT_DISCIPLINE,
+                        choices=sorted(DISCIPLINES),
+                        help="Which UCI discipline's ranking to use (default: XCO)")
     parser.add_argument("--refresh-cache", action="store_true",
                         help="Force re-download of UCI ranking (ignores local cache)")
     parser.add_argument("--export", metavar="file.html",
@@ -64,14 +75,15 @@ def main():
         sys.exit(0)
 
     console.print(Panel.fit(
-        "[bold cyan]MTB Start List Analyzer[/bold cyan]\n"
-        "[dim]Ranking data: xcodata.com[/dim]",
+        f"[bold cyan]{get_discipline(args.discipline).label} Start List Analyzer[/bold cyan]\n"
+        "[dim]Ranking data: dataride.uci.ch[/dim]",
         border_style="cyan",
     ))
 
     uci_cache = {}
     if not args.no_lookup:
-        uci_cache = get_uci_cache(args.uci_category, force_refresh=args.refresh_cache)
+        uci_cache = get_uci_cache(args.uci_category, force_refresh=args.refresh_cache,
+                                  discipline=args.discipline)
 
     if args.refresh_cache and not args.url and not args.compare:
         console.print("[green]Cache refreshed.[/green]")

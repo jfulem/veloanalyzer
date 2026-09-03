@@ -28,6 +28,20 @@ const SUBMIT_LIMIT = 5;
 
 type Sql = ReturnType<typeof neon>;
 
+/** Disciplines the ingest can write (mtb_analyzer/discipline.py). Anything
+ *  else in ?discipline= is ignored rather than passed to SQL, so the parameter
+ *  can never smuggle a value into a query. */
+const DISCIPLINES = ["XCO", "CX"] as const;
+type Discipline = (typeof DISCIPLINES)[number];
+
+/** ?discipline=CX → "CX"; absent or unrecognised → null, meaning "all of
+ *  them". Every row predates cyclo-cross as 'XCO', so an unfiltered query is
+ *  still exactly the old behaviour for an MTB-only database. */
+function discipline(url: URL): Discipline | null {
+  const raw = (url.searchParams.get("discipline") ?? "").toUpperCase();
+  return (DISCIPLINES as readonly string[]).includes(raw) ? (raw as Discipline) : null;
+}
+
 const CORS = {
   // Production is same-origin (the Worker is routed on /api/* of the Pages
   // domain), so this only matters for `vite dev` against `wrangler dev`.
@@ -51,17 +65,40 @@ function json(data: unknown, status = 200, maxAge = 60): Response {
 
 const notFound = (detail: string) => json({ detail }, 404, 0);
 
-async function raceExists(sql: Sql, slug: string): Promise<boolean> {
-  const rows = (await sql`SELECT 1 FROM races WHERE slug = ${slug}`) as unknown[];
-  return rows.length > 0;
+/** The discipline a race belongs to, or null when there is no such race. Read
+ *  from the race itself rather than the query string: which ordering rule and
+ *  which slice of a rider's history apply is a property of the race, not
+ *  something a caller should be able to override.
+ *
+ *  A row whose discipline is somehow unrecognised still resolves — to XCO,
+ *  what every row written before cyclo-cross holds — because null here means
+ *  "no such race" and would turn a real race into a 404. */
+async function raceDiscipline(sql: Sql, slug: string): Promise<Discipline | null> {
+  const rows = (await sql`
+    SELECT discipline FROM races WHERE slug = ${slug}
+  `) as { discipline: string }[];
+  if (rows.length === 0) return null;
+  const value = rows[0]?.discipline ?? "";
+  return (DISCIPLINES as readonly string[]).includes(value) ? (value as Discipline) : "XCO";
 }
 
 async function route(url: URL, sql: Sql): Promise<Response | null> {
   const path = url.pathname.replace(/\/+$/, "");
   const parts = path.split("/").filter(Boolean); // ["api", "races", slug, ...]
+  const disc = discipline(url);
 
   if (path === "/health") return json({ status: "ok" }, 200, 0);
   if (parts[0] !== "api") return null;
+
+  // ── /api/disciplines ────────────────────────────────────────────────────
+  // Which disciplines this database actually holds races for, so the frontend
+  // only offers a switcher once there is something to switch to.
+  if (parts.length === 2 && parts[1] === "disciplines") {
+    return json(await sql`
+      SELECT discipline, count(*)::int AS races
+      FROM races GROUP BY discipline ORDER BY discipline
+    `, 200, 600);
+  }
 
   // ── /api/meta ───────────────────────────────────────────────────────────
   if (parts.length === 2 && parts[1] === "meta") {
@@ -73,9 +110,18 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
   // `riders` counts distinct people, not start-list entries.
   if (parts.length === 2 && parts[1] === "stats") {
     const rows = (await sql`
-      SELECT (SELECT count(*) FROM races)::int        AS races,
-             (SELECT count(*) FROM riders)::int       AS riders,
-             (SELECT count(*) FROM race_entries)::int AS entries
+      SELECT (SELECT count(*) FROM races r
+               WHERE ${disc}::text IS NULL OR r.discipline = ${disc})::int AS races,
+             (SELECT count(DISTINCT ri.id) FROM riders ri
+               WHERE ${disc}::text IS NULL OR EXISTS (
+                 SELECT 1 FROM race_entries e JOIN races r2 ON r2.id = e.race_id
+                 WHERE e.rider_id = ri.id AND r2.discipline = ${disc}
+               ) OR EXISTS (
+                 SELECT 1 FROM uci_ranking ur
+                 WHERE ur.rider_id = ri.id AND ur.discipline = ${disc}
+               ))::int AS riders,
+             (SELECT count(*) FROM race_entries e JOIN races r3 ON r3.id = e.race_id
+               WHERE ${disc}::text IS NULL OR r3.discipline = ${disc})::int AS entries
     `) as unknown[];
     return json(rows[0]);
   }
@@ -84,8 +130,9 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     // ── /api/races ────────────────────────────────────────────────────────
     if (parts.length === 2) {
       return json(await sql`
-        SELECT id, slug, name, date::text AS date, uci_category, category
+        SELECT id, slug, name, date::text AS date, uci_category, category, discipline
         FROM races
+        WHERE ${disc}::text IS NULL OR discipline = ${disc}
         ORDER BY date ASC NULLS LAST, name
       `);
     }
@@ -95,7 +142,7 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     if (parts.length === 3 && parts[2] === "stats") {
       return json(await sql`
         SELECT r.id, r.slug, r.name, r.date::text AS date, r.uci_category, r.category,
-               r.location, r.lat, r.lon,
+               r.discipline, r.location, r.lat, r.lon,
                count(e.id)::int              AS total,
                count(e.uci_rank)::int        AS ranked,
                min(e.uci_rank)::int          AS best,
@@ -108,6 +155,7 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
                count(e.result_rank)::int     AS finished
         FROM races r
         LEFT JOIN race_entries e ON e.race_id = r.id
+        WHERE ${disc}::text IS NULL OR r.discipline = ${disc}
         GROUP BY r.id
         ORDER BY r.date ASC NULLS LAST, r.name
       `);
@@ -118,7 +166,7 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     // ── /api/races/{slug} ─────────────────────────────────────────────────
     if (parts.length === 3) {
       const rows = (await sql`
-        SELECT id, slug, name, date::text AS date, uci_category, category
+        SELECT id, slug, name, date::text AS date, uci_category, category, discipline
         FROM races WHERE slug = ${slug}
       `) as unknown[];
       if (rows.length === 0) return notFound(`No race with slug '${slug}'`);
@@ -131,7 +179,18 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     // result first once a race has run, then UCI rank, then the estimated
     // points fallbacks for unranked riders.
     if (parts.length === 4 && parts[3] === "entries") {
-      if (!(await raceExists(sql, slug))) return notFound(`No race with slug '${slug}'`);
+      const raceDisc = await raceDiscipline(sql, slug);
+      if (raceDisc === null) return notFound(`No race with slug '${slug}'`);
+      // Cyclo-cross grids on the domestic cup standing, not the UCI ranking:
+      // art. C0919 lines riders up "according to the current standings" of the
+      // year-long series they are riding. So the same columns are ordered
+      // differently — cup points ahead of UCI rank rather than behind
+      // everything — and the UCI rank becomes the tie-break for riders the cup
+      // has not scored yet. (A national championship is the exception, art.
+      // C0921, and is gridded on the UCI ranking instead. It is not special-
+      // cased: there are few of them, and the rank and points columns on the
+      // page still tell the reader what actually decides that grid.)
+      const cupFirst = raceDisc === "CX";
       return json(await sql`
         SELECT ri.id                     AS id,
                e.race_id                 AS race_id,
@@ -153,9 +212,12 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
           SELECT max(rr.date) AS last_points_date
           FROM rider_results rr
           WHERE rr.rider_id = e.rider_id AND rr.uci_pts > 0
+            AND rr.discipline = r.discipline
         ) lp ON true
         WHERE r.slug = ${slug}
         ORDER BY (e.result_rank IS NULL), e.result_rank,
+                 -- Cyclo-cross only: the cup standing is the grid itself.
+                 CASE WHEN ${cupFirst}::boolean THEN COALESCE(e.cp_xco_points, 0) ELSE 0 END DESC,
                  (e.uci_rank IS NULL), e.uci_rank,
                  COALESCE(e.computed_points, 0) DESC,
                  -- UCI tie-break: equal points are separated by whoever scored
@@ -176,16 +238,22 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     // panel and the form-trend arrows both need it at once, and it lets the
     // rider card open from memory.
     if (parts.length === 4 && parts[3] === "results") {
-      if (!(await raceExists(sql, slug))) return notFound(`No race with slug '${slug}'`);
+      const raceDisc = await raceDiscipline(sql, slug);
+      if (raceDisc === null) return notFound(`No race with slug '${slug}'`);
+      // Scoped to the race's own discipline: a cyclo-cross start list wants
+      // cyclo-cross form, and mixing a rider's summer XCO results into it
+      // would distort every trend arrow and head-to-head on the page.
       return json(await sql`
         SELECT rr.id, rr.rider_id, rr.xco_race_id, rr.race_name,
-               rr.date_raw AS date, rr.location, rr.rank, rr.time, rr.cat, rr.uci_pts, rr.race_class
+               rr.date_raw AS date, rr.location, rr.rank, rr.time, rr.cat, rr.uci_pts,
+               rr.race_class, rr.discipline
         FROM rider_results rr
-        WHERE rr.rider_id IN (
-          SELECT e.rider_id FROM race_entries e
-          JOIN races r ON r.id = e.race_id
-          WHERE r.slug = ${slug}
-        )
+        WHERE rr.discipline = ${raceDisc}
+          AND rr.rider_id IN (
+            SELECT e.rider_id FROM race_entries e
+            JOIN races r ON r.id = e.race_id
+            WHERE r.slug = ${slug}
+          )
         ORDER BY rr.date DESC NULLS LAST
       `);
     }
@@ -203,6 +271,11 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
   // rider is actually registered with for a specific race, falling back to
   // uci_ranking's team for riders with no tracked entry at all.
   if (parts[1] === "riders" && parts.length === 2) {
+    // With two disciplines a rider holds one uci_ranking row in each, so every
+    // join and count here is discipline-scoped when ?discipline= is given.
+    // Without it the ranking join would fan a rider out into two rows and the
+    // page would list them twice — so an unfiltered request keeps a rider's
+    // best (lowest) rank across disciplines rather than joining blind.
     return json(await sql`
       SELECT ri.id, ri.first_name, ri.last_name, ri.country, ri.birth_year,
              COALESCE(ri.uci_id, '') AS uci_id, ri.xcodata_slug,
@@ -210,21 +283,35 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
              COALESCE(ur.points, le.uci_points)  AS uci_points,
              COALESCE(NULLIF(le.team, ''), ur.team, '') AS team,
              COALESCE(ur.uci_cat, le.uci_category, '')  AS uci_category,
+             COALESCE(ur.discipline, le.discipline)     AS discipline,
              COALESCE(rc.races_count, 0) AS races_count
       FROM riders ri
-      LEFT JOIN uci_ranking ur ON ur.rider_id = ri.id
       LEFT JOIN LATERAL (
-        SELECT e.uci_rank, e.uci_points, e.team, r.uci_category
+        SELECT u.rank, u.points, u.team, u.uci_cat, u.discipline
+        FROM uci_ranking u
+        WHERE u.rider_id = ri.id
+          AND (${disc}::text IS NULL OR u.discipline = ${disc})
+        ORDER BY u.rank
+        LIMIT 1
+      ) ur ON true
+      LEFT JOIN LATERAL (
+        SELECT e.uci_rank, e.uci_points, e.team, r.uci_category, r.discipline
         FROM race_entries e
         JOIN races r ON r.id = e.race_id
         WHERE e.rider_id = ri.id
+          AND (${disc}::text IS NULL OR r.discipline = ${disc})
         ORDER BY r.date DESC NULLS LAST, e.id DESC
         LIMIT 1
       ) le ON true
       LEFT JOIN LATERAL (
         SELECT count(*)::int AS races_count
-        FROM race_entries e2 WHERE e2.rider_id = ri.id
+        FROM race_entries e2
+        JOIN races r2 ON r2.id = e2.race_id
+        WHERE e2.rider_id = ri.id
+          AND (${disc}::text IS NULL OR r2.discipline = ${disc})
       ) rc ON true
+      -- A discipline filter must not list riders who have nothing in it.
+      WHERE ${disc}::text IS NULL OR ur.rank IS NOT NULL OR rc.races_count > 0
       ORDER BY (COALESCE(ur.rank, le.uci_rank) IS NULL), COALESCE(ur.rank, le.uci_rank), ri.last_name
     `, 200, 600);
   }
@@ -243,14 +330,23 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
                COALESCE(ur.rank, le.uci_rank)      AS uci_rank,
                COALESCE(ur.points, le.uci_points)  AS uci_points,
                COALESCE(NULLIF(le.team, ''), ur.team, '') AS team,
-               COALESCE(ur.uci_cat, le.uci_category, '')  AS uci_category
+               COALESCE(ur.uci_cat, le.uci_category, '')  AS uci_category,
+               COALESCE(ur.discipline, le.discipline)     AS discipline
         FROM riders ri
-        LEFT JOIN uci_ranking ur ON ur.rider_id = ri.id
         LEFT JOIN LATERAL (
-          SELECT e.uci_rank, e.uci_points, e.team, r.uci_category
+          SELECT u.rank, u.points, u.team, u.uci_cat, u.discipline
+          FROM uci_ranking u
+          WHERE u.rider_id = ri.id
+            AND (${disc}::text IS NULL OR u.discipline = ${disc})
+          ORDER BY u.rank
+          LIMIT 1
+        ) ur ON true
+        LEFT JOIN LATERAL (
+          SELECT e.uci_rank, e.uci_points, e.team, r.uci_category, r.discipline
           FROM race_entries e
           JOIN races r ON r.id = e.race_id
           WHERE e.rider_id = ri.id
+            AND (${disc}::text IS NULL OR r.discipline = ${disc})
           ORDER BY r.date DESC NULLS LAST, e.id DESC
           LIMIT 1
         ) le ON true
@@ -264,30 +360,31 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     if (parts.length === 4 && parts[3] === "results") {
       return json(await sql`
         SELECT id, rider_id, xco_race_id, race_name,
-               date_raw AS date, location, rank, time, cat, uci_pts, race_class
+               date_raw AS date, location, rank, time, cat, uci_pts, race_class, discipline
         FROM rider_results
         WHERE rider_id = ${riderId}
+          AND (${disc}::text IS NULL OR discipline = ${disc})
         ORDER BY date DESC NULLS LAST
       `);
     }
   }
 
   // ── /api/xco-races ────────────────────────────────────────────────────
-  // Browse the whole UCI XCO archive at competition granularity (one row per
-  // competition+category, not per finisher) — venue/country/date/class plus
-  // a finisher count, so the archive page can list and filter without
-  // pulling every result row. country is blank for the rolling-12-month
-  // worldwide sweep build_uci_xco_history does on its own (it doesn't know
-  // or care about country); only rows the country-scoped archive sweep
-  // touched have one, which is also what keeps this list scoped to
-  // discovery_countries rather than the whole world.
+  // Browse the whole UCI archive at competition granularity (one row per
+  // competition+category+discipline, not per finisher) — venue/country/date/
+  // class plus a finisher count, so the archive page can list and filter
+  // without pulling every result row. The country filter drops rows the UCI
+  // calendar had no country for; it is not a geographic scope, since the
+  // rolling-12-month sweep every ingest runs is worldwide and stamps a
+  // country too. Only the multi-year depth is scoped to discovery_countries.
   if (parts[1] === "xco-races" && parts.length === 2) {
     return json(await sql`
-      SELECT xco_race_id, category, comp_name, date::text AS date, race_class,
+      SELECT xco_race_id, category, discipline, comp_name, date::text AS date, race_class,
              venue, country, count(*)::int AS finishers
       FROM uci_xco_race_results
       WHERE country <> ''
-      GROUP BY xco_race_id, category, comp_name, date, race_class, venue, country
+        AND (${disc}::text IS NULL OR discipline = ${disc})
+      GROUP BY xco_race_id, category, discipline, comp_name, date, race_class, venue, country
       ORDER BY date DESC NULLS LAST, comp_name
     `, 200, 600);
   }
@@ -301,9 +398,10 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     const xcoRaceId = decodeURIComponent(parts[3]!);
     return json(await sql`
       SELECT rank, first_name, last_name, nationality, race_time, uci_pts,
-             comp_name, date_raw AS date, race_class
+             comp_name, date_raw AS date, race_class, discipline
       FROM uci_xco_race_results
       WHERE xco_race_id = ${xcoRaceId} AND category = ${category}
+        AND (${disc}::text IS NULL OR discipline = ${disc})
       ORDER BY (rank IS NULL), rank, last_name
     `);
   }

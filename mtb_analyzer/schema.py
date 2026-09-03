@@ -39,6 +39,10 @@ races = Table(
     Column("date", Date),
     Column("uci_category", String(8), nullable=False, server_default=""),
     Column("category", Text, nullable=False, server_default=""),
+    # 'XCO' or 'CX' — see mtb_analyzer/discipline.py. Defaulted rather than
+    # nullable so every row written before cyclo-cross existed reads as the
+    # MTB cross-country it was.
+    Column("discipline", String(8), nullable=False, server_default="XCO"),
     Column("source_url", Text, nullable=False, server_default=""),
     # False for ad-hoc races created by on-demand analysis (phase 5); those are
     # reaped once expires_at passes so they don't accumulate forever.
@@ -98,7 +102,12 @@ rider_results = Table(
     # the per-class points quotas in art. 4.16.008, so the UI can show which
     # results actually contribute to a rider's total.
     Column("race_class", String(8), nullable=False, server_default=""),
-    UniqueConstraint("rider_id", "xco_race_id", name="uq_rider_results_rider_race"),
+    Column("discipline", String(8), nullable=False, server_default="XCO"),
+    # xco_race_id is "{date}|{comp_name}", which a rider could in principle
+    # repeat across disciplines (same venue, same weekend), so the discipline
+    # is part of the identity rather than merely a filter.
+    UniqueConstraint("rider_id", "xco_race_id", "discipline",
+                     name="uq_rider_results_rider_race"),
 )
 
 # Queued on-demand analyses (phase 5). Doubles as the job queue: the worker
@@ -166,7 +175,8 @@ uci_xco_race_results = Table(
     # by country without a geocoding step.
     Column("venue", Text, nullable=False, server_default=""),
     Column("country", String(3), nullable=False, server_default=""),
-    UniqueConstraint("xco_race_id", "category", "first_name", "last_name",
+    Column("discipline", String(8), nullable=False, server_default="XCO"),
+    UniqueConstraint("xco_race_id", "category", "discipline", "first_name", "last_name",
                      name="uq_uci_xco_race_results_rider"),
 )
 
@@ -188,8 +198,13 @@ uci_ranking = Table(
     # available for a ranked rider who has never been on a tracked start
     # list, where team instead comes from race_entries.
     Column("team", Text, nullable=False, server_default=""),
+    Column("discipline", String(8), nullable=False, server_default="XCO"),
+    # Unique per discipline, not globally: a cyclo-cross rider who also races
+    # MTB holds a rank in both, and a bare unique(rider_id) would let one
+    # ranking silently evict the other.
     Column("rider_id", Integer, ForeignKey("riders.id", ondelete="CASCADE"),
-           nullable=False, unique=True),
+           nullable=False),
+    UniqueConstraint("rider_id", "discipline", name="uq_uci_ranking_rider_discipline"),
 )
 
 meta = Table(
@@ -203,7 +218,8 @@ Index("idx_race_entries_rider", race_entries.c.rider_id)
 Index("idx_rider_results_rider", rider_results.c.rider_id)
 Index("idx_races_date", races.c.date)
 Index("idx_analysis_jobs_status", analysis_jobs.c.status)
-Index("idx_uci_ranking_cat", uci_ranking.c.uci_cat)
+Index("idx_uci_ranking_cat", uci_ranking.c.uci_cat, uci_ranking.c.discipline)
+Index("idx_races_discipline", races.c.discipline)
 
 # Trigram index for search-as-you-type over rider names. Requires the pg_trgm
 # extension, created by migrations/bootstrap before this index is built.
@@ -216,6 +232,7 @@ Index(
 
 Index("idx_race_requests_status", race_requests.c.status, race_requests.c.created_at)
 Index("idx_race_requests_submitter", race_requests.c.submitter_hash, race_requests.c.created_at)
-Index("idx_uci_xco_race_results_lookup", uci_xco_race_results.c.xco_race_id, uci_xco_race_results.c.category)
+Index("idx_uci_xco_race_results_lookup", uci_xco_race_results.c.xco_race_id,
+      uci_xco_race_results.c.category, uci_xco_race_results.c.discipline)
 # Backs the archive-browsing query, which groups the whole table by country.
 Index("idx_uci_xco_race_results_country", uci_xco_race_results.c.country)

@@ -10,15 +10,14 @@ import yaml
 
 from .config import console
 from .db import bootstrap
+from .discipline import DEFAULT_DISCIPLINE
+from .discipline import get as get_discipline
+from .discipline import normalize as normalize_discipline
 from .geocode import geocode
 from .pipeline import fetch_riders
-from .ranking import build_uci_xco_country_archive, get_uci_cache, get_uci_xco_race_results_cache
+from .ranking import (build_uci_xco_country_archive, get_uci_cache,
+                      get_uci_xco_race_results_cache, ranking_categories)
 from .store import save_all, save_uci_race_results, save_uci_ranking
-
-# MU23/WU23 have no standalone UCI ranking (see ranking._ranking_category) —
-# U23-eligible riders are already ranked within ME/WE, so these four are the
-# complete set of official UCI XCO rankings.
-_RANKING_CATEGORIES = ("ME", "WE", "MJ", "WJ")
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 RACES_FILE = os.environ.get("RACES_FILE") or os.path.normpath(
@@ -34,6 +33,20 @@ def load_races() -> list:
 def load_discovery_countries() -> list:
     with open(RACES_FILE, encoding="utf-8") as f:
         return yaml.safe_load(f).get("discovery_countries", [])
+
+
+def load_archive_disciplines() -> list:
+    """Which disciplines get the multi-year, country-scoped archive sweep.
+
+    Defaults to MTB XCO alone. The sweep is what fills the archive page's
+    browsable back-catalogue, and it costs one competition-details request per
+    event in every listed country for every year — worth it where there is
+    history worth browsing, not something to switch on for a discipline by
+    accident.
+    """
+    with open(RACES_FILE, encoding="utf-8") as f:
+        configured = yaml.safe_load(f).get("archive_disciplines", [DEFAULT_DISCIPLINE])
+    return [normalize_discipline(d) for d in configured]
 
 
 def _resolve_locations(races: list) -> None:
@@ -59,6 +72,7 @@ def run() -> None:
     _resolve_locations(races)
 
     console.print(f"[bold cyan]Processing {len(races)} race(s)...[/bold cyan]")
+    # Keyed by (discipline, uci_category) — see pipeline.fetch_riders.
     uci_caches   = {}
     race_configs = []
     rider_groups = []
@@ -100,10 +114,24 @@ def run() -> None:
     # re-downloads on every call, and fetch_riders() already fetched each
     # category races.yml actually uses, so calling it again here would
     # double every ranking download for nothing.
-    console.print("[dim]  Saving UCI ranking (ME/WE/MJ/WJ)...[/dim]")
-    for uci_cat in _RANKING_CATEGORIES:
-        cache = uci_caches.get(uci_cat) or get_uci_cache(uci_cat)
-        save_uci_ranking(uci_cat, list(cache.get("by_name", {}).values()))
+    #
+    # Scoped to the disciplines races.yml actually tracks: fetching a
+    # cyclo-cross ranking for a purely MTB configuration would be four wasted
+    # downloads and a table of riders nothing on the site can reach.
+    tracked_disciplines = sorted({
+        normalize_discipline(race.get("discipline")) for race in races
+    })
+    for discipline in tracked_disciplines:
+        label = get_discipline(discipline).label
+        # MU23/WU23 never have their own ranking, and in cyclo-cross neither do
+        # junior women — ranking_categories() has already folded those away, so
+        # this is the real list, not four names one of which is a duplicate.
+        categories = ranking_categories(discipline)
+        console.print(f"[dim]  Saving UCI {label} ranking ({'/'.join(categories)})...[/dim]")
+        for uci_cat in categories:
+            cache = (uci_caches.get((discipline, uci_cat))
+                     or get_uci_cache(uci_cat, discipline=discipline))
+            save_uci_ranking(uci_cat, list(cache.get("by_name", {}).values()), discipline)
 
     # build_uci_xco_history (called inside fetch_riders) already fetched and
     # cached full finisher lists for every UCI XCO event within its rolling
@@ -115,13 +143,19 @@ def run() -> None:
     # build_uci_xco_history for a category this hasn't touched yet), so it
     # only fills in gaps rather than being overwritten by a later one.
     discovery_countries = load_discovery_countries()
+    archive_disciplines = [d for d in load_archive_disciplines() if d in tracked_disciplines]
     if discovery_countries:
-        console.print(f"[dim]  Broadening UCI XCO archive for {', '.join(discovery_countries)}...[/dim]")
-        build_uci_xco_country_archive(discovery_countries)
+        for discipline in archive_disciplines:
+            label = get_discipline(discipline).label
+            console.print(
+                f"[dim]  Broadening UCI {label} archive for "
+                f"{', '.join(discovery_countries)}...[/dim]"
+            )
+            build_uci_xco_country_archive(discovery_countries, discipline=discipline)
 
     # Persist everything the two steps above cached so the frontend can show
     # complete race results when a user clicks on a race.
-    console.print("[dim]  Saving UCI XCO race results...[/dim]")
+    console.print("[dim]  Saving UCI race results...[/dim]")
     save_uci_race_results(get_uci_xco_race_results_cache())
 
     if failed:

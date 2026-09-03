@@ -1,6 +1,7 @@
 import { Race } from "./api.js";
 import { getRaceStats } from "./raceStats.js";
 import { bootRaceBrowser } from "./raceBrowser.js";
+import { initChrome } from "./discipline.js";
 
 // Only races with at least one captured finishing position — not simply
 // "in the past", since a race can be past but still awaiting results, and not
@@ -18,3 +19,5 @@ bootRaceBrowser({
   getDisplayRaces: getResultRaces,
   emptyText: "No results available yet",
 });
+
+initChrome();

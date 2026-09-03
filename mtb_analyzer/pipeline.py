@@ -8,11 +8,14 @@ scripts/generate_site.py so both callers cannot drift apart.
 from datetime import datetime, timezone
 
 from .config import console
+from .discipline import CX
+from .discipline import get as get_discipline
+from .discipline import normalize as normalize_discipline
 from .parsers import parse_start_list
 from .ranking import (build_uci_xco_history, compute_points_from_history,
-                      enrich_cp_xco_points, enrich_with_race_results,
-                      fetch_cp_xco_standings, get_uci_cache, lookup_rider,
-                      riders_from_uci_competition,
+                      enrich_cup_points, enrich_with_race_results,
+                      fetch_first_cup_standings, get_uci_cache, lookup_rider,
+                      ranking_category, riders_from_uci_competition,
                       supplement_from_uci_competition,
                       _lookup_rider_history, _strip_diacritics)
 
@@ -33,7 +36,7 @@ def merge_riders(primary: list, extra: list) -> list:
     return merged
 
 
-def _rebuild_past_race_from_uci(race: dict, uci_category: str) -> list:
+def _rebuild_past_race_from_uci(race: dict, uci_category: str, discipline: str) -> list:
     """Fallback for a past race whose start list has gone from its source site.
 
     Only applies once the race has actually run and a uci_competition_id is
@@ -47,22 +50,66 @@ def _rebuild_past_race_from_uci(race: dict, uci_category: str) -> list:
         return []
 
     console.print("[dim]  Start list unavailable — rebuilding from official UCI results...[/dim]")
-    riders = riders_from_uci_competition(str(uci_comp_id), int(race_date[:4]), uci_category)
+    riders = riders_from_uci_competition(
+        str(uci_comp_id), _competition_year(race, discipline), uci_category, discipline)
     if riders:
         console.print(f"[green]  ✓ Recovered {len(riders)} finishers from UCI[/green]")
     return riders
+
+
+def _competition_year(race: dict, discipline: str) -> int:
+    """The UCI's season label for this race's date.
+
+    For MTB that is simply the calendar year the race falls in. A cyclo-cross
+    season spans the new year and the UCI files it under the later one, so a
+    race on 5 December 2026 belongs to season 2027 — get it wrong and every
+    competition lookup misses.
+    """
+    date_str = race.get("date", "")
+    try:
+        when = datetime.strptime(date_str[:10], "%Y-%m-%d")
+    except ValueError:
+        when = datetime.now()
+    return get_discipline(discipline).season_year(when)
+
+
+def _filter_by_birth_year(riders: list, race: dict) -> list:
+    """Narrow a start list to the birth years in races.yml `birth_years:`.
+
+    Cyclo-cross does not run a separate junior women's race — juniors, U23 and
+    elite women all start together, and the organiser's start list has one
+    course for all three. Naming the two junior birth years is the only way to
+    pull that category out of the combined list.
+    """
+    wanted = race.get("birth_years")
+    if not wanted:
+        return riders
+    wanted = {str(y) for y in wanted}
+    kept = [r for r in riders if (r.birth_year or "").strip() in wanted]
+    dropped = len(riders) - len(kept)
+    console.print(
+        f"[dim]  Birth-year filter {sorted(wanted)}: kept {len(kept)}, dropped {dropped}[/dim]"
+    )
+    return kept
 
 
 def fetch_riders(race: dict, uci_caches: dict) -> list:
     url          = race["url"]
     category     = race.get("category")
     uci_category = race.get("uci_category", "MJ")
+    discipline   = normalize_discipline(race.get("discipline"))
+    disc         = get_discipline(discipline)
 
-    if uci_category not in uci_caches:
-        uci_caches[uci_category] = get_uci_cache(uci_category)
-    cache = uci_caches[uci_category]
+    # Keyed by the *resolved* ranking, not the start-list category: several
+    # categories share one ranking (MU23 with ME, and in cyclo-cross WJ with
+    # WE), and keying on the raw name would download the same ranking twice
+    # and leave ingest.py unable to find what it already has.
+    cache_key = (discipline, ranking_category(uci_category, discipline))
+    if cache_key not in uci_caches:
+        uci_caches[cache_key] = get_uci_cache(uci_category, discipline=discipline)
+    cache = uci_caches[cache_key]
 
-    console.print(f"\n[cyan]Processing:[/cyan] {race.get('name', url)}")
+    console.print(f"\n[cyan]Processing:[/cyan] {race.get('name', url)} [dim]({disc.label})[/dim]")
     # A dead/unreachable organiser site must fall through to the UCI-results
     # rebuild below exactly like a start list that loaded but listed nobody —
     # a 404 or timeout is the most common way a site "goes", and is exactly
@@ -86,7 +133,9 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
             console.print(f"[yellow]  Extra start list fetch failed ({type(exc).__name__}) — skipping it[/yellow]")
 
     if not riders:
-        riders = _rebuild_past_race_from_uci(race, uci_category)
+        riders = _rebuild_past_race_from_uci(race, uci_category, discipline)
+
+    riders = _filter_by_birth_year(riders, race)
 
     if not riders:
         console.print("[yellow]  No riders found — skipping[/yellow]")
@@ -95,11 +144,12 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
     console.print(f"[green]  ✓ {len(riders)} riders[/green]")
     console.print("[dim]  Looking up UCI rankings and building race histories...[/dim]")
 
-    history_db = build_uci_xco_history(uci_category)
+    history_db = build_uci_xco_history(uci_category, discipline=discipline)
     for rider in riders:
         lookup_rider(rider, cache)
         rider.race_results = _lookup_rider_history(history_db, rider.first_name, rider.last_name)
-        rider.computed_points = compute_points_from_history(rider.race_results, uci_category)
+        rider.computed_points = compute_points_from_history(
+            rider.race_results, uci_category, discipline)
         if not rider.country and rider.race_results:
             rider.country = next(
                 (r.get("nationality", "") for r in rider.race_results if r.get("nationality")),
@@ -108,16 +158,23 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
 
     uci_comp_id = race.get("uci_competition_id")
     if uci_comp_id:
-        race_year = int(race.get("date", "2026")[:4])
-        supplement_from_uci_competition(riders, str(uci_comp_id), race_year, uci_category)
+        race_year = _competition_year(race, discipline)
+        supplement_from_uci_competition(
+            riders, str(uci_comp_id), race_year, uci_category, discipline)
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         if race.get("date", "") < today:
             console.print("[dim]  Race is in the past — fetching official results...[/dim]")
-            enrich_with_race_results(riders, str(uci_comp_id), race_year, uci_category)
+            enrich_with_race_results(
+                riders, str(uci_comp_id), race_year, uci_category, discipline)
 
-    cp_url = race.get("cp_xco_standings_url")
-    if cp_url:
-        standings = fetch_cp_xco_standings(cp_url, uci_category)
-        enrich_cp_xco_points(riders, standings)
+    # `cup_standings_url` may be a single URL or a list tried in order: see
+    # fetch_first_cup_standings. cp_xco_standings_url is the older name, kept
+    # so every MTB entry in races.yml keeps working unchanged.
+    cup_urls = race.get("cup_standings_url") or race.get("cp_xco_standings_url")
+    if cup_urls:
+        standings = fetch_first_cup_standings(cup_urls, uci_category, discipline)
+        # In cyclo-cross the domestic cup standing decides the grid outright,
+        # so it is recorded for every entrant, not only the UCI-unranked ones.
+        enrich_cup_points(riders, standings, ranked_too=(discipline == CX))
 
     return riders

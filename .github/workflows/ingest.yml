@@ -81,6 +81,11 @@ jobs:
           with get_engine().connect() as c:
               for t in ('races','riders','race_entries','rider_results','uci_xco_race_results'):
                   print(f'{t:15}', c.execute(text(f'select count(*) from {t}')).scalar_one())
+              for table in ('races','rider_results','uci_ranking','uci_xco_race_results'):
+                  rows = c.execute(text(
+                      f'select discipline, count(*) from {table} group by discipline order by discipline'
+                  )).all()
+                  print(f'{table:22}', ', '.join(f'{d}={n}' for d, n in rows) or '(empty)')
               empty = c.execute(text('''
                   select count(*) from races r
                   where not exists (select 1 from race_entries e where e.race_id = r.id)

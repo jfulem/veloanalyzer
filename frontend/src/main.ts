@@ -1,5 +1,6 @@
 import { getRaces, Race } from "./api.js";
 import { bootRaceBrowser } from "./raceBrowser.js";
+import { initChrome } from "./discipline.js";
 
 // Upcoming only: a race counts as "upcoming" until 20:00 on its own date, so
 // it stays visible through the day it's actually run.
@@ -17,3 +18,5 @@ bootRaceBrowser({
   getDisplayRaces: getUpcomingRaces,
   emptyText: "No upcoming races",
 });
+
+initChrome();

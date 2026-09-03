@@ -1,6 +1,8 @@
 // Shared by the landing page and the race overview, both of which were
 // previously rendered ahead of time by scripts/generate_site.py.
 
+import { apiQuery } from "./discipline.js";
+
 // See the note in api.ts — same-origin by default.
 const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
 
@@ -11,6 +13,8 @@ export interface RaceStat {
   date: string;
   uci_category: string;
   category: string;
+  /** 'XCO' or 'CX'. */
+  discipline: string;
   /** Free-text venue, geocoded at ingest time. lat/lon are null until a
    *  location: is set in races.yml and successfully geocoded — races.html
    *  and the results/start-list pages don't need this, only the home map. */
@@ -35,7 +39,7 @@ export interface SiteStats {
 }
 
 async function getJson<T>(path: string): Promise<T> {
-  const resp = await fetch(`${API_BASE}${path}`);
+  const resp = await fetch(`${API_BASE}${apiQuery(path)}`);
   if (!resp.ok) throw new Error(`${path} → ${resp.status} ${resp.statusText}`);
   return resp.json() as Promise<T>;
 }

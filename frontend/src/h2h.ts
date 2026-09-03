@@ -2,6 +2,7 @@ import { getAllRiders, getRiderHistory, getMeta, RiderListItem, Rider, RaceResul
 import { renderRiderPicker } from "./ui/RiderPicker.js";
 import { renderH2H } from "./ui/H2H.js";
 import { $, applyTwemoji, el } from "./utils.js";
+import { initChrome } from "./discipline.js";
 
 // renderH2H() takes the same per-race-entry Rider shape the start-list pages
 // use — adapt the standalone rider record into it rather than changing that
@@ -96,3 +97,5 @@ function toRider(d: RiderListItem): Rider {
   loading.style.display = "none";
   content.style.display = "block";
 })();
+
+initChrome();
