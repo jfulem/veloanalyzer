@@ -1,6 +1,7 @@
 import { getRiderDetail, getRiderHistory, getMeta, Rider, RaceResult } from "./api.js";
 import { renderRiderCard } from "./ui/RiderCard.js";
 import { el } from "./utils.js";
+import { initChrome } from "./discipline.js";
 
 const PAGE_LABELS: Record<string, string> = {
   "app":     "Start List",
@@ -96,3 +97,5 @@ function backLabel(fromUrl: string): string {
     loadingEl.textContent = `Failed to load rider: ${err}`;
   }
 })();
+
+initChrome();

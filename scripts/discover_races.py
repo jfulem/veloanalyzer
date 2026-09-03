@@ -129,7 +129,10 @@ def build_stub_block(candidate: dict) -> str:
     slug     = _slugify(candidate["name"])
     today    = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    lines = [f"# --- Discovered {today} — fill in url: and uncomment to activate ---"]
+    # races.yml carries more than one discipline now, and this script only ever
+    # scans the MTB XCO calendar — say so in the block rather than leaving a
+    # reader to infer it from the absence of a `discipline:` line.
+    lines = [f"# --- Discovered {today} (MTB XCO) — fill in url: and uncomment to activate ---"]
     if website:
         lines.append(f"# organizer site: {website}")
     for cat in CATEGORIES:

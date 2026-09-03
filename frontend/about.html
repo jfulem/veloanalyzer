@@ -4,16 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VeloAnalyzer — About</title>
-  <meta name="description" content="What VeloAnalyzer does: UCI-enriched start lists, rider profiles, head-to-head comparison and race results for MTB XCO." />
+  <meta name="description" content="What VeloAnalyzer does: UCI-enriched start lists, rider profiles, head-to-head comparison and race results for MTB XCO and cyclo-cross." />
   <link rel="canonical" href="https://www.veloanalyzer.com/about" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="VeloAnalyzer" />
   <meta property="og:title" content="VeloAnalyzer — About" />
-  <meta property="og:description" content="What VeloAnalyzer does: UCI-enriched start lists, rider profiles, head-to-head comparison and race results for MTB XCO." />
+  <meta property="og:description" content="What VeloAnalyzer does: UCI-enriched start lists, rider profiles, head-to-head comparison and race results for MTB XCO and cyclo-cross." />
   <meta property="og:url" content="https://www.veloanalyzer.com/about" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="VeloAnalyzer — About" />
-  <meta name="twitter:description" content="What VeloAnalyzer does: UCI-enriched start lists, rider profiles, head-to-head comparison and race results for MTB XCO." />
+  <meta name="twitter:description" content="What VeloAnalyzer does: UCI-enriched start lists, rider profiles, head-to-head comparison and race results for MTB XCO and cyclo-cross." />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/src/style.css" />
   <style>
@@ -52,8 +52,9 @@
       <div class="main">
         <h1 class="page-title">What VeloAnalyzer does</h1>
         <p class="about-lede">
-          A field guide for MTB cross-country racing: every tracked start list enriched with
-          official UCI rank and points, and a season of history behind every rider on it.
+          A field guide for MTB cross-country and cyclo-cross racing: every tracked start list
+          enriched with official UCI rank and points, and a season of history behind every rider
+          on it. The switcher in the sidebar moves between the two disciplines.
         </p>
 
         <ul class="cap-list">
@@ -68,15 +69,38 @@
         <div class="about-block">
           <h2>How points are counted</h2>
           <p>
-            A rider's UCI points total follows the individual XCO ranking rules (art. 4.16.008):
-            each class of race — World Cup and Championship results are uncapped, Class 1–3
-            one-day races count the best five, and stage races count the best three — feeds its
-            own quota rather than one flat "best N" across everything. A rider's profile shows
-            exactly which results count toward the total and which were displaced.
+            In <strong>MTB cross-country</strong>, a rider's UCI points total follows the
+            individual XCO ranking rules (art. 4.16.008): each class of race — World Cup and
+            Championship results are uncapped, Class 1–3 one-day races count the best five, and
+            stage races count the best three — feeds its own quota rather than one flat "best N"
+            across everything. A rider's profile shows exactly which results count toward the
+            total and which were displaced.
+          </p>
+          <p>
+            <strong>Cyclo-cross</strong> counts differently (art. C1029): every result counts, in
+            every category but one. Men's juniors are the exception, taking their best six results
+            from Class 1 and 2 races and their best five from junior World Cup rounds.
           </p>
           <p>
             Ties are broken by the UCI rule: the rider with the more recent point-scoring result
             ranks higher, regardless of the tier that result came from.
+          </p>
+        </div>
+
+        <div class="about-block">
+          <h2>How start lists are ordered</h2>
+          <p>
+            An MTB cross-country start list is ordered by UCI rank, which is what sets the grid.
+            A <strong>cyclo-cross</strong> one is not: in a year-long series riders line up by
+            their current standing in that series (art. C0919), so the Czech Cup table comes
+            first there and the UCI rank behind it. Once a race has been run, the official result
+            replaces both.
+          </p>
+          <p>
+            Junior women in cyclo-cross are ranked with the elite women and, at a Class 1 or 2
+            race, start with them too — one race, one classification. Their pages are the junior
+            riders picked out of that combined field, with the women's UCI ranking behind them,
+            because that is the ranking their grid position actually comes from.
           </p>
         </div>
 
@@ -86,7 +110,8 @@
             Start lists are pulled from organizers' own timing platforms (RaceResult, sportsoft.cz
             and others), matched to UCI rider records by UCI ID where available and by name and
             birth year otherwise. Rankings and race history come from the UCI's own data feed and
-            are refreshed daily.
+            are refreshed daily. Domestic cup standings come from the Czech Cycling Federation's
+            results pages — cpxcmtb.sportsoft.cz for MTB, cpcx.sportsoft.cz for cyclo-cross.
           </p>
         </div>
 
@@ -105,5 +130,6 @@
       </div>
     </div>
   </div>
+  <script type="module" src="/src/about.ts"></script>
 </body>
 </html>

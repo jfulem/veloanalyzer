@@ -2,6 +2,7 @@ import { getUciArchive, getMeta, UciArchiveRace } from "./api.js";
 import { catBadge, el } from "./raceStats.js";
 import { GroupedRace, groupByCompetition, sortedCategories } from "./uciArchive.js";
 import { $, flagEmoji, applyTwemoji } from "./utils.js";
+import { initChrome } from "./discipline.js";
 
 function openRace(race: GroupedRace): void {
   // Stash this race's metadata so race.html can render instantly instead of
@@ -148,3 +149,5 @@ function buildCountryLegend(
   loading.style.display = "none";
   content.style.display = "block";
 })();
+
+initChrome();

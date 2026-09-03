@@ -2,6 +2,7 @@ import { getUciArchive, getXcoRaceResults, getMeta, XcoRaceFinisher } from "./ap
 import { catBadge, el, UCI_CAT_LABEL } from "./raceStats.js";
 import { GroupedRace, groupByCompetition, sortedCategories } from "./uciArchive.js";
 import { $, flagEmoji, applyTwemoji, posLabel } from "./utils.js";
+import { initChrome } from "./discipline.js";
 
 const PAGE_LABELS: Record<string, string> = {
   "archive": "Archive",
@@ -164,3 +165,5 @@ function renderRace(container: HTMLElement, race: GroupedRace, initialCat: strin
   loadingEl.style.display = "none";
   raceEl.style.display = "block";
 })();
+
+initChrome();

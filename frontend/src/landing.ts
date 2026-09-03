@@ -2,6 +2,7 @@ import { getRaceStats, getSiteStats, getMeta, todayIso, el, RaceStat } from "./r
 import { renderCalendar, CalendarController } from "./calendar.js";
 import { renderMap, MapController } from "./map.js";
 import { renderRaceList } from "./raceList.js";
+import { initChrome } from "./discipline.js";
 
 const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
 
@@ -138,3 +139,5 @@ function wireRequestForm(): void {
   }
   content.style.display = "block";
 })();
+
+initChrome();

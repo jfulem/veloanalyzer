@@ -1,3 +1,11 @@
+"""UCI ranking, race history and points estimation.
+
+Discipline-aware: every entry point takes a `discipline` code from
+mtb_analyzer.discipline (default XCO, so pre-existing callers are unchanged).
+The "xco" in identifiers here is historical and now reads as "UCI competition
+result" for whichever discipline was passed — see discipline.py.
+"""
+
 import json
 import os
 import re
@@ -13,17 +21,18 @@ from .config import (
     CACHE_DIR, CACHE_MAX_AGE_DAYS, DATARIDE_BASE, FLAG, HEADERS, ISO2_TO_IOC, XCODATA_BASE,
     console,
 )
+from .discipline import CX, DEFAULT_DISCIPLINE, XCO
+from .discipline import get as get_discipline
 from .models import Rider
 from .utils import cell_direct_text, fetch, normalize_country, normalize_rider_name
 
 
-_DATARIDE_DISC_ID      = 7    # MTB
-_DATARIDE_XCO_TYPE_ID  = 92   # Cross-country Olympic
 _DATARIDE_RANK_TYPE_ID = 1    # Individual ranking
+# Same four IDs in every discipline — dataride's category table is global.
 _DATARIDE_CATEGORY_IDS = {"MJ": 24, "WJ": 25, "ME": 22, "WE": 23}
 _DATARIDE_HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
-    "Referer": f"{DATARIDE_BASE}/iframe/rankings/7",
+    "Referer": f"{DATARIDE_BASE}/iframe/rankings/7",  # overridden per discipline
     "X-Requested-With": "XMLHttpRequest",
     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
 }
@@ -44,37 +53,108 @@ _UCI_CATEGORY_LABELS = {"MJ": "Men Junior", "WJ": "Women Junior", "ME": "Men Eli
 # (ranking cache, race history, competition results) resolve through here.
 _RANKING_CATEGORY_ALIAS = {"MU23": "ME", "WU23": "WE"}
 
+# Cyclo-cross adds junior women to that list. Art. C1025 gives the discipline
+# only three individual rankings — men elite + U23, women elite + U23 +
+# *juniors*, and men juniors — and art. C0922 C confirms that a junior women's
+# race is gridded on the women's ranking. The standalone Women Junior ranking
+# dataride also publishes is not what decides where they line up, so it is not
+# what this project reads.
+_CX_RANKING_CATEGORY_ALIAS = {"MU23": "ME", "WU23": "WE", "WJ": "WE"}
 
-def _ranking_category(uci_cat: str) -> str:
+
+def _ranking_category(uci_cat: str, discipline: str = DEFAULT_DISCIPLINE) -> str:
+    if get_discipline(discipline).code == CX:
+        return _CX_RANKING_CATEGORY_ALIAS.get(uci_cat, uci_cat)
     return _RANKING_CATEGORY_ALIAS.get(uci_cat, uci_cat)
 
 
-def cache_path(uci_cat: str) -> str:
+# The categories the UCI publishes a standalone individual ranking for. Both
+# disciplines start from the same four; _ranking_category then folds away any
+# that are not their own ranking, which in cyclo-cross means junior women.
+_RANKING_CATEGORIES = ("ME", "WE", "MJ", "WJ")
+
+
+def ranking_category(uci_cat: str, discipline: str = DEFAULT_DISCIPLINE) -> str:
+    """Public name for the alias map: which UCI ranking actually covers a
+    start-list category. MU23 → ME everywhere; WJ → WE in cyclo-cross."""
+    return _ranking_category(uci_cat, discipline)
+
+
+def ranking_categories(discipline: str = DEFAULT_DISCIPLINE) -> tuple:
+    """Distinct rankings to download and store for a discipline.
+
+    Deduplicated *after* aliasing: in cyclo-cross WJ resolves to WE, so
+    iterating the raw four would fetch the women's ranking twice and store the
+    second copy under the wrong uci_cat — silently relabelling every woman a
+    junior, since the two rows collide on (rider_id, discipline).
+    """
+    seen: list = []
+    for uci_cat in _RANKING_CATEGORIES:
+        resolved = _ranking_category(uci_cat, discipline)
+        if resolved not in seen:
+            seen.append(resolved)
+    return tuple(seen)
+
+
+def _event_categories(uci_cat: str, discipline: str = DEFAULT_DISCIPLINE) -> tuple:
+    """UCI event categories to try, most specific first.
+
+    Cyclo-cross junior women are the reason this is a list rather than a single
+    value: a national championship or World Cup round runs them as their own
+    event ("Women Junior"), while a class 1 or 2 cup round starts them with the
+    women and U23 and publishes one combined classification. Both are their
+    official result, so the exact event wins where it exists and the combined
+    one stands in where it does not.
+    """
+    if get_discipline(discipline).code == CX and uci_cat == "WJ":
+        return ("WJ", "WE")
+    return (_ranking_category(uci_cat, discipline),)
+
+
+def _event_code_for(details: dict, uci_cat: str,
+                    discipline: str = DEFAULT_DISCIPLINE) -> str:
+    """First event code among _event_categories, or "" when none is published."""
+    events = details.get("events", {}) if details else {}
+    for cat in _event_categories(uci_cat, discipline):
+        code = events.get(cat)
+        if code:
+            return code
+    return ""
+
+
+def _disc_prefix(discipline: str) -> str:
+    """Filename prefix for a discipline. XCO gets none, so the cache files
+    written before cyclo-cross existed stay valid."""
+    return "" if discipline == XCO else f"{discipline.lower()}_"
+
+
+def cache_path(uci_cat: str, discipline: str = DEFAULT_DISCIPLINE) -> str:
     os.makedirs(CACHE_DIR, exist_ok=True)
-    year = datetime.now().year
-    return os.path.join(CACHE_DIR, f"ranking_{uci_cat}_{year}.json")
+    disc = get_discipline(discipline)
+    year = disc.season_year()
+    return os.path.join(
+        CACHE_DIR, f"ranking_{_disc_prefix(disc.code)}{uci_cat}_{year}.json"
+    )
 
 
-
-
-def cache_is_fresh(uci_cat: str) -> bool:
-    path = cache_path(uci_cat)
+def cache_is_fresh(uci_cat: str, discipline: str = DEFAULT_DISCIPLINE) -> bool:
+    path = cache_path(uci_cat, discipline)
     if not os.path.exists(path):
         return False
     mtime = datetime.fromtimestamp(os.path.getmtime(path))
     return datetime.now() - mtime < timedelta(days=CACHE_MAX_AGE_DAYS)
 
 
-def load_cache(uci_cat: str) -> dict:
-    path = cache_path(uci_cat)
+def load_cache(uci_cat: str, discipline: str = DEFAULT_DISCIPLINE) -> dict:
+    path = cache_path(uci_cat, discipline)
     if os.path.exists(path):
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
 
-def save_cache(uci_cat: str, data: dict):
-    with open(cache_path(uci_cat), "w", encoding="utf-8") as f:
+def save_cache(uci_cat: str, data: dict, discipline: str = DEFAULT_DISCIPLINE):
+    with open(cache_path(uci_cat, discipline), "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
@@ -260,17 +340,25 @@ def fetch_rider_country(slug: str) -> str:
     return ""
 
 
-def _uci_catalog_cache_path(year: int) -> str:
-    return os.path.join(CACHE_DIR, f"uci_calendar_{year}.json")
+def _uci_catalog_cache_path(year: int, discipline: str = DEFAULT_DISCIPLINE) -> str:
+    return os.path.join(
+        CACHE_DIR, f"uci_calendar_{_disc_prefix(discipline)}{year}.json"
+    )
 
 
-def _uci_comp_dir() -> str:
-    d = os.path.join(CACHE_DIR, "uci_comps")
+def _uci_comp_dir(discipline: str = DEFAULT_DISCIPLINE) -> str:
+    # Competition IDs are unique across disciplines, but the cached payload
+    # (event codes per category) is fetched from a discipline-specific URL, so
+    # the directories stay separate rather than risking a cross-discipline hit.
+    suffix = "" if discipline == XCO else f"_{discipline.lower()}"
+    d = os.path.join(CACHE_DIR, f"uci_comps{suffix}")
     os.makedirs(d, exist_ok=True)
     return d
 
 
 def _uci_event_dir() -> str:
+    # Event codes ("D2EV361123") are globally unique and the results endpoint
+    # ignores its own discipline parameter, so one directory serves both.
     d = os.path.join(CACHE_DIR, "uci_events")
     os.makedirs(d, exist_ok=True)
     return d
@@ -288,8 +376,9 @@ def _parse_comp_end_date(dates_str: str) -> "datetime | None":
     return None
 
 
+# {discipline: {uci_cat: {name_key: [race_result, ...]}}}
 _uci_xco_history_cache: dict = {}
-# Parallel cache: {uci_cat: {xco_race_id: [finisher_row, ...]}}
+# Parallel cache: {discipline: {uci_cat: {xco_race_id: [finisher_row, ...]}}}
 # A finisher_row has: comp_name, date_raw, date, race_class, rank, first_name,
 # last_name, nationality, race_time, uci_pts.
 _uci_xco_race_results_cache: dict = {}
@@ -298,26 +387,33 @@ _uci_xco_race_results_cache: dict = {}
 def get_uci_xco_race_results_cache() -> dict:
     """Return the race-level finisher data collected by build_uci_xco_history.
 
-    Keys are UCI categories (MJ/WJ/ME/WE); values are dicts of
-    {xco_race_id: [finisher_row, ...]}. Only populated for categories that
-    have been built during the current process lifetime.
+    Shaped {discipline: {uci_cat: {xco_race_id: [finisher_row, ...]}}}. Only
+    populated for the discipline/category pairs built during the current
+    process lifetime.
     """
     return _uci_xco_race_results_cache
 
 
-def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
+def build_uci_xco_history(uci_cat: str, months_back: int = 12,
+                          discipline: str = DEFAULT_DISCIPLINE) -> dict:
     """
-    Return {name_key: [race_result, ...]} for all UCI XCO competitions in the
-    past months_back months.  Includes ALL finishers with finish times
-    (not just point-scorers like IndividualEventRankings).
+    Return {name_key: [race_result, ...]} for every UCI competition in this
+    discipline in the past months_back months.  Includes ALL finishers with
+    finish times (not just point-scorers like IndividualEventRankings).
 
     name_key is 'firstname lastname' lowercased.  Results are cached in memory
     for the duration of the process so multiple races of the same category
     only trigger one build.
     """
-    uci_cat = _ranking_category(uci_cat)
-    if uci_cat in _uci_xco_history_cache:
-        return _uci_xco_history_cache[uci_cat]
+    disc = get_discipline(discipline)
+    # In cyclo-cross this folds WJ into WE: junior women share the women's
+    # ranking and, at every class 1/2 round, the women's race itself. Their own
+    # event at a championship is picked up per-race by
+    # supplement_from_uci_competition instead of widening the whole sweep.
+    uci_cat = _ranking_category(uci_cat, disc.code)
+    cached = _uci_xco_history_cache.get(disc.code, {}).get(uci_cat)
+    if cached is not None:
+        return cached
 
     # Deliberate deviation: the UCI computes the junior ranking over a calendar
     # year, not a rolling window. We use the rolling window for every category,
@@ -330,8 +426,11 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
     race_results_by_id: dict = {}  # {xco_race_id: [finisher_row, ...]}
     seen_comp_ids: set = set()
 
-    for year in sorted({cutoff.year, now.year}):
-        catalog = _get_uci_competition_catalog(year)
+    # Season labels, not calendar years: a cyclo-cross season runs Aug → Feb
+    # and the UCI files the whole span under the later year, so a 12-month
+    # window can straddle two of them.
+    for year in sorted({disc.season_year(cutoff), disc.season_year(now)}):
+        catalog = _get_uci_competition_catalog(year, disc.code)
         for comp_id, entry in catalog.get("by_id", {}).items():
             if comp_id in seen_comp_ids:
                 continue
@@ -340,7 +439,7 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
             if end_dt is None or end_dt < cutoff or end_dt > now:
                 continue
 
-            details = _get_competition_details(comp_id, year)
+            details = _get_competition_details(comp_id, year, disc.code)
             event_code = details.get("events", {}).get(uci_cat)
             if not event_code:
                 continue
@@ -376,7 +475,7 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
                     "nationality": er.get("nationality", ""),
                     "cat":         uci_cat,
                     "race_class":  race_class,
-                    "disc":        "XCO",
+                    "disc":        disc.code,
                 }
                 key = f"{fn} {ln}".lower()
                 by_name.setdefault(key, []).append(result)
@@ -402,8 +501,8 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
             if race_finishers:
                 race_results_by_id[xco_race_id] = race_finishers
 
-    _uci_xco_history_cache[uci_cat] = by_name
-    _uci_xco_race_results_cache[uci_cat] = race_results_by_id
+    _uci_xco_history_cache.setdefault(disc.code, {})[uci_cat] = by_name
+    _uci_xco_race_results_cache.setdefault(disc.code, {})[uci_cat] = race_results_by_id
     return by_name
 
 
@@ -413,7 +512,8 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12) -> dict:
 _ARCHIVE_CATEGORIES = ("ME", "WE", "MJ", "WJ")
 
 
-def build_uci_xco_country_archive(countries: list, years_back: int = 2) -> None:
+def build_uci_xco_country_archive(countries: list, years_back: int = 2,
+                                  discipline: str = DEFAULT_DISCIPLINE) -> None:
     """
     Broaden the UCI XCO results archive with competitions from `countries`
     going back `years_back` years — beyond build_uci_xco_history's normal
@@ -430,12 +530,13 @@ def build_uci_xco_country_archive(countries: list, years_back: int = 2) -> None:
     countries are races.yml discovery_countries: full English names like
     "Czech Republic", normalized to IOC codes via normalize_country().
     """
+    disc = get_discipline(discipline)
     country_codes = {normalize_country(c) for c in countries}
     now    = datetime.now()
     cutoff = now - timedelta(days=years_back * 365)
 
-    for year in range(cutoff.year, now.year + 1):
-        catalog = _get_uci_competition_catalog(year)
+    for year in range(disc.season_year(cutoff), disc.season_year(now) + 1):
+        catalog = _get_uci_competition_catalog(year, disc.code)
         for comp_id, entry in catalog.get("by_id", {}).items():
             if entry.get("country") not in country_codes:
                 continue
@@ -448,14 +549,15 @@ def build_uci_xco_country_archive(countries: list, years_back: int = 2) -> None:
             race_date   = dates_str.split(" - ")[-1].strip() if " - " in dates_str else dates_str
             xco_race_id = f"{race_date}|{comp_name}"
 
-            details    = _get_competition_details(comp_id, year)
+            details    = _get_competition_details(comp_id, year, disc.code)
             race_class = details.get("class", "")
 
             for uci_cat in _ARCHIVE_CATEGORIES:
                 event_code = details.get("events", {}).get(uci_cat)
                 if not event_code:
                     continue
-                by_id = _uci_xco_race_results_cache.setdefault(uci_cat, {})
+                by_id = _uci_xco_race_results_cache.setdefault(
+                    disc.code, {}).setdefault(uci_cat, {})
                 if xco_race_id in by_id:
                     continue  # already collected by build_uci_xco_history
 
@@ -488,7 +590,8 @@ def build_uci_xco_country_archive(countries: list, years_back: int = 2) -> None:
                     by_id[xco_race_id] = finishers
 
 
-def counting_result_ids(race_results: list, uci_cat: str) -> set:
+def counting_result_ids(race_results: list, uci_cat: str,
+                        discipline: str = DEFAULT_DISCIPLINE) -> set:
     """
     Which results actually contribute to a rider's ranking total, per art.
     4.16.008. Quotas apply *per bucket*, not to the field as a whole:
@@ -498,6 +601,9 @@ def counting_result_ids(race_results: list, uci_cat: str) -> set:
       XCO juniors series                        : best 4
       XCO juniors                               : best 4
       everything else                           : uncapped
+
+    Cyclo-cross (art. C1029) instead counts everything for every category
+    except the men's juniors, who get their best 6 class 1/2 results.
 
     Uncapped covers World Championships, World Cup rounds and Continental
     Championships. National Championships are uncapped too — a rider only
@@ -513,7 +619,8 @@ def counting_result_ids(race_results: list, uci_cat: str) -> set:
         if not pts:
             continue
         ident = (r.get("race_id", ""), pts)
-        bucket = _points_bucket(uci_cat, r.get("race_class", ""), r.get("race_name", ""))
+        bucket = _points_bucket(uci_cat, r.get("race_class", ""),
+                                r.get("race_name", ""), discipline)
         if bucket is None:
             uncapped.add(ident)
         else:
@@ -527,7 +634,8 @@ def counting_result_ids(race_results: list, uci_cat: str) -> set:
     return counting
 
 
-def compute_points_from_history(race_results: list, uci_cat: str) -> int:
+def compute_points_from_history(race_results: list, uci_cat: str,
+                                discipline: str = DEFAULT_DISCIPLINE) -> int:
     """
     Approximate a rider's current UCI ranking points total from their race
     history, applying the per-class quotas of art. 4.16.008. race_results is
@@ -538,8 +646,8 @@ def compute_points_from_history(race_results: list, uci_cat: str) -> int:
     else, where the UCI uses a calendar year — see build_uci_xco_history. They
     are therefore a form estimate, not the official junior standing.
     """
-    uci_cat = _ranking_category(uci_cat)
-    counting = counting_result_ids(race_results, uci_cat)
+    uci_cat = _ranking_category(uci_cat, discipline)
+    counting = counting_result_ids(race_results, uci_cat, discipline)
     return sum(
         r["uci_pts"] for r in race_results
         if r.get("uci_pts") and (r.get("race_id", ""), r["uci_pts"]) in counting
@@ -575,8 +683,12 @@ def _parse_year_month(date_str: str) -> tuple:
     return (int(m.group(2)), _months.get(m.group(1).lower(), 0))
 
 
-def _get_uci_competition_catalog(year: int) -> dict:
+def _get_uci_competition_catalog(year: int, discipline: str = DEFAULT_DISCIPLINE) -> dict:
     """
+    `year` is the UCI's season label, not necessarily a calendar year: a
+    cyclo-cross "2027" runs from August 2026 to February 2027. Use
+    Discipline.season_year() to derive it from a date.
+
     Returns:
       {
         "by_id":   {comp_id: {"name": str, "year": int, "dates": str}},
@@ -584,7 +696,8 @@ def _get_uci_competition_catalog(year: int) -> dict:
       }
     Fetched from the UCI calendar API and cached weekly.
     """
-    path = _uci_catalog_cache_path(year)
+    disc = get_discipline(discipline)
+    path = _uci_catalog_cache_path(year, disc.code)
     if os.path.exists(path):
         mtime = datetime.fromtimestamp(os.path.getmtime(path))
         if datetime.now() - mtime < timedelta(days=7):
@@ -595,11 +708,14 @@ def _get_uci_competition_catalog(year: int) -> dict:
     by_name: dict = {}
     seen: set = set()
 
+    params = {"discipline": disc.calendar_discipline, "year": year}
+    if disc.calendar_race_type:
+        params["raceType"] = disc.calendar_race_type
     for endpoint in ("past", "upcoming"):
         try:
             r = requests.get(
                 f"{_UCI_BASE}/api/calendar/{endpoint}",
-                params={"discipline": "MTB", "raceType": "XCO", "year": year},
+                params=params,
                 headers=_UCI_HEADERS,
                 timeout=20,
             )
@@ -650,9 +766,9 @@ def _parse_competition_class(props: dict) -> str:
     return m.group(1).split(" - ")[0].strip().upper()
 
 
-# Art. 4.16.008: how many results count, per class. Anything absent from this
-# map counts without limit — World Championships, World Cup rounds and
-# Continental Championships have no cap, and a National Championship is
+# MTB XCO, art. 4.16.008: how many results count, per class. Anything absent
+# from this map counts without limit — World Championships, World Cup rounds
+# and Continental Championships have no cap, and a National Championship is
 # effectively self-limiting since a rider only starts their own.
 _CLASS_QUOTA = {
     "HC": 5,   # class HC one-day events
@@ -661,16 +777,26 @@ _CLASS_QUOTA = {
     "2":  5,   # class 2
     "3":  5,   # class 3
 }
-# Count without limit. The UCI uses French abbreviations here: CM =
-# Championnat du Monde (World Championships), CDM = Coupe du Monde (World Cup),
-# CC = Continental Championships, CN = National Championships.
-_UNCAPPED_CLASSES = frozenset({"CM", "CDM", "CC", "CN"})
 # Stage races share a single quota "regardless the class".
 _STAGE_CLASSES = frozenset({"SHC", "S1", "S2"})
 _STAGE_QUOTA = 3
 # Juniors are ranked on their own two buckets rather than per class.
 _JUNIOR_SERIES_QUOTA = 4
 _JUNIOR_QUOTA = 4
+
+# Cyclo-cross, art. C1029 (UCI 5.1.049): "for every category except juniors,
+# all results are taken into account". Only the men's junior ranking is
+# capped, and on two buckets:
+#   - junior race at a class 1 or class 2 event : best 6
+#   - junior UCI World Cup round               : best 5
+# Junior women are not capped here because the regulations rank them inside
+# the women's classification (art. C1025), where nothing is capped — the
+# separate Women Junior ranking dataride publishes is a display of the same
+# uncapped points.
+_CX_JUNIOR_QUOTA    = 6
+_CX_JUNIOR_WC_QUOTA = 5
+# The cyclo-cross calendar writes class codes with the letter ("C1", "C2"),
+# unlike MTB's bare "1"/"2" — worth remembering when reading _CLASS_QUOTA.
 
 
 def _is_junior_series(race_name: str) -> bool:
@@ -679,17 +805,36 @@ def _is_junior_series(race_name: str) -> bool:
     return "junior series" in (race_name or "").lower()
 
 
-def _points_bucket(uci_cat: str, race_class: str, race_name: str) -> "str | None":
+def _points_bucket(uci_cat: str, race_class: str, race_name: str,
+                   discipline: str = DEFAULT_DISCIPLINE) -> "str | None":
     """Which quota bucket a result falls into, or None when it is uncapped."""
+    disc = get_discipline(discipline)
     cls = (race_class or "").upper()
+
+    if disc.code == CX:
+        # Tested before the uncapped-class check, unlike XCO below: in
+        # cyclo-cross the junior World Cup is itself capped (best 5), so
+        # letting CDM short-circuit to "uncapped" would be wrong.
+        if _ranking_category(uci_cat, disc.code) != "MJ":
+            # Every other category counts every result — see _CX_JUNIOR_QUOTA.
+            return None
+        if cls == "CDM":
+            return "CXJWC"
+        if cls in disc.uncapped_classes:
+            return None
+        # Class 1 and class 2 share one best-6 bucket. An unclassified junior
+        # round falls here too: it is far likelier to be a domestic C1/C2 than
+        # an unlabelled World Cup, which the CDM branch already caught.
+        return "CXJ"
+
     # Checked before the junior split: World Cups and championships are
     # uncapped for juniors too, and putting the junior branch first would have
     # swept a junior's World Cup results into their best-4 quota.
-    if cls in _UNCAPPED_CLASSES:
+    if cls in disc.uncapped_classes:
         return None
     if cls in _STAGE_CLASSES:
         return "STAGE"
-    if _ranking_category(uci_cat) in ("MJ", "WJ"):
+    if _ranking_category(uci_cat, disc.code) in ("MJ", "WJ"):
         # Junior ranking has two capped buckets and no per-class split. An
         # unclassified event still belongs in one of them — several Junior
         # Series rounds carry no class code at all.
@@ -704,10 +849,15 @@ def _bucket_quota(bucket: str) -> int:
         return _JUNIOR_SERIES_QUOTA
     if bucket == "J":
         return _JUNIOR_QUOTA
+    if bucket == "CXJ":
+        return _CX_JUNIOR_QUOTA
+    if bucket == "CXJWC":
+        return _CX_JUNIOR_WC_QUOTA
     return _CLASS_QUOTA.get(bucket, 0)
 
 
-def _get_competition_details(competition_id: str, year: int) -> dict:
+def _get_competition_details(competition_id: str, year: int,
+                             discipline: str = DEFAULT_DISCIPLINE) -> dict:
     """
     Returns {"events": {uci_cat: event_code}, "class": "<code>"} for a
     competition by parsing its UCI detail page. Cached per competition.
@@ -717,14 +867,15 @@ def _get_competition_details(competition_id: str, year: int) -> dict:
     The cache file is suffixed v2 because the old format stored only the event
     code mapping; a stale v1 file would silently yield no class.
     """
-    path = os.path.join(_uci_comp_dir(), f"{competition_id}.v2.json")
+    disc = get_discipline(discipline)
+    path = os.path.join(_uci_comp_dir(disc.code), f"{competition_id}.v2.json")
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             return json.load(f)
 
     try:
         r = requests.get(
-            f"{_UCI_BASE}/competition-details/{year}/MTB/{competition_id}",
+            f"{_UCI_BASE}/competition-details/{year}/{disc.calendar_discipline}/{competition_id}",
             headers={**_UCI_HEADERS, "Accept": "text/html"},
             timeout=15,
         )
@@ -739,8 +890,12 @@ def _get_competition_details(competition_id: str, year: int) -> dict:
         label_to_cat = {v.lower(): k for k, v in _UCI_CATEGORY_LABELS.items()}
         # Sort longest first so "women elite" is tried before "men elite" (substring of it)
         sorted_labels = sorted(label_to_cat, key=len, reverse=True)
-        # Non-XCO disciplines to skip (XCE=endurance, XCR=relay, XCC=short track,
-        # DHI=downhill, EDR=enduro, XCM=marathon).  We want XCO only.
+        # Sibling disciplines to skip (XCE=endurance, XCR=relay, XCC=short
+        # track, DHI=downhill, EDR=enduro, XCM=marathon) — only relevant to
+        # MTB, whose competitions bundle several. A cyclo-cross competition
+        # labels its groups plainly ("Men Elite"), and the team relay it can
+        # also carry is a Mixed category we never map, so the same filter is
+        # harmless there.
         _NON_XCO = frozenset({"xce", "xcr", "xcc", "edr", "enduro", "dhi", "dhp", "dho", "downhill", "xcm"})
         # Two-pass: XCO-labelled groups win over plain (no-discipline) groups.
         xco_codes: dict = {}
@@ -776,9 +931,10 @@ def _get_competition_details(competition_id: str, year: int) -> dict:
         return {}
 
 
-def _get_competition_event_codes(competition_id: str, year: int) -> dict:
+def _get_competition_event_codes(competition_id: str, year: int,
+                                 discipline: str = DEFAULT_DISCIPLINE) -> dict:
     """Backwards-compatible view over _get_competition_details."""
-    return _get_competition_details(competition_id, year).get("events", {})
+    return _get_competition_details(competition_id, year, discipline).get("events", {})
 
 
 def _normalize_race_time(raw: str) -> str:
@@ -848,14 +1004,15 @@ def _get_uci_event_results(event_code: str) -> list:
         return []
 
 
-def _enrich_results_with_times(results: list, uci_cat: str, catalog: dict) -> None:
+def _enrich_results_with_times(results: list, uci_cat: str, catalog: dict,
+                               discipline: str = DEFAULT_DISCIPLINE) -> None:
     """
     For each result, look up the UCI event code from the competition catalog,
     then fetch the full event results to fill in 'time'. Modifies results in-place.
     """
     by_id = catalog.get("by_id", {})
     by_name = catalog.get("by_name", {})
-    default_year = datetime.now().year
+    default_year = get_discipline(discipline).season_year()
 
     for res in results:
         if res.get("time"):
@@ -892,8 +1049,8 @@ def _enrich_results_with_times(results: list, uci_cat: str, catalog: dict) -> No
         if not comp_id:
             continue
 
-        event_codes = _get_competition_event_codes(comp_id, comp_year)
-        event_code = event_codes.get(uci_cat)
+        details = _get_competition_details(comp_id, comp_year, discipline)
+        event_code = _event_code_for(details, uci_cat, discipline)
         if not event_code:
             continue
         event_results = _get_uci_event_results(event_code)
@@ -1011,16 +1168,16 @@ def _match_rider_in_event_map(rider, name_map: dict) -> "dict | None":
     return None
 
 
-def enrich_with_race_results(riders: list, competition_id: str, year: int, uci_cat: str) -> None:
+def enrich_with_race_results(riders: list, competition_id: str, year: int, uci_cat: str,
+                             discipline: str = DEFAULT_DISCIPLINE) -> None:
     """
     Fetch the official UCI final classification for a specific (already-run)
     competition and attach each matched rider's finishing rank/time as
     result_rank/result_time. Used for past races so the site can display the
     actual results instead of the pre-race start-list order.
     """
-    uci_cat = _ranking_category(uci_cat)
-    event_codes = _get_competition_event_codes(competition_id, year)
-    event_code = event_codes.get(uci_cat)
+    details = _get_competition_details(competition_id, year, discipline)
+    event_code = _event_code_for(details, uci_cat, discipline)
     if not event_code:
         return
 
@@ -1039,7 +1196,8 @@ def enrich_with_race_results(riders: list, competition_id: str, year: int, uci_c
         rider.result_time = er.get("time", "")
 
 
-def riders_from_uci_competition(competition_id: str, year: int, uci_cat: str) -> list:
+def riders_from_uci_competition(competition_id: str, year: int, uci_cat: str,
+                                discipline: str = DEFAULT_DISCIPLINE) -> list:
     """
     Reconstruct a past race's field from its official UCI classification.
 
@@ -1048,21 +1206,20 @@ def riders_from_uci_competition(competition_id: str, year: int, uci_cat: str) ->
     classification, so for a race that has already run the finishers are a
     better source than the organiser's site — it cannot rot.
 
-    Returns [] when the UCI has no distinct event for this category, rather
-    than falling back to a related one. In particular U23 has no standalone
-    UCI event: _ranking_category() aliases MU23/WU23 to ME/WE for *ranking*
-    lookups, which is correct there, but reusing it here would copy the Elite
-    finishers into the U23 race and invent a field that never started.
+    Returns [] when the UCI has no distinct event for this exact category,
+    rather than falling back to a related one — this is the one place the
+    fallback chain in _event_code_for() must not apply. U23 has no standalone
+    UCI event, and cyclo-cross junior women have none at a class 1/2 round;
+    borrowing the Elite or combined-women finishers here would invent a field
+    that never started, rather than merely reading a rider's result out of the
+    race she actually rode.
     """
-    if _ranking_category(uci_cat) != uci_cat:
-        console.print(
-            f"[dim]  {uci_cat} has no standalone UCI event — cannot rebuild from results[/dim]"
-        )
-        return []
-
-    event_codes = _get_competition_event_codes(competition_id, year)
+    event_codes = _get_competition_event_codes(competition_id, year, discipline)
     event_code = event_codes.get(uci_cat)
     if not event_code:
+        console.print(
+            f"[dim]  No standalone UCI {uci_cat} event — cannot rebuild from results[/dim]"
+        )
         return []
 
     event_results = _get_uci_event_results(event_code)
@@ -1089,7 +1246,8 @@ def riders_from_uci_competition(competition_id: str, year: int, uci_cat: str) ->
 
 
 def supplement_from_uci_competition(
-    riders: list, competition_id: str, year: int, uci_cat: str
+    riders: list, competition_id: str, year: int, uci_cat: str,
+    discipline: str = DEFAULT_DISCIPLINE
 ) -> None:
     """
     Fetch the full event results for a specific UCI competition and supplement
@@ -1098,9 +1256,8 @@ def supplement_from_uci_competition(
     (so their result won't appear in IndividualEventRankings).
     Modifies rider.race_results in-place.
     """
-    uci_cat = _ranking_category(uci_cat)
-    event_codes = _get_competition_event_codes(competition_id, year)
-    event_code = event_codes.get(uci_cat)
+    details = _get_competition_details(competition_id, year, discipline)
+    event_code = _event_code_for(details, uci_cat, discipline)
     if not event_code:
         return
 
@@ -1111,7 +1268,7 @@ def supplement_from_uci_competition(
     name_map = _build_event_name_map(event_results)
 
     # Derive race metadata from the competition catalog (already cached)
-    catalog = _get_uci_competition_catalog(year)
+    catalog = _get_uci_competition_catalog(year, discipline)
     comp_entry = catalog.get("by_id", {}).get(competition_id, {})
     comp_name = comp_entry.get("name", f"UCI Competition {competition_id}")
     comp_dates = comp_entry.get("dates", "")
@@ -1142,12 +1299,13 @@ def supplement_from_uci_competition(
             "location":  comp_entry.get("venue", ""),
             "rank":      int(er["rank"]) if er.get("rank") and str(er["rank"]).isdigit() else None,
             "time":      er.get("time", ""),
-            "cat":       uci_cat,
-            "disc":      "XCO",
+            "cat":       _ranking_category(uci_cat, discipline),
+            "disc":      get_discipline(discipline).code,
         })
 
 
-def supplement_from_rider_histories(riders: list, uci_cat: str) -> None:
+def supplement_from_rider_histories(riders: list, uci_cat: str,
+                                    discipline: str = DEFAULT_DISCIPLINE) -> None:
     """
     Supplement all riders with zero-point results from every competition that
     appears in any rider's IndividualEventRankings history.
@@ -1173,22 +1331,33 @@ def supplement_from_rider_histories(riders: list, uci_cat: str) -> None:
     if not pairs:
         return
 
-    catalogs = {y: _get_uci_competition_catalog(y) for y in {y for _, y in pairs}}
+    catalogs = {y: _get_uci_competition_catalog(y, discipline)
+                for y in {y for _, y in pairs}}
 
     supplemented_ids: set = set()
     for race_name, year in pairs:
         comp_ids = catalogs[year].get("by_name", {}).get(race_name.lower(), [])
         for comp_id in comp_ids:
             if comp_id not in supplemented_ids:
-                supplement_from_uci_competition(riders, comp_id, year, uci_cat)
+                supplement_from_uci_competition(
+                    riders, comp_id, year, uci_cat, discipline)
                 supplemented_ids.add(comp_id)
 
 
-def fetch_rider_history_uci(object_id: int, uci_cat: str, cache: dict) -> list:
-    """Fetch UCI race result history for a rider from dataride.uci.ch."""
+def fetch_rider_history_uci(object_id: int, uci_cat: str, cache: dict,
+                            discipline: str = DEFAULT_DISCIPLINE) -> list:
+    """Fetch UCI race result history for a rider from dataride.uci.ch.
+
+    Superseded by build_uci_xco_history(): IndividualEventRankings only returns
+    races where the rider actually scored, so a low-ranked rider who starts
+    everything comes back with an empty history. Kept for the times it fills in
+    below, and parameterised by discipline so it can never quietly answer a
+    cyclo-cross question with MTB data.
+    """
     if not object_id:
         return []
-    path = _rider_cache_path(f"uci_{object_id}")
+    disc = get_discipline(discipline)
+    path = _rider_cache_path(f"uci_{_disc_prefix(disc.code)}{object_id}")
     if os.path.exists(path):
         mtime = datetime.fromtimestamp(os.path.getmtime(path))
         if _rider_history_is_fresh(mtime):
@@ -1201,16 +1370,16 @@ def fetch_rider_history_uci(object_id: int, uci_cat: str, cache: dict) -> list:
         "groupId":            cache.get("group_id", 0),
         "baseRankingTypeId":  _DATARIDE_RANK_TYPE_ID,
         "disciplineSeasonId": cache.get("season_id", 0),
-        "disciplineId":       _DATARIDE_DISC_ID,
+        "disciplineId":       disc.dataride_discipline_id,
         "categoryId":         _DATARIDE_CATEGORY_IDS.get(uci_cat, 0),
-        "raceTypeId":         _DATARIDE_XCO_TYPE_ID,
+        "raceTypeId":         disc.dataride_race_type_id,
         "countryId": 0, "teamId": 0,
         "take": 200, "skip": 0, "page": 1, "pageSize": 200,
     }
     try:
         r = requests.post(
             f"{DATARIDE_BASE}/iframe/IndividualEventRankings/",
-            data=data, headers=_DATARIDE_HEADERS, timeout=20,
+            data=data, headers=_dataride_headers(disc), timeout=20,
         )
         r.raise_for_status()
         items = r.json().get("data", [])
@@ -1224,14 +1393,14 @@ def fetch_rider_history_uci(object_id: int, uci_cat: str, cache: dict) -> list:
                 "rank":      item.get("Rank"),
                 "time":      "",
                 "cat":       uci_cat,
-                "disc":      "XCO",
+                "disc":      disc.code,
             }
             for item in items
             if item.get("Rank") is not None
         ]
         # Enrich with times from UCI calendar API
-        catalog = _get_uci_competition_catalog(datetime.now().year)
-        _enrich_results_with_times(results, uci_cat, catalog)
+        catalog = _get_uci_competition_catalog(disc.season_year(), disc.code)
+        _enrich_results_with_times(results, uci_cat, catalog, disc.code)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False)
         time.sleep(0.2)
@@ -1461,80 +1630,113 @@ def _parse_dataride_name(display_name: str) -> tuple:
     return firstname, lastname
 
 
-def _dataride_get_ranking_params(uci_cat: str) -> tuple:
-    """Return (season_id, ranking_id, moment_id) for the given UCI category."""
-    year = datetime.now().year
+def _dataride_headers(disc) -> dict:
+    return {**_DATARIDE_HEADERS,
+            "Referer": f"{DATARIDE_BASE}/iframe/rankings/{disc.dataride_discipline_id}"}
+
+
+def _dataride_get_ranking_params(uci_cat: str,
+                                 discipline: str = DEFAULT_DISCIPLINE) -> tuple:
+    """Return (season_id, ranking_id, moment_id, group_id) for a UCI category.
+
+    A race-type filter is only sent when the discipline splits its rankings by
+    race type (MTB does: XCO, XCM, DHI...). Cyclo-cross rankings carry
+    RaceTypeId 0, and sending the filter anyway silently returns the *road*
+    world ranking instead — Pogačar at the top of a cyclo-cross start list.
+    """
+    disc = get_discipline(discipline)
+    year = disc.season_year()
     r = requests.get(
         f"{DATARIDE_BASE}/iframe/GetDisciplineSeasons/",
-        params={"disciplineId": _DATARIDE_DISC_ID},
-        headers=_DATARIDE_HEADERS,
+        params={"disciplineId": disc.dataride_discipline_id},
+        headers=_dataride_headers(disc),
         timeout=15,
     )
     r.raise_for_status()
     seasons = r.json()
     season_id = next((s["Id"] for s in seasons if s["Year"] == year), None)
     if not season_id:
-        raise RuntimeError(f"No dataride season found for year {year}")
+        # A cyclo-cross season is only published once the UCI opens it, so
+        # early in the autumn the current label may not exist yet. Fall back to
+        # the most recent one — art. C0922 says exactly that: use the previous
+        # season's final ranking until this season's is published.
+        newest = max(seasons, key=lambda s: s["Year"], default=None)
+        if not newest:
+            raise RuntimeError(
+                f"No dataride seasons for {disc.label} (looked for {year})"
+            )
+        console.print(
+            f"[dim]  {disc.label} season {year} not published yet — "
+            f"using {newest['Year']}[/dim]"
+        )
+        season_id = newest["Id"]
 
     cat_id = _DATARIDE_CATEGORY_IDS[uci_cat]
+    filters = [("CategoryId", cat_id), ("SeasonId", season_id)]
+    if disc.dataride_race_type_id:
+        filters.insert(0, ("RaceTypeId", disc.dataride_race_type_id))
     data = {
-        "disciplineId": _DATARIDE_DISC_ID,
+        "disciplineId": disc.dataride_discipline_id,
         "take": 10, "skip": 0, "page": 1, "pageSize": 10,
         "filter[logic]": "and",
-        "filter[filters][0][field]": "RaceTypeId",
-        "filter[filters][0][value]": _DATARIDE_XCO_TYPE_ID,
-        "filter[filters][1][field]": "CategoryId",
-        "filter[filters][1][value]": cat_id,
-        "filter[filters][2][field]": "SeasonId",
-        "filter[filters][2][value]": season_id,
     }
+    for i, (field_, value) in enumerate(filters):
+        data[f"filter[filters][{i}][field]"] = field_
+        data[f"filter[filters][{i}][value]"] = value
     r = requests.post(
         f"{DATARIDE_BASE}/iframe/RankingsDiscipline/",
         data=data,
-        headers=_DATARIDE_HEADERS,
+        headers=_dataride_headers(disc),
         timeout=15,
     )
     r.raise_for_status()
     result = r.json()
-    ranking = result[0]["Rankings"][0]
+    if not result or not result[0].get("Rankings"):
+        raise RuntimeError(f"No {disc.label} ranking published for {uci_cat}")
+    # The individual ranking (RankingTypeId 1) — the nation ranking shares the
+    # same group and would otherwise win whenever it is listed first.
+    rankings = result[0]["Rankings"]
+    ranking = next((rk for rk in rankings
+                    if rk.get("RankingTypeId") == _DATARIDE_RANK_TYPE_ID), rankings[0])
     return season_id, ranking["Id"], ranking["MomentId"], result[0]["GroupId"]
 
 
 def _dataride_fetch_all_riders(season_id: int, ranking_id: int, moment_id: int,
-                                cat_id: int) -> list:
+                                cat_id: int,
+                                discipline: str = DEFAULT_DISCIPLINE) -> list:
     """Fetch the complete paginated rider list from dataride.uci.ch."""
+    disc = get_discipline(discipline)
     riders: list = []
     skip = 0
     page_size = 100
     while True:
+        filters = [
+            ("CategoryId", cat_id),
+            ("SeasonId", season_id),
+            ("MomentId", moment_id),
+            ("CountryId", 0),
+            ("IndividualName", ""),
+            ("TeamName", ""),
+        ]
+        if disc.dataride_race_type_id:
+            filters.insert(0, ("RaceTypeId", disc.dataride_race_type_id))
         data = {
             "rankingId": ranking_id,
-            "disciplineId": _DATARIDE_DISC_ID,
+            "disciplineId": disc.dataride_discipline_id,
             "rankingTypeId": _DATARIDE_RANK_TYPE_ID,
             "take": page_size,
             "skip": skip,
             "page": (skip // page_size) + 1,
             "pageSize": page_size,
             "filter[logic]": "and",
-            "filter[filters][0][field]": "RaceTypeId",
-            "filter[filters][0][value]": _DATARIDE_XCO_TYPE_ID,
-            "filter[filters][1][field]": "CategoryId",
-            "filter[filters][1][value]": cat_id,
-            "filter[filters][2][field]": "SeasonId",
-            "filter[filters][2][value]": season_id,
-            "filter[filters][3][field]": "MomentId",
-            "filter[filters][3][value]": moment_id,
-            "filter[filters][4][field]": "CountryId",
-            "filter[filters][4][value]": 0,
-            "filter[filters][5][field]": "IndividualName",
-            "filter[filters][5][value]": "",
-            "filter[filters][6][field]": "TeamName",
-            "filter[filters][6][value]": "",
         }
+        for i, (field_, value) in enumerate(filters):
+            data[f"filter[filters][{i}][field]"] = field_
+            data[f"filter[filters][{i}][value]"] = value
         r = requests.post(
             f"{DATARIDE_BASE}/iframe/ObjectRankings/",
             data=data,
-            headers=_DATARIDE_HEADERS,
+            headers=_dataride_headers(disc),
             timeout=30,
         )
         r.raise_for_status()
@@ -1549,20 +1751,27 @@ def _dataride_fetch_all_riders(season_id: int, ranking_id: int, moment_id: int,
     return riders
 
 
-def build_uci_cache(uci_cat: str) -> dict:
-    """Downloads the full UCI XCO ranking from dataride.uci.ch and saves to cache."""
-    console.print(f"\n[cyan]Downloading UCI ranking ({uci_cat}) from dataride.uci.ch...[/cyan]")
+def build_uci_cache(uci_cat: str, discipline: str = DEFAULT_DISCIPLINE) -> dict:
+    """Downloads the full UCI ranking from dataride.uci.ch and saves to cache."""
+    disc = get_discipline(discipline)
+    console.print(
+        f"\n[cyan]Downloading UCI {disc.label} ranking ({uci_cat}) "
+        f"from dataride.uci.ch...[/cyan]"
+    )
     cat_id = _DATARIDE_CATEGORY_IDS.get(uci_cat)
     if not cat_id:
         console.print(f"[yellow]Unknown UCI category: {uci_cat}[/yellow]")
-        return load_cache(uci_cat)
+        return load_cache(uci_cat, disc.code)
 
     try:
-        season_id, ranking_id, moment_id, group_id = _dataride_get_ranking_params(uci_cat)
-        raw_riders = _dataride_fetch_all_riders(season_id, ranking_id, moment_id, cat_id)
+        season_id, ranking_id, moment_id, group_id = _dataride_get_ranking_params(
+            uci_cat, disc.code)
+        raw_riders = _dataride_fetch_all_riders(
+            season_id, ranking_id, moment_id, cat_id, disc.code)
     except Exception as e:
-        console.print(f"[yellow]Failed to fetch UCI ranking ({uci_cat}): {e}[/yellow]")
-        return load_cache(uci_cat)
+        console.print(
+            f"[yellow]Failed to fetch UCI {disc.label} ranking ({uci_cat}): {e}[/yellow]")
+        return load_cache(uci_cat, disc.code)
 
     by_name: dict = {}
     for item in raw_riders:
@@ -1591,8 +1800,10 @@ def build_uci_cache(uci_cat: str) -> dict:
         }
 
     if not by_name:
-        console.print(f"[yellow]No riders found for {uci_cat}, keeping existing cache[/yellow]")
-        return load_cache(uci_cat)
+        console.print(
+            f"[yellow]No {disc.label} riders found for {uci_cat}, "
+            f"keeping existing cache[/yellow]")
+        return load_cache(uci_cat, disc.code)
 
     cache = {
         "by_name":      by_name,
@@ -1603,18 +1814,21 @@ def build_uci_cache(uci_cat: str) -> dict:
         "moment_id":    moment_id,
         "group_id":     group_id,
         "season_id":    season_id,
+        "discipline":   disc.code,
     }
-    save_cache(uci_cat, cache)
-    console.print(f"[green]✓ Loaded {len(by_name)} riders ({uci_cat})[/green]")
+    save_cache(uci_cat, cache, disc.code)
+    console.print(f"[green]✓ Loaded {len(by_name)} {disc.label} riders ({uci_cat})[/green]")
     return cache
 
 
-def get_uci_cache(uci_cat: str, force_refresh: bool = False) -> dict:
-    uci_cat = _ranking_category(uci_cat)
-    if not force_refresh and cache_is_fresh(uci_cat):
-        console.print(f"[dim]Using cached UCI ranking ({uci_cat})[/dim]")
-        return load_cache(uci_cat)
-    return build_uci_cache(uci_cat)
+def get_uci_cache(uci_cat: str, force_refresh: bool = False,
+                  discipline: str = DEFAULT_DISCIPLINE) -> dict:
+    disc = get_discipline(discipline)
+    uci_cat = _ranking_category(uci_cat, disc.code)
+    if not force_refresh and cache_is_fresh(uci_cat, disc.code):
+        console.print(f"[dim]Using cached UCI {disc.label} ranking ({uci_cat})[/dim]")
+        return load_cache(uci_cat, disc.code)
+    return build_uci_cache(uci_cat, disc.code)
 
 
 def find_xcodata_slug(rider: Rider) -> str:
@@ -1693,37 +1907,60 @@ def lookup_rider(rider: Rider, cache: dict) -> Rider:
     return rider
 
 
-# Czech Cup XCO (cpxcmtb.sportsoft.cz) category IDs used in the standings form
-_CP_XCO_CATEGORY_IDS: dict[str, str] = {
-    "MJ": "7",   # Junioři  (17–18)
-    "WJ": "8",   # Juniorky (17–18)
-    "ME": "9",   # Muži Elita / Pod 23
-    "WE": "10",  # Ženy
-}
+# Bumped when the parse changes shape. v1 summed every numeric cell after the
+# club column, which swept up the sheet's own "Celkem" and returned exactly
+# double the real total; the sort order never noticed, so nothing looked wrong.
+# A stale v1 file would keep serving those doubled numbers until its weekday
+# TTL happened to expire, hence a new filename rather than a silent fix.
+_CUP_CACHE_VERSION = "v2"
 
 
-def _cp_xco_cache_path(standings_url: str, category_id: str) -> str:
+def _cup_cache_path(standings_url: str, category_id: str,
+                    discipline: str = DEFAULT_DISCIPLINE) -> str:
     m = re.search(r"/(\d{4})/", standings_url)
     year = m.group(1) if m else "unknown"
     os.makedirs(CACHE_DIR, exist_ok=True)
-    return os.path.join(CACHE_DIR, f"cp_xco_{year}_{category_id}.json")
+    prefix = "cp_xco" if discipline == XCO else f"cup_{discipline.lower()}"
+    return os.path.join(
+        CACHE_DIR, f"{prefix}_{_CUP_CACHE_VERSION}_{year}_{category_id}.json"
+    )
 
 
-def fetch_cp_xco_standings(standings_url: str, uci_cat: str) -> dict:
+def _cup_row_total(cells: list, total_idx: int) -> int:
+    """Season total for one standings row.
+
+    Prefers the sheet's own "Celkem" column, whose index the header gives us —
+    it already reflects whatever best-N rule the series applies. Falls back to
+    summing everything after the club column only when the header had no
+    "Celkem", and then stops before the last two cells (the total itself and
+    the "Detail" link) so the total is not counted twice.
     """
-    Fetches Czech Cup XCO standings for a UCI category from cpxcmtb.sportsoft.cz.
+    if total_idx is not None and total_idx < len(cells):
+        text = cells[total_idx]
+        return int(text) if text.isdigit() else 0
+    return sum(int(c) for c in cells[5:-2] if c.isdigit())
+
+
+def fetch_cup_standings(standings_url: str, uci_cat: str,
+                        discipline: str = DEFAULT_DISCIPLINE) -> dict:
+    """
+    Fetch Czech Cup standings for a UCI category from a sportsoft results page
+    (cpxcmtb.sportsoft.cz for MTB XCO, cpcx.sportsoft.cz for cyclo-cross).
 
     The site is ASP.NET WebForms: a GET retrieves the ViewState, then a POST
-    selects the desired category.  Points per race are summed; '---' means 0.
+    selects the desired category.  The layouts differ slightly between the two
+    series (MTB carries an extra blank column), so the columns are read off the
+    header rather than by fixed index.
 
-    Returns {ascii_full_name: total_points} keyed by diacritic-stripped lowercase
-    'firstname lastname' so callers can do a direct dict lookup.
+    Returns {ascii_full_name: total_points} keyed by diacritic-stripped
+    lowercase 'firstname lastname' so callers can do a direct dict lookup.
     """
-    category_id = _CP_XCO_CATEGORY_IDS.get(uci_cat)
+    disc = get_discipline(discipline)
+    category_id = disc.cup_category_ids.get(uci_cat)
     if not category_id:
         return {}
 
-    cache_file = _cp_xco_cache_path(standings_url, category_id)
+    cache_file = _cup_cache_path(standings_url, category_id, disc.code)
     if os.path.exists(cache_file):
         mtime = datetime.fromtimestamp(os.path.getmtime(cache_file))
         if _rider_history_is_fresh(mtime):
@@ -1731,7 +1968,11 @@ def fetch_cp_xco_standings(standings_url: str, uci_cat: str) -> dict:
                 return json.load(f)
 
     try:
-        resp = requests.get(standings_url, headers=HEADERS, timeout=20)
+        # A session, not bare requests: these sites bounce the first request
+        # through ?AspxAutoDetectCookieSupport=1 and only serve the page once
+        # the cookie comes back, so without a cookie jar every GET redirects.
+        session = requests.Session()
+        resp = session.get(standings_url, headers=HEADERS, timeout=20)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
 
@@ -1739,7 +1980,7 @@ def fetch_cp_xco_standings(standings_url: str, uci_cat: str) -> dict:
             tag = soup.find("input", {"name": name})
             return tag["value"] if tag else ""
 
-        resp2 = requests.post(
+        resp2 = session.post(
             standings_url,
             headers={**HEADERS, "Content-Type": "application/x-www-form-urlencoded"},
             data={
@@ -1760,39 +2001,75 @@ def fetch_cp_xco_standings(standings_url: str, uci_cat: str) -> dict:
         if not tables:
             return {}
 
+        table = tables[0]
+        header = table.find("tr")
+        headings = [th.get_text(strip=True).lower()
+                    for th in header.find_all(["th", "td"])] if header else []
+        total_idx = headings.index("celkem") if "celkem" in headings else None
+
         result: dict[str, int] = {}
-        for row in tables[0].find_all("tr")[1:]:
-            cells = row.find_all("td")
+        for row in table.find_all("tr")[1:]:
+            cells = [c.get_text(strip=True) for c in row.find_all("td")]
             if len(cells) < 7:
                 continue
-            rank_text = cells[0].get_text(strip=True).rstrip(".")
+            rank_text = cells[0].rstrip(".")
             if not rank_text.isdigit():
                 continue
 
-            name_raw = cells[1].get_text(strip=True)
-            normalized = normalize_rider_name(name_raw)
+            normalized = normalize_rider_name(cells[1])
             key = _strip_diacritics(normalized.lower())
+            result[key] = _cup_row_total(cells, total_idx)
 
-            total = sum(
-                int(c.get_text(strip=True))
-                for c in cells[6:]
-                if c.get_text(strip=True).isdigit()
-            )
-            result[key] = total
-
-        with open(cache_file, "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False)
+        # An empty table is not a fact worth caching: early in a season the
+        # current page exists but nobody has scored yet, and fetch_first_cup_
+        # standings() is relying on that emptiness to fall through to last
+        # season. Caching it would keep the fallback in place for days after
+        # the first round has actually been ridden and scored.
+        if result:
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(result, f, ensure_ascii=False)
         return result
 
     except Exception as e:
-        console.print(f"[yellow]Could not fetch CP XCO standings: {e}[/yellow]")
+        console.print(f"[yellow]Could not fetch {disc.label} cup standings: {e}[/yellow]")
         return {}
 
 
-def enrich_cp_xco_points(riders: list, standings: dict) -> None:
-    """Assign cp_xco_points from Czech Cup standings to unranked riders."""
+def fetch_first_cup_standings(urls, uci_cat: str,
+                              discipline: str = DEFAULT_DISCIPLINE) -> dict:
+    """First non-empty standings among `urls`, tried in order.
+
+    races.yml lists the current season's page first and the previous season's
+    after it. Early in a cyclo-cross season the current page exists but is
+    empty — nobody has scored yet — and the grid for round one is set by last
+    season's final standings anyway (art. C0919), so falling through to it is
+    both the correct rule and the only source with data.
+    """
+    if isinstance(urls, str):
+        urls = [urls]
+    for url in urls or []:
+        standings = fetch_cup_standings(url, uci_cat, discipline)
+        if standings:
+            return standings
+    return {}
+
+
+def fetch_cp_xco_standings(standings_url: str, uci_cat: str) -> dict:
+    """Backwards-compatible MTB-only alias for fetch_cup_standings."""
+    return fetch_cup_standings(standings_url, uci_cat, XCO)
+
+
+def enrich_cup_points(riders: list, standings: dict, ranked_too: bool = False) -> None:
+    """Assign cp_xco_points from the domestic cup standings.
+
+    By default only unranked riders get a value: in MTB XCO the UCI ranking
+    decides the grid and the cup standing is just the last tie-break, so
+    filling it in for ranked riders would be noise. `ranked_too` is for
+    cyclo-cross, where the cup standing *is* the grid (art. C0919) and every
+    entrant's standing matters regardless of their UCI rank.
+    """
     for rider in riders:
-        if rider.uci_rank is not None:
+        if rider.uci_rank is not None and not ranked_too:
             continue
         key = _strip_diacritics(rider.full_name.lower())
         if key in standings:
@@ -1801,3 +2078,8 @@ def enrich_cp_xco_points(riders: list, standings: dict) -> None:
         # Try reversed order (start list may have last–first vs first–last)
         key_rev = _strip_diacritics(f"{rider.last_name} {rider.first_name}".lower())
         rider.cp_xco_points = standings.get(key_rev, 0)
+
+
+def enrich_cp_xco_points(riders: list, standings: dict) -> None:
+    """Backwards-compatible alias for enrich_cup_points."""
+    enrich_cup_points(riders, standings)

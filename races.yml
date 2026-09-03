@@ -1,3 +1,10 @@
+# Which disciplines get the multi-year, country-scoped archive sweep that fills
+# the Archive page. Every tracked discipline still collects its own rolling
+# 12 months (rider histories need that); this only buys extra depth, at the
+# cost of a competition-details request per event per country per year.
+archive_disciplines:
+  - XCO
+
 discovery_countries:
   - Czech Republic
   - Slovakia
@@ -802,3 +809,509 @@ races:
   uci_competition_id: 77334
   output: 29-mtb-cross-country-rund-um-den-roadlberg-wj.html
   location: "Wintersdorf, Austria"
+
+# ─── Cyclo-cross: JANEV Cup 2026/27 (Czech national cup) ──────────────────────
+#
+# `discipline: CX` switches the whole pipeline over to cyclo-cross: the UCI
+# cyclo-cross ranking and calendar rather than MTB's, the cyclo-cross season
+# label (a season runs Aug–Feb and the UCI files it under the later year), and
+# its points rules. Entries with no `discipline:` stay MTB XCO.
+#
+# The grid here is set by the cup standings, not the UCI ranking — art. C0919:
+# in year-long series riders line up "according to the current standings in
+# those series". `cup_standings_url` is therefore a list tried in order: this
+# season's page first, last season's behind it. Round one has no current
+# standings to read and last season's final table is exactly what seeds its
+# grid; from round two the current page takes over on its own.
+#
+# Junior women have no race of their own in the cup — they start with the women
+# and U23 and are scored in the women's classification, which is also how the
+# UCI ranks them (art. C1025). `birth_years:` pulls them back out of the
+# combined start list; 2009 and 2010 are the 17- and 18-year-olds of the
+# 2026/27 season. The national championship does run them separately, so its
+# entry names that course instead and needs no filter.
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3652
+  name: "JANEV Cup 2026 #1 Chýnov (UCI C1) — Men Juniors"
+  date: '2026-10-03'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 79090
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-1-chynov-mj.html
+  location: "Chýnov, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3652
+  name: "JANEV Cup 2026 #1 Chýnov (UCI C1) — Men Elite"
+  date: '2026-10-03'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 79090
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-1-chynov-me.html
+  location: "Chýnov, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3652
+  name: "JANEV Cup 2026 #1 Chýnov (UCI C1) — Women Elite"
+  date: '2026-10-03'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 79090
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-1-chynov-we.html
+  location: "Chýnov, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3652
+  name: "JANEV Cup 2026 #1 Chýnov (UCI C1) — Women Juniors"
+  date: '2026-10-03'
+  discipline: CX
+  category: Women Elite
+  uci_category: WJ
+  birth_years: [2009, 2010]
+  uci_competition_id: 79090
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-1-chynov-wj.html
+  location: "Chýnov, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3653
+  name: "JANEV Cup 2026 #2 Holé Vrchy (UCI C2) — Men Juniors"
+  date: '2026-10-17'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 79104
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-2-hole-vrchy-mj.html
+  location: "Holé Vrchy, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3653
+  name: "JANEV Cup 2026 #2 Holé Vrchy (UCI C2) — Men Elite"
+  date: '2026-10-17'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 79104
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-2-hole-vrchy-me.html
+  location: "Holé Vrchy, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3653
+  name: "JANEV Cup 2026 #2 Holé Vrchy (UCI C2) — Women Elite"
+  date: '2026-10-17'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 79104
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-2-hole-vrchy-we.html
+  location: "Holé Vrchy, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3653
+  name: "JANEV Cup 2026 #2 Holé Vrchy (UCI C2) — Women Juniors"
+  date: '2026-10-17'
+  discipline: CX
+  category: Women Elite
+  uci_category: WJ
+  birth_years: [2009, 2010]
+  uci_competition_id: 79104
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-2-hole-vrchy-wj.html
+  location: "Holé Vrchy, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3654
+  name: "JANEV Cup 2026 #3 Rýmařov (UCI C1) — Men Juniors"
+  date: '2026-10-24'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 79123
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-3-rymarov-mj.html
+  location: "Rýmařov, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3654
+  name: "JANEV Cup 2026 #3 Rýmařov (UCI C1) — Men Elite"
+  date: '2026-10-24'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 79123
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-3-rymarov-me.html
+  location: "Rýmařov, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3654
+  name: "JANEV Cup 2026 #3 Rýmařov (UCI C1) — Women Elite"
+  date: '2026-10-24'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 79123
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-3-rymarov-we.html
+  location: "Rýmařov, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3654
+  name: "JANEV Cup 2026 #3 Rýmařov (UCI C1) — Women Juniors"
+  date: '2026-10-24'
+  discipline: CX
+  category: Women Elite
+  uci_category: WJ
+  birth_years: [2009, 2010]
+  uci_competition_id: 79123
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-3-rymarov-wj.html
+  location: "Rýmařov, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3655
+  name: "JANEV Cup 2026 #4 Hlinsko (UCI C2) — Men Juniors"
+  date: '2026-10-31'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 79135
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-4-hlinsko-mj.html
+  location: "Hlinsko, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3655
+  name: "JANEV Cup 2026 #4 Hlinsko (UCI C2) — Men Elite"
+  date: '2026-10-31'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 79135
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-4-hlinsko-me.html
+  location: "Hlinsko, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3655
+  name: "JANEV Cup 2026 #4 Hlinsko (UCI C2) — Women Elite"
+  date: '2026-10-31'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 79135
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-4-hlinsko-we.html
+  location: "Hlinsko, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3655
+  name: "JANEV Cup 2026 #4 Hlinsko (UCI C2) — Women Juniors"
+  date: '2026-10-31'
+  discipline: CX
+  category: Women Elite
+  uci_category: WJ
+  birth_years: [2009, 2010]
+  uci_competition_id: 79135
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-4-hlinsko-wj.html
+  location: "Hlinsko, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3656
+  name: "JANEV Cup 2026 #5 Jičín (UCI C2) — Men Juniors"
+  date: '2026-11-14'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 79149
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-5-jicin-mj.html
+  location: "Jičín, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3656
+  name: "JANEV Cup 2026 #5 Jičín (UCI C2) — Men Elite"
+  date: '2026-11-14'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 79149
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-5-jicin-me.html
+  location: "Jičín, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3656
+  name: "JANEV Cup 2026 #5 Jičín (UCI C2) — Women Elite"
+  date: '2026-11-14'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 79149
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-5-jicin-we.html
+  location: "Jičín, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3656
+  name: "JANEV Cup 2026 #5 Jičín (UCI C2) — Women Juniors"
+  date: '2026-11-14'
+  discipline: CX
+  category: Women Elite
+  uci_category: WJ
+  birth_years: [2009, 2010]
+  uci_competition_id: 79149
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-5-jicin-wj.html
+  location: "Jičín, Czech Republic"
+
+# Not in the UCI calendar — no class and no competition id, so no
+# official results to enrich from or fall back on.
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3659
+  name: "JANEV Cup 2026 #6 Prachatice — Men Juniors"
+  date: '2026-11-17'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-6-prachatice-mj.html
+  location: "Prachatice, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3659
+  name: "JANEV Cup 2026 #6 Prachatice — Men Elite"
+  date: '2026-11-17'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-6-prachatice-me.html
+  location: "Prachatice, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3659
+  name: "JANEV Cup 2026 #6 Prachatice — Women Elite"
+  date: '2026-11-17'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-6-prachatice-we.html
+  location: "Prachatice, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3659
+  name: "JANEV Cup 2026 #6 Prachatice — Women Juniors"
+  date: '2026-11-17'
+  discipline: CX
+  category: Women Elite
+  uci_category: WJ
+  birth_years: [2009, 2010]
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-6-prachatice-wj.html
+  location: "Prachatice, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3657
+  name: "JANEV Cup 2026 #7 Kolín (UCI C2) — Men Juniors"
+  date: '2026-12-05'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 79168
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-7-kolin-mj.html
+  location: "Kolín, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3657
+  name: "JANEV Cup 2026 #7 Kolín (UCI C2) — Men Elite"
+  date: '2026-12-05'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 79168
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-7-kolin-me.html
+  location: "Kolín, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3657
+  name: "JANEV Cup 2026 #7 Kolín (UCI C2) — Women Elite"
+  date: '2026-12-05'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 79168
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-7-kolin-we.html
+  location: "Kolín, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3657
+  name: "JANEV Cup 2026 #7 Kolín (UCI C2) — Women Juniors"
+  date: '2026-12-05'
+  discipline: CX
+  category: Women Elite
+  uci_category: WJ
+  birth_years: [2009, 2010]
+  uci_competition_id: 79168
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-7-kolin-wj.html
+  location: "Kolín, Czech Republic"
+
+# Shares its registration event with MČR Mládeže the next day; the youth
+# categories that adds are excluded by `category:` anyway.
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3658
+  name: "JANEV Cup 2026 #8 Veselí nad Lužnicí (UCI C1) — Men Juniors"
+  date: '2026-12-12'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 79183
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-8-veseli-nad-luznici-mj.html
+  location: "Veselí nad Lužnicí, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3658
+  name: "JANEV Cup 2026 #8 Veselí nad Lužnicí (UCI C1) — Men Elite"
+  date: '2026-12-12'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 79183
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-8-veseli-nad-luznici-me.html
+  location: "Veselí nad Lužnicí, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3658
+  name: "JANEV Cup 2026 #8 Veselí nad Lužnicí (UCI C1) — Women Elite"
+  date: '2026-12-12'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 79183
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-8-veseli-nad-luznici-we.html
+  location: "Veselí nad Lužnicí, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3658
+  name: "JANEV Cup 2026 #8 Veselí nad Lužnicí (UCI C1) — Women Juniors"
+  date: '2026-12-12'
+  discipline: CX
+  category: Women Elite
+  uci_category: WJ
+  birth_years: [2009, 2010]
+  uci_competition_id: 79183
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: janev-cx-2026-8-veseli-nad-luznici-wj.html
+  location: "Veselí nad Lužnicí, Czech Republic"
+
+# The national championship closes the season. It is not part of the cup, and
+# art. C0921 grids it differently — defending champion first, then the UCI
+# ranking, then the cup standings. The site orders every cyclo-cross start list
+# by the cup standing (the cup rule, which covers the other eight races), so
+# treat the order shown here as indicative: the UCI rank and points columns are
+# the ones that actually decide this grid. The cup table is still worth
+# carrying, as it is the third tie-break. Note the Czech naming too: the
+# championship for the 2026/27 season is "MČR 2026", ridden in January 2027.
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3665
+  name: "MČR Cyklokros 2026 Mladá Boleslav (UCI CN) — Men Juniors"
+  date: '2027-01-10'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 79204
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: mcr-cx-2026-mlada-boleslav-mj.html
+  location: "Mladá Boleslav, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3665
+  name: "MČR Cyklokros 2026 Mladá Boleslav (UCI CN) — Men Elite"
+  date: '2027-01-10'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 79204
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: mcr-cx-2026-mlada-boleslav-me.html
+  location: "Mladá Boleslav, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3665
+  name: "MČR Cyklokros 2026 Mladá Boleslav (UCI CN) — Women Elite"
+  date: '2027-01-10'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 79204
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: mcr-cx-2026-mlada-boleslav-we.html
+  location: "Mladá Boleslav, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3665
+  name: "MČR Cyklokros 2026 Mladá Boleslav (UCI CN) — Women Juniors"
+  date: '2027-01-10'
+  discipline: CX
+  category: Women Juniors
+  uci_category: WJ
+  uci_competition_id: 79204
+  cup_standings_url:
+    - https://cpcx.sportsoft.cz/2026/results.aspx
+    - https://cpcx.sportsoft.cz/2025/results.aspx
+  output: mcr-cx-2026-mlada-boleslav-wj.html
+  location: "Mladá Boleslav, Czech Republic"

@@ -55,6 +55,25 @@ img.emoji {
 .side-nav a.active { background: #2a4a6b; border-color: #63b3ed; color: #e2e8f0; }
 .side-nav .icon { font-size: 1.05rem; width: 1.35rem; text-align: center; flex-shrink: 0; }
 
+/* Discipline switcher — rendered by src/discipline.ts only when the API
+   reports more than one discipline, so an MTB-only build shows nothing. */
+#discipline-switch:empty { display: none; }
+.discipline-switch {
+  display: flex; flex-direction: column; gap: .15rem;
+  margin-top: .9rem; padding-top: .9rem; border-top: 1px solid #2d3748;
+}
+.discipline-option {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .45rem .7rem; border-radius: 8px;
+  font: inherit; font-size: .85rem; font-weight: 600; text-align: left;
+  color: #a0aec0; background: transparent; cursor: pointer;
+  border: 1px solid transparent; transition: background .15s, border-color .15s, color .15s;
+}
+.discipline-option:hover { background: #2d3748; border-color: #4a5568; color: #cbd5e0; }
+.discipline-option.is-active {
+  background: #2a4a6b; border-color: #63b3ed; color: #e2e8f0;
+}
+
 .side-meta {
   font-size: .75rem; color: #718096; line-height: 1.7;
   border-top: 1px solid #2d3748; padding-top: 1rem;

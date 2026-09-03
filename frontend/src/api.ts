@@ -1,3 +1,5 @@
+import { apiQuery } from "./discipline.js";
+
 // Replaces the sql.js layer that downloaded the whole database into the
 // browser. The exported names and the Race/Rider/RaceResult shapes are
 // unchanged from that version, so the ui/ components did not need touching —
@@ -10,8 +12,13 @@
 // Override only to point a preview build at a different API.
 const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
 
+// Every read is scoped to the active discipline. Routes addressed by race slug
+// or rider id ignore the parameter where the row itself already settles the
+// question — see the Worker — so passing it everywhere is safe and keeps the
+// call sites from having to remember which is which.
 async function getJson<T>(path: string): Promise<T> {
-  const resp = await fetch(`${API_BASE}${path}`);
+  const url = `${API_BASE}${apiQuery(path)}`;
+  const resp = await fetch(url);
   if (!resp.ok) throw new Error(`${path} → ${resp.status} ${resp.statusText}`);
   return resp.json() as Promise<T>;
 }
@@ -23,6 +30,8 @@ export interface Race {
   date: string;
   uci_category: string;
   category: string;
+  /** 'XCO' or 'CX'. */
+  discipline: string;
 }
 
 export interface Rider {
@@ -63,9 +72,12 @@ export interface RaceResult {
   time: string;
   cat: string;
   uci_pts: number | null;
-  /** UCI competition class: '1', '2', '3', 'HC', 'CS', 'CN', 'S1'... Empty for
-   *  World Cups and World Championships, which carry no class code. */
+  /** UCI competition class. MTB writes bare digits ('1', '2', '3') plus 'HC',
+   *  'CS', 'S1'...; cyclo-cross writes 'C1', 'C2', 'CMM'. Both use 'CN' for a
+   *  national championship, and both leave it empty for World Cups and World
+   *  Championships, which carry no class code. */
   race_class: string;
+  discipline?: string;
 }
 
 export interface RiderListItem {
@@ -87,6 +99,7 @@ export interface RiderListItem {
   uci_points: number | null;
   team: string;
   uci_category: string;
+  discipline: string | null;
   races_count: number;
 }
 
@@ -105,6 +118,7 @@ export interface RiderDetail {
   uci_points: number | null;
   team: string;
   uci_category: string;
+  discipline: string | null;
 }
 
 export function getMeta(): Promise<Record<string, string>> {
@@ -156,9 +170,9 @@ export function getXcoRaceResults(xcoRaceId: string, category: string): Promise<
   );
 }
 
-/** One competition+category in the UCI XCO archive (browse granularity, not
- *  per-finisher) — every past race the archive sweep found in
- *  discovery_countries, independent of whether it's tracked in races.yml. */
+/** One competition+category in the UCI archive (browse granularity, not
+ *  per-finisher) — every past race the sweeps found, independent of whether
+ *  it's tracked in races.yml. */
 export interface UciArchiveRace {
   xco_race_id: string;
   category: string;
@@ -167,6 +181,7 @@ export interface UciArchiveRace {
   race_class: string;
   venue: string;
   country: string;
+  discipline: string;
   finishers: number;
 }
 

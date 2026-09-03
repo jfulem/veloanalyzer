@@ -4,6 +4,7 @@ import {
 } from "./api.js";
 import { catBadge, el, UCI_CAT_LABEL } from "./raceStats.js";
 import { $, flagEmoji, tierClass, applyTwemoji } from "./utils.js";
+import { initChrome } from "./discipline.js";
 
 function openRider(id: number): void {
   location.href = `./rider.html?id=${id}&from=${encodeURIComponent(location.href)}`;
@@ -167,3 +168,5 @@ function buildLegend(container: HTMLElement, present: Set<string>, onChange: (ca
   loading.style.display = "none";
   content.style.display = "block";
 })();
+
+initChrome();

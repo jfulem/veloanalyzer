@@ -2,6 +2,7 @@ import {
   getRaceStats, getMeta, catBadge, todayIso, el,
   UCI_CAT_LABEL, RaceStat,
 } from "./raceStats.js";
+import { initChrome } from "./discipline.js";
 
 function $(sel: string): HTMLElement {
   const node = document.querySelector<HTMLElement>(sel);
@@ -108,3 +109,5 @@ function buildLegend(container: HTMLElement): void {
   loading.style.display = "none";
   $("#content").style.display = "block";
 })();
+
+initChrome();

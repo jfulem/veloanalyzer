@@ -34,6 +34,28 @@ _CATEGORY_MAP = {
     "Holky 5-6 let": "Girls U6",
     "Holky 7-8 let": "Girls U8",
     "Holky 9-10 let": "Girls U10",
+    # Cyclo-cross (registrace.sportsoft.cz serves these courses in English for
+    # the JANEV Cup; the Czech forms are here too in case the page is served in
+    # Czech). Junior women have no race of their own — they start with the
+    # women and U23, exactly as UCI art. C1025 ranks them — so the combined
+    # course maps to Women Elite and races.yml pulls the juniors back out with
+    # a `birth_years:` filter.
+    "Junior men": "Men Juniors",
+    "Men / U23": "Men Elite",
+    "Women / U23 / Junior women": "Women Elite",
+    # A national championship does run junior women separately, so the same
+    # series has both this pair and the combined course above.
+    "Junior women": "Women Juniors",
+    "Women / U23": "Women Elite",
+    "Kadets men": "Men Cadets",
+    "Kadets women": "Women Cadets",
+    "Older boys": "Boys U15",
+    "Younger boys": "Boys U13",
+    "Older girls": "Girls U15",
+    "Younger girls": "Girls U13",
+    "Muži / U23": "Men Elite",
+    "Ženy / U23 / Juniorky": "Women Elite",
+    "Ženy / U23": "Women Elite",
     # Slovak (without háček on Junior/Kadett)
     "Juniori": "Men Juniors",
     "Kadeti": "Men Cadets",
