@@ -1975,12 +1975,15 @@ def lookup_rider(rider: Rider, cache: dict) -> Rider:
     return rider
 
 
-# Bumped when the parse changes shape. v1 summed every numeric cell after the
-# club column, which swept up the sheet's own "Celkem" and returned exactly
-# double the real total; the sort order never noticed, so nothing looked wrong.
-# A stale v1 file would keep serving those doubled numbers until its weekday
-# TTL happened to expire, hence a new filename rather than a silent fix.
-_CUP_CACHE_VERSION = "v2"
+# Bumped when the parse changes shape, because a stale file would otherwise
+# keep serving the old numbers until its weekday TTL happened to expire.
+#   v1 summed every numeric cell after the club column, sweeping up the sheet's
+#      own "Celkem" and returning exactly double the real total. The sort order
+#      never noticed, so nothing looked wrong.
+#   v2 read only the grid's first page, so every rider from 51st down in the
+#      cup came back with no standing at all — and then sorted below riders who
+#      genuinely had none.
+_CUP_CACHE_VERSION = "v3"
 
 
 def _cup_cache_path(standings_url: str, category_id: str,
@@ -1992,6 +1995,35 @@ def _cup_cache_path(standings_url: str, category_id: str,
     return os.path.join(
         CACHE_DIR, f"{prefix}_{_CUP_CACHE_VERSION}_{year}_{category_id}.json"
     )
+
+
+# The page's own markup escapes the quotes (&#39;), but BeautifulSoup hands
+# back the attribute already unescaped, so match plain quotes — and accept the
+# escaped form too in case a caller passes raw HTML.
+_PAGE_TARGET_RE = re.compile(
+    r"""__doPostBack\(\s*(?:&\#39;|['"])(?P<target>[^'"&]+)(?:&\#39;|['"])"""
+    r"""\s*,\s*(?:&\#39;|['"])Page\$(?P<page>\d+)"""
+)
+
+
+def _cup_pages(soup) -> tuple:
+    """(grid control name, [page numbers beyond the first]) for a standings grid.
+
+    The grid shows 50 riders a page and links the rest through ASP.NET
+    postbacks. Reading only the first page silently gave every rider from 51st
+    down a standing of zero, which put them below riders who genuinely had
+    none — a junior on 138 points sorted beneath one on 0.
+    """
+    paging = soup.find("tr", class_="strankovani")
+    if not paging:
+        return "", []
+    targets, pages = set(), set()
+    for a in paging.find_all("a", href=True):
+        m = _PAGE_TARGET_RE.search(a["href"])
+        if m:
+            targets.add(m.group(1))
+            pages.add(int(m.group(2)))
+    return (next(iter(targets), ""), sorted(pages))
 
 
 def _cup_row_total(cells: list, total_idx: int) -> int:
@@ -2044,8 +2076,8 @@ def fetch_cup_standings(standings_url: str, uci_cat: str,
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        def _field(name: str) -> str:
-            tag = soup.find("input", {"name": name})
+        def _field(name: str, where=None) -> str:
+            tag = (where or soup).find("input", {"name": name})
             return tag["value"] if tag else ""
 
         resp2 = session.post(
@@ -2065,28 +2097,47 @@ def fetch_cup_standings(standings_url: str, uci_cat: str,
         resp2.raise_for_status()
         soup2 = BeautifulSoup(resp2.text, "html.parser")
 
-        tables = soup2.find_all("table")
-        if not tables:
-            return {}
-
-        table = tables[0]
-        header = table.find("tr")
-        headings = [th.get_text(strip=True).lower()
-                    for th in header.find_all(["th", "td"])] if header else []
-        total_idx = headings.index("celkem") if "celkem" in headings else None
-
         result: dict[str, int] = {}
-        for row in table.find_all("tr")[1:]:
-            cells = [c.get_text(strip=True) for c in row.find_all("td")]
-            if len(cells) < 7:
-                continue
-            rank_text = cells[0].rstrip(".")
-            if not rank_text.isdigit():
-                continue
 
-            normalized = normalize_rider_name(cells[1])
-            key = _strip_diacritics(normalized.lower())
-            result[key] = _cup_row_total(cells, total_idx)
+        def _collect(page_soup) -> None:
+            tables = page_soup.find_all("table")
+            if not tables:
+                return
+            table = tables[0]
+            header = table.find("tr")
+            headings = [th.get_text(strip=True).lower()
+                        for th in header.find_all(["th", "td"])] if header else []
+            total_idx = headings.index("celkem") if "celkem" in headings else None
+            for row in table.find_all("tr")[1:]:
+                cells = [c.get_text(strip=True) for c in row.find_all("td")]
+                if len(cells) < 7:
+                    continue
+                if not cells[0].rstrip(".").isdigit():
+                    continue
+                key = _strip_diacritics(normalize_rider_name(cells[1]).lower())
+                result[key] = _cup_row_total(cells, total_idx)
+
+        _collect(soup2)
+
+        grid, pages = _cup_pages(soup2)
+        for page in pages:
+            if not grid:
+                break
+            page_resp = session.post(
+                standings_url,
+                headers={**HEADERS, "Content-Type": "application/x-www-form-urlencoded"},
+                data={
+                    "__EVENTTARGET":        grid,
+                    "__EVENTARGUMENT":      f"Page${page}",
+                    "__VIEWSTATE":          _field("__VIEWSTATE", soup2),
+                    "__VIEWSTATEGENERATOR": _field("__VIEWSTATEGENERATOR", soup2),
+                    "__EVENTVALIDATION":    _field("__EVENTVALIDATION", soup2),
+                    "ctl00$ContentPlaceHolder1$Kategorie": category_id,
+                },
+                timeout=20,
+            )
+            page_resp.raise_for_status()
+            _collect(BeautifulSoup(page_resp.text, "html.parser"))
 
         # An empty table is not a fact worth caching: early in a season the
         # current page exists but nobody has scored yet, and fetch_first_cup_
