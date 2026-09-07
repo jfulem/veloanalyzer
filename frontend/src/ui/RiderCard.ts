@@ -1,6 +1,7 @@
 import { Rider, RaceResult, XcoRaceFinisher, getXcoRaceResults } from "../api.js";
 import { flagEmoji, posLabel, tierClass, el, parseResultDate, applyTwemoji,
          rankingWindowStart, stillScoring } from "../utils.js";
+import { current as currentDiscipline } from "../discipline.js";
 
 type SortCol = "date" | "race" | "cat" | "class" | "rank" | "time" | "pts";
 type SortDir = "asc" | "desc";
@@ -18,10 +19,15 @@ const ALL_COL_HEADERS: { key: SortCol; label: string }[] = [
 // Short label for the per-row Class column, plus a full name for its tooltip —
 // the codes themselves (especially the French-derived CN/CDM/CM) are not
 // self-explanatory on sight.
+// Both spellings of a class are listed: MTB writes the bare digit, cyclo-cross
+// writes it with the letter. Without the 'C1'/'C2' rows every cyclo-cross cup
+// round showed its class as "—".
 const RACE_CLASS_INFO: Record<string, [string, string]> = {
   "1":  ["C1", "Class 1"],
   "2":  ["C2", "Class 2"],
   "3":  ["C3", "Class 3"],
+  C1:   ["C1", "Class 1"],
+  C2:   ["C2", "Class 2"],
   HC:   ["HC", "Hors Classe"],
   CS:   ["CS", "Continental Series"],
   CN:   ["NC", "National Championships"],
@@ -75,13 +81,40 @@ const STAGE_QUOTA = 3;
 const JUNIOR_SERIES_QUOTA = 4;
 const JUNIOR_QUOTA = 4;
 
+// Cyclo-cross counts points under quite different rules — art. C1029: every
+// result counts for every category *except* the men's juniors, who count their
+// best 6 from class 1/2 rounds and their best 5 from junior World Cup rounds.
+// Junior women are ranked inside the women's classification (art. C1025),
+// which is uncapped, so they are not junior for this purpose.
+// Mirrors _CX_JUNIOR_QUOTA / _CX_JUNIOR_WC_QUOTA in mtb_analyzer/ranking.py.
+const CX_JUNIOR_QUOTA = 6;
+const CX_JUNIOR_WC_QUOTA = 5;
+// CMM (masters) joins the list cyclo-cross never caps.
+const CX_UNCAPPED_CLASSES = new Set(["CM", "CC", "CN", "CMM"]);
+
 const isJuniorSeries = (name: string) => (name || "").toLowerCase().includes("junior series");
 
 /** Which quota bucket a result falls in, or null when it is uncapped.
- *  Uncapped covers World Championships, World Cup rounds, Continental
- *  Championships and National Championships. */
-function pointsBucket(cat: string, raceClass: string, raceName: string): string | null {
+ *  In MTB, uncapped covers World Championships, World Cup rounds, Continental
+ *  Championships and National Championships; in cyclo-cross it covers
+ *  everything a junior man did not ride. */
+function pointsBucket(cat: string, raceClass: string, raceName: string,
+                      disc: string): string | null {
   const cls = (raceClass || "").toUpperCase();
+
+  if (disc === "CX") {
+    // Tested before the uncapped-class check, unlike MTB below: the junior
+    // World Cup is itself capped in cyclo-cross, so letting CDM short-circuit
+    // to "uncapped" would be wrong.
+    if (cat !== "MJ") return null;
+    if (cls === "CDM") return "CXJWC";
+    if (CX_UNCAPPED_CLASSES.has(cls)) return null;
+    // Class 1 and class 2 share one best-6 bucket. An unclassified junior
+    // round lands here too: far likelier a domestic C1/C2 than an unlabelled
+    // World Cup, which the CDM branch already caught.
+    return "CXJ";
+  }
+
   // Before the junior split: World Cups and championships are uncapped for
   // juniors too, and checking the junior branch first would sweep a junior's
   // World Cup results into their best-4 quota.
@@ -97,7 +130,16 @@ function bucketQuota(bucket: string): number {
   if (bucket === "STAGE") return STAGE_QUOTA;
   if (bucket === "JS") return JUNIOR_SERIES_QUOTA;
   if (bucket === "J") return JUNIOR_QUOTA;
+  if (bucket === "CXJ") return CX_JUNIOR_QUOTA;
+  if (bucket === "CXJWC") return CX_JUNIOR_WC_QUOTA;
   return CLASS_QUOTA[bucket] ?? 0;
+}
+
+/** Which discipline's rules this history is scored under. The rows carry it
+ *  (the Worker scopes a rider's results to one discipline), and the active
+ *  site-wide choice stands in for a rider with no scoring results at all. */
+function resultsDiscipline(results: RaceResult[]): string {
+  return results.find((r) => r.discipline)?.discipline ?? currentDiscipline();
 }
 
 const UNCAPPED_KEY = "__UNCAPPED__";
@@ -108,6 +150,7 @@ const UNCAPPED_KEY = "__UNCAPPED__";
  *  never disagree about which bucket it belongs to. */
 function groupByBucket(results: RaceResult[]): Map<string, RaceResult[]> {
   const cat = results.find((r) => r.cat)?.cat ?? "";
+  const disc = resultsDiscipline(results);
   const windowStart = rankingWindowStart();
   const groups = new Map<string, RaceResult[]>();
   for (const r of results) {
@@ -115,7 +158,7 @@ function groupByBucket(results: RaceResult[]): Map<string, RaceResult[]> {
     // Expired results are still listed below — they happened — but the UCI has
     // already subtracted them, so they must not reach a quota or a total.
     if (!stillScoring(r.date, windowStart)) continue;
-    const bucket = pointsBucket(cat, r.race_class, r.race_name) ?? UNCAPPED_KEY;
+    const bucket = pointsBucket(cat, r.race_class, r.race_name, disc) ?? UNCAPPED_KEY;
     const list = groups.get(bucket) ?? [];
     list.push(r);
     groups.set(bucket, list);
@@ -138,12 +181,21 @@ function countingResultIds(results: RaceResult[]): Set<number> {
   return counting;
 }
 
-function bucketLabel(bucket: string): string {
-  if (bucket === UNCAPPED_KEY) return "World Cup / Championships";
+function bucketLabel(bucket: string, disc: string, hasCapped: boolean): string {
+  if (bucket === UNCAPPED_KEY) {
+    // In cyclo-cross the uncapped group is not "the big races" but everything
+    // outside a junior man's two quotas — for every other category, literally
+    // every result. Calling that "World Cup / Championships" would name the
+    // wrong races, and for a junior man it would name the World Cup, which is
+    // the one cyclo-cross race that *is* capped.
+    if (disc === "CX") return hasCapped ? "Championships" : "All results";
+    return "World Cup / Championships";
+  }
   const labels: Record<string, string> = {
     HC: "Hors Classe", CS: "Continental Series",
     "1": "Class 1", "2": "Class 2", "3": "Class 3",
     STAGE: "Stage races", J: "Junior one-day", JS: "Junior Series",
+    CXJ: "Junior class 1 / 2", CXJWC: "Junior World Cup",
   };
   return labels[bucket] ?? bucket;
 }
@@ -160,13 +212,18 @@ interface BucketSummaryRow {
  *  biggest contributor to their total first. */
 function summarizeByBucket(results: RaceResult[]): BucketSummaryRow[] {
   const rows: BucketSummaryRow[] = [];
-  for (const [bucket, list] of groupByBucket(results)) {
+  const disc = resultsDiscipline(results);
+  const groups = groupByBucket(results);
+  // Whether any quota applies at all decides what the uncapped group is called
+  // in cyclo-cross — see bucketLabel.
+  const hasCapped = [...groups.keys()].some((b) => b !== UNCAPPED_KEY);
+  for (const [bucket, list] of groups) {
     const uncapped = bucket === UNCAPPED_KEY;
     const quota = uncapped ? null : bucketQuota(bucket);
     const sorted = [...list].sort((a, b) => (b.uci_pts ?? 0) - (a.uci_pts ?? 0));
     const counted = uncapped ? sorted : sorted.slice(0, quota ?? 0);
     rows.push({
-      label: bucketLabel(bucket),
+      label: bucketLabel(bucket, disc, hasCapped),
       scoring: list.length,
       counting: counted.length,
       quota,
@@ -563,7 +620,9 @@ export function renderRiderCard(
           td.title = "Older than 12 months — the UCI has already subtracted "
             + "these points, so they are no longer in the total";
         } else if (res.uci_pts != null && !counts) {
-          const cls = res.race_class ? `class ${res.race_class}` : "its class";
+          // raceClassTitle, not the raw code: cyclo-cross writes 'C1', which
+          // would have read as "class C1".
+          const cls = res.race_class ? raceClassTitle(res.race_class) : "its class";
           td.title = `Outside this rider's counting results for ${cls}, so not included in the UCI points total`;
         }
         tr.appendChild(td);
@@ -585,17 +644,36 @@ export function renderRiderCard(
     const note = el("p", {
       style: "font-size:.75rem; color:#718096; margin:.6rem 0 0; line-height:1.5",
     });
-    const isJunior = ["MJ", "WJ"].includes(results.find((r) => r.cat)?.cat ?? "");
+    const cat = results.find((r) => r.cat)?.cat ?? "";
+    const isJunior = ["MJ", "WJ"].includes(cat);
+    const isCx = resultsDiscipline(results) === "CX";
     note.appendChild(el("span", { style: "color:#68d391; font-weight:700" }, "Green"));
     note.appendChild(document.createTextNode(" points count toward the UCI total. "));
-    note.appendChild(el("span", { style: "color:#718096" }, "Dimmed"));
-    note.appendChild(document.createTextNode(
-      " points are real results that fall outside their quota (art. 4.16.008): "
-      + (isJunior
-          ? "best 4 junior series and best 4 junior one-day results"
-          : "best 5 per class for HC, Continental Series and classes 1–3, best 3 across stage races")
-      + ". World Cups and championships count without limit.",
-    ));
+    // Cyclo-cross caps only the men's junior ranking (art. C1029), so in every
+    // other cyclo-cross category nothing can be dimmed and naming the colour
+    // would describe something the reader cannot see. State the rule instead.
+    if (isCx && cat !== "MJ") {
+      note.appendChild(document.createTextNode(
+        "Every result counts in this category (art. C1029), so nothing is"
+        + " displaced by a quota.",
+      ));
+    } else {
+      note.appendChild(el("span", { style: "color:#718096" }, "Dimmed"));
+      note.appendChild(document.createTextNode(
+        isCx
+          ? " points are real results that fall outside their quota"
+            + " (art. C1029): best 6 from class 1 and class 2 rounds, best 5"
+            + " from junior World Cup rounds. Championships count without"
+            + " limit."
+          : " points are real results that fall outside their quota"
+            + " (art. 4.16.008): "
+            + (isJunior
+                ? "best 4 junior series and best 4 junior one-day results"
+                : "best 5 per class for HC, Continental Series and classes 1–3,"
+                  + " best 3 across stage races")
+            + ". World Cups and championships count without limit.",
+      ));
+    }
     if (hasExpired) {
       note.appendChild(document.createTextNode(" "));
       note.appendChild(el("span",

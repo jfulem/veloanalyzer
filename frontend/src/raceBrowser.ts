@@ -59,7 +59,8 @@ export async function bootRaceBrowser(opts: RaceBrowserOptions): Promise<void> {
 
     const trends = computeTrends(currentResults);
     renderStatsBar(statsArea, currentRiders);
-    renderRiderTable(tableArea, currentRiders, selectedIds, onSelect, openRiderCard, trends);
+    renderRiderTable(tableArea, currentRiders, selectedIds, onSelect, openRiderCard,
+                     trends, race.discipline);
     renderCountryChart(countryArea, currentRiders);
     renderTeamChart(teamArea, currentRiders);
     renderH2H(h2hPanel, currentRiders, currentResults, [...selectedIds]);

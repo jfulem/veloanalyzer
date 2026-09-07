@@ -11,6 +11,10 @@ export function renderRiderTable(
   onSelect: SelectCallback,
   onDetail: DetailCallback,
   trends: Map<number, Trend> = new Map(),
+  /** The race's own discipline — 'XCO' or 'CX'. Decides which points rules the
+   *  column tooltips cite, so it comes from the race rather than the sidebar's
+   *  active choice. */
+  discipline = "XCO",
 ): void {
   container.innerHTML = "";
 
@@ -27,7 +31,8 @@ export function renderRiderTable(
       const h3 = el("h3", { class: "subrace-label" }, label);
       container.appendChild(h3);
     }
-    container.appendChild(buildTable(group, selectedIds, onSelect, onDetail, trends));
+    container.appendChild(
+      buildTable(group, selectedIds, onSelect, onDetail, trends, discipline));
   }
 
   applyTwemoji(container);
@@ -39,16 +44,17 @@ function buildTable(
   onSelect: SelectCallback,
   onDetail: DetailCallback,
   trends: Map<number, Trend>,
+  discipline: string,
 ): HTMLTableElement {
   // Past races carry an official finishing rank/time fetched from UCI —
   // show those as dedicated "Result"/"Time" columns instead of only the
   // pre-race UCI ranking context.
   const hasResults = riders.some((r) => r.result_rank != null || r.result_time);
   // The domestic cup standing decides the order of everyone the UCI has not
-  // ranked, and in cyclo-cross it decides the whole grid — so without a column
-  // the table is sorted by a number the reader cannot see, and a correctly
-  // ordered field of unranked riders looks arbitrary. Only shown when the race
-  // actually has cup data, like Result/Time above.
+  // ranked — so without a column the table is sorted by a number the reader
+  // cannot see, and a correctly ordered field of unranked riders looks
+  // arbitrary. Only shown when the race actually has cup data, like
+  // Result/Time above.
   const hasCup = riders.some((r) => (r.cp_xco_points ?? 0) > 0);
 
   const table = el("table", { class: "rider-table" });
@@ -61,9 +67,10 @@ function buildTable(
   if (hasCup) {
     headers.push({
       label: "Cup pts",
-      title: "Standing in the national cup this race belongs to. It sets the "
-        + "start order for riders the UCI has not ranked, and in cyclo-cross "
-        + "it sets the grid outright (art. C0919).",
+      title: "Standing in the national cup this race belongs to. The UCI "
+        + "ranking sets the grid; this decides the order of riders it does "
+        + "not cover — outright in cyclo-cross (art. C0922 B, JANEV CUP "
+        + "art. 11), as a later tie-break in MTB.",
     });
   }
   headers.push({ label: "Team" });
@@ -142,7 +149,10 @@ function buildTable(
       ptsCell.textContent = String(rider.uci_points);
     } else if (rider.computed_points) {
       ptsCell.textContent = `~${rider.computed_points}`;
-      ptsCell.title = "Estimated from race history (best results, UCI art. 4.16.008)";
+      ptsCell.title = discipline === "CX"
+        ? "Estimated from race history (UCI art. C1029: every result for "
+          + "elite and women, best 6 + best 5 for junior men)"
+        : "Estimated from race history (best results, UCI art. 4.16.008)";
     } else {
       ptsCell.textContent = "0";
     }

@@ -181,16 +181,21 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     if (parts.length === 4 && parts[3] === "entries") {
       const raceDisc = await raceDiscipline(sql, slug);
       if (raceDisc === null) return notFound(`No race with slug '${slug}'`);
-      // Cyclo-cross grids on the domestic cup standing, not the UCI ranking:
-      // art. C0919 lines riders up "according to the current standings" of the
-      // year-long series they are riding. So the same columns are ordered
-      // differently — cup points ahead of UCI rank rather than behind
-      // everything — and the UCI rank becomes the tie-break for riders the cup
-      // has not scored yet. (A national championship is the exception, art.
-      // C0921, and is gridded on the UCI ranking instead. It is not special-
-      // cased: there are few of them, and the rank and points columns on the
-      // page still tell the reader what actually decides that grid.)
-      const cupFirst = raceDisc === "CX";
+      // Cyclo-cross grids on the UCI ranking first and the domestic cup only
+      // after it. Art. C0919's "current standings of the year-long series" is
+      // the generic domestic rule; a race in the UCI calendar is gridded by
+      // art. C0922 B instead — the last published UCI cyclo-cross individual
+      // ranking, then riders it does not cover. JANEV CUP art. 11 spells out
+      // what fills that second place for these races: 1. the UCI ranking,
+      // 2. the cup standing as of the Tuesday of the race week, 3. entry
+      // order. The same order applies to its national junior round (art. 11 B)
+      // and, after the defending champion, to the national championship
+      // (art. C0921), so no branch is needed beyond the discipline.
+      //
+      // Entry order is not something the start lists give us, so the last
+      // resort stays alphabetical — the cup column on the page shows where the
+      // meaningful part of the ordering stops.
+      const isCx = raceDisc === "CX";
       return json(await sql`
         SELECT ri.id                     AS id,
                e.race_id                 AS race_id,
@@ -207,20 +212,49 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
         FROM race_entries e
         JOIN riders ri ON ri.id = e.rider_id
         JOIN races  r  ON r.id  = e.race_id
-        -- Most recent ride that actually scored, for the tie-break below.
+        -- Most recent ride that actually scored, for the tie-break below,
+        -- plus the best still-scoring result in each of the tiers art. C1027
+        -- separates equal cyclo-cross totals by.
         LEFT JOIN LATERAL (
-          SELECT max(rr.date) AS last_points_date
+          -- last_points_date deliberately spans the whole history — it answers
+          -- "when did they last score at all". The tier columns are windowed,
+          -- because a result the UCI has already subtracted cannot decide a
+          -- tie in a live standing.
+          SELECT max(rr.date) AS last_points_date,
+                 max(rr.uci_pts) FILTER (WHERE w.scoring AND rr.race_class = 'CM')         AS best_cm,
+                 max(rr.uci_pts) FILTER (WHERE w.scoring AND rr.race_class = 'CDM')        AS best_cdm,
+                 max(rr.uci_pts) FILTER (WHERE w.scoring AND rr.race_class = 'CC')         AS best_cc,
+                 max(rr.uci_pts) FILTER (WHERE w.scoring AND rr.race_class = 'CN')         AS best_cn,
+                 max(rr.uci_pts) FILTER (WHERE w.scoring AND rr.race_class IN ('C1', '1')) AS best_c1,
+                 max(rr.uci_pts) FILTER (WHERE w.scoring AND rr.race_class IN ('C2', '2')) AS best_c2
           FROM rider_results rr
+          -- Names the rolling-window test once rather than six times.
+          CROSS JOIN LATERAL (
+            SELECT rr.date >= current_date - interval '12 months' AS scoring
+          ) w
           WHERE rr.rider_id = e.rider_id AND rr.uci_pts > 0
             AND rr.discipline = r.discipline
         ) lp ON true
         WHERE r.slug = ${slug}
         ORDER BY (e.result_rank IS NULL), e.result_rank,
-                 -- Cyclo-cross only: the cup standing is the grid itself.
-                 CASE WHEN ${cupFirst}::boolean THEN COALESCE(e.cp_xco_points, 0) ELSE 0 END DESC,
                  (e.uci_rank IS NULL), e.uci_rank,
+                 -- Cyclo-cross only, and only below the UCI ranking: the cup
+                 -- standing is what art. 11 of the JANEV CUP regulations names
+                 -- for riders the UCI ranking does not cover.
+                 CASE WHEN ${isCx}::boolean THEN COALESCE(e.cp_xco_points, 0) ELSE 0 END DESC,
                  COALESCE(e.computed_points, 0) DESC,
-                 -- UCI tie-break: equal points are separated by whoever scored
+                 -- Cyclo-cross tie-break, art. C1027: equal totals are split by
+                 -- the better single result, tier by tier — World Championships
+                 -- first, then World Cup, continental, national, class 1,
+                 -- class 2. Postgres compares arrays element by element, which
+                 -- is exactly that cascade. NULL for MTB, so the clause is
+                 -- inert there.
+                 CASE WHEN ${isCx}::boolean THEN ARRAY[
+                   COALESCE(lp.best_cm,  -1), COALESCE(lp.best_cdm, -1),
+                   COALESCE(lp.best_cc,  -1), COALESCE(lp.best_cn,  -1),
+                   COALESCE(lp.best_c1,  -1), COALESCE(lp.best_c2,  -1)
+                 ] END DESC NULLS LAST,
+                 -- MTB tie-break: equal points are separated by whoever scored
                  -- most recently, regardless of the tier of race it came from.
                  -- Ranked riders never reach this — the UCI has already applied
                  -- the rule to produce uci_rank — so it decides the order of

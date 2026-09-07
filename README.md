@@ -72,7 +72,7 @@ competition result" for whichever discipline was passed.
 | Season | Calendar year | Aug → Feb, filed by the UCI under the **later** year: a race on 5 Dec 2026 is season 2027 |
 | Class codes | `1`, `2`, `3`, `HC`, `CS`, `S1`… | `C1`, `C2`, `CDM`, `CM`, `CC`, `CN`, `CMM` |
 | Points quota | Best 5 per class, best 4 for juniors (art. 4.16.008) | Everything counts, except men's juniors: best 6 from C1/C2, best 5 from the junior World Cup (art. C1029) |
-| Grid order | UCI ranking | The domestic cup standings — art. C0919 lines riders up by "the current standings" of the year-long series |
+| Grid order | UCI ranking | UCI ranking, then the domestic cup standings for riders it does not cover (art. C0922 B; JANEV CUP art. 11) |
 | Junior women | Their own race and their own ranking | Ranked and (usually) raced with the elite women |
 
 **Junior women in cyclo-cross** are the one genuinely awkward case. Art. C1025
@@ -90,10 +90,22 @@ one classification. So:
   World Cup round — the exact event wins and the combined one is only the
   fallback. That chain lives in `ranking._event_code_for()`.
 
-Cyclo-cross start lists are ordered by cup standing rather than UCI rank, per
-the table above. The national championship is gridded differently (art. C0921:
-defending champion, then the UCI ranking, then the cup) and is not special-cased
-— read its order as indicative and the rank column as authoritative.
+Cyclo-cross start lists are ordered by UCI ranking first, exactly as MTB ones
+are; the difference is what happens below it. Art. C0919's "current standings of
+the year-long series" is the generic domestic rule, but a race in the UCI
+calendar is gridded by art. C0922 B — the last published UCI cyclo-cross
+individual ranking, then everyone it does not cover. JANEV CUP art. 11 fills in
+that second half for these races: 1. the UCI ranking, 2. the cup standing as of
+the Tuesday of the race week, 3. entry order. So the cup standing outranks the
+points we estimate ourselves, which is the reverse of MTB. Entry order is not
+in any start list we read, so the last resort stays alphabetical.
+
+Equal estimated totals are split by art. C1027 rather than MTB's "whoever
+scored most recently": the better single result decides, tier by tier — World
+Championships, World Cup, continental, national, class 1, class 2.
+
+The national championship needs no special case: after the defending champion
+(art. C0921) its order is the same UCI-ranking-then-cup cascade.
 
 The multi-year archive sweep that fills the Archive page is MTB-only unless
 `archive_disciplines:` in `races.yml` says otherwise; a discipline's rolling

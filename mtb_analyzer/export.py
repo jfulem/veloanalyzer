@@ -13,6 +13,7 @@ def _flag_img(country: str) -> str:
     if not iso2:
         return ""
     return f'<img src="https://flagcdn.com/16x12/{iso2}.png" alt="{country}" style="vertical-align:middle">'
+from .discipline import DEFAULT_DISCIPLINE
 from .display import race_quality_stats, sort_riders
 from .models import Rider
 
@@ -24,8 +25,8 @@ def rank_tier(uci_rank: Optional[int]) -> str:
     return "tier-unranked"
 
 
-def export_csv(riders: list, path: str):
-    sorted_riders = sort_riders(riders)
+def export_csv(riders: list, path: str, discipline: str = DEFAULT_DISCIPLINE):
+    sorted_riders = sort_riders(riders, discipline)
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["#", "First name", "Last name", "Country",
@@ -39,13 +40,14 @@ def export_csv(riders: list, path: str):
 
 
 def export_html(riders: list, race_name: str, uci_cat: str, path: str,
-                compare_data: tuple = None, race_date: str = ""):
+                compare_data: tuple = None, race_date: str = "",
+                discipline: str = DEFAULT_DISCIPLINE):
     """
     Exports a polished, self-contained HTML report.
     If compare_data=(riders2, name2, url2, url1) is provided, a comparison
     section is appended at the end of the file.
     """
-    sorted_riders  = sort_riders(riders)
+    sorted_riders  = sort_riders(riders, discipline)
     country_counts = Counter(r.country for r in sorted_riders)
     stats          = race_quality_stats(riders)
     generated_at   = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -150,7 +152,7 @@ def export_html(riders: list, race_name: str, uci_cat: str, path: str,
             )
             group_rows = "".join(
                 rider_row(sec_rank, r, global_idx[id(r)])
-                for sec_rank, r in enumerate(sort_riders(group), 1)
+                for sec_rank, r in enumerate(sort_riders(group, discipline), 1)
             )
             start_list_block += (
                 f'\n  <section class="race-section">'
@@ -691,9 +693,11 @@ function filterTable() {{
 
 
 def export_file(riders: list, race_name: str, uci_cat: str, path: str,
-                compare_data: tuple = None):
+                compare_data: tuple = None,
+                discipline: str = DEFAULT_DISCIPLINE):
     """Routes to HTML or CSV export based on file extension."""
     if path.lower().endswith((".html", ".htm")):
-        export_html(riders, race_name, uci_cat, path, compare_data=compare_data)
+        export_html(riders, race_name, uci_cat, path, compare_data=compare_data,
+                    discipline=discipline)
     else:
-        export_csv(riders, path)
+        export_csv(riders, path, discipline)

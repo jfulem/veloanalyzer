@@ -4,13 +4,30 @@ from rich.panel import Panel
 from rich.table import Table
 
 from .config import FLAG, console
+from .discipline import CX, DEFAULT_DISCIPLINE
+from .discipline import get as get_discipline
 from .models import Rider
 
 
-def sort_riders(riders: list) -> list:
+def sort_riders(riders: list, discipline: str = DEFAULT_DISCIPLINE) -> list:
+    """The start grid: the UCI ranking first, then whatever orders the riders
+    it does not cover.
+
+    Both disciplines grid on the UCI individual ranking (MTB art. 4.16.008,
+    cyclo-cross art. C0922 B). They differ in what decides the rest of the
+    field: cyclo-cross regulations name the domestic cup standing outright
+    (JANEV CUP art. 11: UCI ranking, then the cup, then entry order), so it
+    outranks the points we estimate ourselves. In MTB the estimate is the
+    better signal and the cup standing is only a tie-break behind it.
+
+    Mirrors the ORDER BY on /api/races/{slug}/entries in worker/src/index.ts.
+    """
     ranked   = sorted([r for r in riders if r.uci_rank is not None], key=lambda r: r.uci_rank)
-    unranked = sorted([r for r in riders if r.uci_rank is None],
-                      key=lambda r: (-r.computed_points, -r.cp_xco_points, r.full_name))
+    if get_discipline(discipline).code == CX:
+        key = lambda r: (-r.cp_xco_points, -r.computed_points, r.full_name)
+    else:
+        key = lambda r: (-r.computed_points, -r.cp_xco_points, r.full_name)
+    unranked = sorted([r for r in riders if r.uci_rank is None], key=key)
     return ranked + unranked
 
 
@@ -33,7 +50,8 @@ def race_quality_stats(riders: list) -> dict:
     }
 
 
-def _riders_table(riders: list, title: str) -> Table:
+def _riders_table(riders: list, title: str,
+                  discipline: str = DEFAULT_DISCIPLINE) -> Table:
     table = Table(
         title=title, show_header=True, header_style="bold magenta",
         border_style="dim", show_lines=False,
@@ -46,7 +64,7 @@ def _riders_table(riders: list, title: str) -> Table:
     table.add_column("UCI ID", style="dim", width=13)
     table.add_column("Team",   style="dim", min_width=20)
 
-    for i, r in enumerate(sort_riders(riders), 1):
+    for i, r in enumerate(sort_riders(riders, discipline), 1):
         rank_str   = str(r.uci_rank) if r.uci_rank else "[dim]—[/dim]"
         pts_str    = str(r.uci_points) if r.uci_points else "[dim]0[/dim]"
         confidence = ""
@@ -70,8 +88,9 @@ def _riders_table(riders: list, title: str) -> Table:
     return table
 
 
-def display_riders(riders: list, race_name: str, uci_cat: str):
-    """Displays the rider table(s) sorted by UCI ranking."""
+def display_riders(riders: list, race_name: str, uci_cat: str,
+                   discipline: str = DEFAULT_DISCIPLINE):
+    """Displays the rider table(s) in start-grid order — see sort_riders."""
     race_keys = list(dict.fromkeys(r.race_name for r in riders if r.race_name))
 
     if len(race_keys) > 1:
@@ -83,14 +102,16 @@ def display_riders(riders: list, race_name: str, uci_cat: str):
             console.print(_riders_table(
                 group,
                 f"[bold]{rk}[/bold]  [dim]{len(group)} starters[/dim]",
+                discipline,
             ))
-        display_country_stats(sort_riders(riders))
+        display_country_stats(sort_riders(riders, discipline))
     else:
-        sorted_riders = sort_riders(riders)
+        sorted_riders = sort_riders(riders, discipline)
         console.print(_riders_table(
             riders,
             (f"[bold cyan]{race_name}[/bold cyan]\n"
              f"[dim]UCI category: {uci_cat} | Total starters: {len(riders)}[/dim]"),
+            discipline,
         ))
         display_country_stats(sorted_riders)
 

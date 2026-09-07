@@ -112,9 +112,10 @@ def main():
     if args.url:
         riders, race_name = process_url(args.url)
         if riders:
-            display_riders(riders, race_name, args.uci_category)
+            display_riders(riders, race_name, args.uci_category, args.discipline)
             if args.export:
-                export_file(riders, race_name, args.uci_category, args.export)
+                export_file(riders, race_name, args.uci_category, args.export,
+                            discipline=args.discipline)
 
     elif args.compare:
         url1, url2 = args.compare
@@ -122,9 +123,9 @@ def main():
         riders2, name2 = process_url(url2)
 
         if riders1:
-            display_riders(riders1, name1, args.uci_category)
+            display_riders(riders1, name1, args.uci_category, args.discipline)
         if riders2:
-            display_riders(riders2, name2, args.uci_category)
+            display_riders(riders2, name2, args.uci_category, args.discipline)
 
         if riders1 and riders2:
             display_comparison(
@@ -137,13 +138,14 @@ def main():
             ext = os.path.splitext(args.export)[1].lower()
             if ext in (".html", ".htm"):
                 export_html(riders1, name1, args.uci_category, args.export,
-                            compare_data=(riders2, name2, url2, url1))
+                            compare_data=(riders2, name2, url2, url1),
+                            discipline=args.discipline)
                 console.print(f"[dim]Both races and comparison written to {args.export}[/dim]")
             else:
                 p1 = args.export.replace(".csv", "_race1.csv")
                 p2 = args.export.replace(".csv", "_race2.csv")
-                if riders1: export_csv(riders1, p1)
-                if riders2: export_csv(riders2, p2)
+                if riders1: export_csv(riders1, p1, args.discipline)
+                if riders2: export_csv(riders2, p2, args.discipline)
 
 
 if __name__ == "__main__":
