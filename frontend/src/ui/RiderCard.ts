@@ -149,7 +149,13 @@ const UNCAPPED_KEY = "__UNCAPPED__";
  *  summary build on, so a row's highlight and its group's summary line can
  *  never disagree about which bucket it belongs to. */
 function groupByBucket(results: RaceResult[]): Map<string, RaceResult[]> {
-  const cat = results.find((r) => r.cat)?.cat ?? "";
+  // Field-wide category only as a fallback. A quota belongs to the race a
+  // rider actually rode, and one history can span several: a cyclo-cross
+  // women's ranking is fed by the elite, U23 and junior women's events, so a
+  // junior woman's rows are a mix of WJ and WE. Bucketing the whole history by
+  // whichever category happened to come first would apply one race's rules to
+  // another's result.
+  const fallbackCat = results.find((r) => r.cat)?.cat ?? "";
   const disc = resultsDiscipline(results);
   const windowStart = rankingWindowStart();
   const groups = new Map<string, RaceResult[]>();
@@ -158,6 +164,7 @@ function groupByBucket(results: RaceResult[]): Map<string, RaceResult[]> {
     // Expired results are still listed below — they happened — but the UCI has
     // already subtracted them, so they must not reach a quota or a total.
     if (!stillScoring(r.date, windowStart)) continue;
+    const cat = r.cat || fallbackCat;
     const bucket = pointsBucket(cat, r.race_class, r.race_name, disc) ?? UNCAPPED_KEY;
     const list = groups.get(bucket) ?? [];
     list.push(r);

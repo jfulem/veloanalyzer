@@ -3,7 +3,7 @@ import {
   RiderListItem,
 } from "./api.js";
 import { catBadge, el, UCI_CAT_LABEL } from "./raceStats.js";
-import { $, flagEmoji, tierClass, applyTwemoji } from "./utils.js";
+import { $, flagEmoji, tierClass, applyTwemoji, foldText } from "./utils.js";
 import { initChrome } from "./discipline.js";
 
 function openRider(id: number): void {
@@ -135,10 +135,12 @@ function buildLegend(container: HTMLElement, present: Set<string>, onChange: (ca
   }
 
   function applyFilters(): void {
-    const q = searchInput.value.trim().toLowerCase();
+    // foldText, not toLowerCase: "boros" has to find Michael Boroš, or the
+    // rider reads as missing from the database rather than filtered out.
+    const q = foldText(searchInput.value.trim());
     tableArea.querySelectorAll<HTMLTableRowElement>("tbody tr").forEach((row) => {
       const matchesCat  = !activeCategory || row.dataset["cat"] === activeCategory;
-      const matchesText = !q || (row.textContent ?? "").toLowerCase().includes(q);
+      const matchesText = !q || foldText(row.textContent ?? "").includes(q);
       row.style.display = matchesCat && matchesText ? "" : "none";
     });
     updateUrl();

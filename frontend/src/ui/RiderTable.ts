@@ -1,5 +1,5 @@
 import { Rider } from "../api.js";
-import { flagEmoji, tierClass, el, Trend, applyTwemoji } from "../utils.js";
+import { flagEmoji, tierClass, el, Trend, applyTwemoji, foldText } from "../utils.js";
 
 type SelectCallback = (riderId: number) => void;
 type DetailCallback = (riderId: number) => void;
@@ -180,9 +180,10 @@ function buildTable(
 }
 
 export function filterRiderTable(container: HTMLElement, query: string): void {
-  const q = query.toLowerCase();
+  // Diacritic-insensitive, since most of the field is spelled with accents the
+  // searcher will not have typed — see foldText.
+  const q = foldText(query);
   container.querySelectorAll<HTMLTableRowElement>("tbody tr").forEach((row) => {
-    const text = row.textContent?.toLowerCase() ?? "";
-    row.style.display = text.includes(q) ? "" : "none";
+    row.style.display = foldText(row.textContent ?? "").includes(q) ? "" : "none";
   });
 }

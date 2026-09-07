@@ -43,7 +43,18 @@ _UCI_HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "application/json",
 }
-_UCI_CATEGORY_LABELS = {"MJ": "Men Junior", "WJ": "Women Junior", "ME": "Men Elite", "WE": "Women Elite"}
+# How the UCI labels an event's results group on a competition-details page.
+# The U23 entries are not decoration: cyclo-cross runs a separate U23 race at
+# every World Cup round and World Championship, its finishers appear in no
+# other classification of that meeting, and their points feed the combined
+# elite ranking (art. C1025). Leaving the labels out meant those events were
+# never opened and every U23 rider's total came out short — Aubin Sparfel
+# showed 229 points against an official 806.
+_UCI_CATEGORY_LABELS = {
+    "MJ": "Men Junior", "WJ": "Women Junior",
+    "ME": "Men Elite",  "WE": "Women Elite",
+    "MU23": "Men Under 23", "WU23": "Women Under 23",
+}
 
 # U23 has no standalone official UCI ranking — U23-eligible riders are
 # officially ranked (and their UCI-published results recorded) under Elite.
@@ -96,30 +107,87 @@ def ranking_categories(discipline: str = DEFAULT_DISCIPLINE) -> tuple:
     return tuple(seen)
 
 
+# Cyclo-cross categories that ride their own race where a competition holds
+# one and the combined race where it does not: junior women and both U23
+# classes. The specific event wins, the combined one stands in.
+_CX_OWN_EVENT_FIRST = {
+    "WJ":   ("WJ", "WE"),
+    "MU23": ("MU23", "ME"),
+    "WU23": ("WU23", "WE"),
+}
+
+
 def _event_categories(uci_cat: str, discipline: str = DEFAULT_DISCIPLINE) -> tuple:
     """UCI event categories to try, most specific first.
 
-    Cyclo-cross junior women are the reason this is a list rather than a single
-    value: a national championship or World Cup round runs them as their own
-    event ("Women Junior"), while a class 1 or 2 cup round starts them with the
-    women and U23 and publishes one combined classification. Both are their
-    official result, so the exact event wins where it exists and the combined
-    one stands in where it does not.
+    Cyclo-cross is the reason this is a list rather than a single value. Most
+    competitions — every championship and World Cup round, and the majority of
+    class 1/2 events — run junior women and U23 riders as their own races, with
+    their own fields and their own points scales (art. C1028 items 15 and 17),
+    and those riders are simply absent from that meeting's elite
+    classification. Where no such event exists, as at the Czech cup rounds,
+    they start with the elite field and there is one combined classification.
+    Both are their official result, so the exact event wins where it exists
+    and the combined one stands in where it does not.
     """
-    if get_discipline(discipline).code == CX and uci_cat == "WJ":
-        return ("WJ", "WE")
+    if get_discipline(discipline).code == CX and uci_cat in _CX_OWN_EVENT_FIRST:
+        return _CX_OWN_EVENT_FIRST[uci_cat]
     return (_ranking_category(uci_cat, discipline),)
+
+
+def _event_cat_and_code(details: dict, uci_cat: str,
+                        discipline: str = DEFAULT_DISCIPLINE) -> tuple:
+    """First (category, event code) pair among _event_categories that this
+    competition publishes, or ("", "") when it publishes none.
+
+    Callers need the category as well as the code, not just to fetch the
+    results but to label them: a cyclo-cross junior woman's result belongs to
+    the Women Junior classification at a competition that ran that race, and
+    to the Women Elite one at a competition that did not.
+    """
+    events = details.get("events", {}) if details else {}
+    for cat in _event_categories(uci_cat, discipline):
+        code = events.get(cat)
+        if code:
+            return cat, code
+    return "", ""
 
 
 def _event_code_for(details: dict, uci_cat: str,
                     discipline: str = DEFAULT_DISCIPLINE) -> str:
     """First event code among _event_categories, or "" when none is published."""
-    events = details.get("events", {}) if details else {}
-    for cat in _event_categories(uci_cat, discipline):
-        code = events.get(cat)
-        if code:
-            return code
-    return ""
+    return _event_cat_and_code(details, uci_cat, discipline)[1]
+
+
+# Which events feed each cyclo-cross ranking. Art. C1025 gives the discipline
+# three individual rankings, and two of them are combinations of several races:
+# men elite + U23, and women elite + U23 + juniors. Those races are separate
+# events with disjoint fields at any competition that runs more than one — a
+# U23 rider appears in the U23 classification and nowhere else — so a ranking's
+# points are the *union* of its events, not one of them.
+#
+# The fields being disjoint is what makes the union safe, and it holds even at
+# a national championship, where one bunch often starts together: checked over
+# every competition in the 2026 season for every pair of these categories, no
+# rider appears in two of them, so nothing is double-counted. Re-check it
+# before adding a pair here.
+_CX_RANKING_EVENTS = {
+    "ME": ("ME", "MU23"),
+    "WE": ("WE", "WU23", "WJ"),
+    "MJ": ("MJ",),
+}
+
+
+def _ranking_event_categories(ranking_cat: str,
+                              discipline: str = DEFAULT_DISCIPLINE) -> tuple:
+    """Every event category whose results count toward one ranking.
+
+    MTB keeps one event per ranking, which is what it has always read. Only
+    cyclo-cross fans out — see _CX_RANKING_EVENTS.
+    """
+    if get_discipline(discipline).code == CX:
+        return _CX_RANKING_EVENTS.get(ranking_cat, (ranking_cat,))
+    return (ranking_cat,)
 
 
 def _disc_prefix(discipline: str) -> str:
@@ -433,10 +501,9 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12,
     only trigger one build.
     """
     disc = get_discipline(discipline)
-    # In cyclo-cross this folds WJ into WE: junior women share the women's
-    # ranking and, at every class 1/2 round, the women's race itself. Their own
-    # event at a championship is picked up per-race by
-    # supplement_from_uci_competition instead of widening the whole sweep.
+    # The ranking, not the start-list category: MU23 resolves to ME, and in
+    # cyclo-cross WJ resolves to WE. Which *events* that ranking is then built
+    # from is _ranking_event_categories' job — in cyclo-cross it is several.
     uci_cat = _ranking_category(uci_cat, disc.code)
     cached = _uci_xco_history_cache.get(disc.code, {}).get(uci_cat)
     if cached is not None:
@@ -450,7 +517,7 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12,
     now    = datetime.now()
     cutoff = ranking_window_start(now, months_back)
     by_name: dict = {}
-    race_results_by_id: dict = {}  # {xco_race_id: [finisher_row, ...]}
+    race_results_by_cat: dict = {}  # {event_cat: {xco_race_id: [finisher_row, ...]}}
     seen_comp_ids: set = set()
 
     # Season labels, not calendar years: a cyclo-cross season runs Aug → Feb
@@ -467,76 +534,88 @@ def build_uci_xco_history(uci_cat: str, months_back: int = 12,
                 continue
 
             details = _get_competition_details(comp_id, year, disc.code)
-            event_code = details.get("events", {}).get(uci_cat)
-            if not event_code:
-                continue
             race_class = details.get("class", "")
-
-            event_results = _get_uci_event_results(event_code)
-            if not event_results:
-                continue
-
             comp_name  = entry.get("name", "")
             dates_str  = entry.get("dates", "")
             race_date  = dates_str.split(" - ")[-1].strip() if " - " in dates_str else dates_str
             xco_race_id = f"{race_date}|{comp_name}"
 
-            race_finishers: list = []
-            for er in event_results:
-                fn = er.get("first_name", "").strip()
-                ln = er.get("last_name",  "").strip()
-                if not fn or not ln:
+            # One ranking, potentially several races: a cyclo-cross meeting can
+            # run elite, U23 and junior events that all score into the same
+            # classification. Each is read and labelled with its own category,
+            # so a rider's history says which race they actually rode and the
+            # archive gets a tab per event rather than only the elite one.
+            for event_cat in _ranking_event_categories(uci_cat, disc.code):
+                event_code = details.get("events", {}).get(event_cat)
+                if not event_code:
                     continue
 
-                pts_raw = er.get("points", "")
-                rank = int(er["rank"]) if er.get("rank") and str(er["rank"]).isdigit() else None
-                uci_pts = int(pts_raw) if str(pts_raw).isdigit() else None
-                result = {
-                    "race_id":     xco_race_id,
-                    "race_name":   comp_name,
-                    "date":        race_date,
-                    "location":    entry.get("venue", ""),
-                    "rank":        rank,
-                    "time":        er.get("time", ""),
-                    "uci_pts":     uci_pts,
-                    "nationality": er.get("nationality", ""),
-                    "cat":         uci_cat,
-                    "race_class":  race_class,
-                    "disc":        disc.code,
-                }
-                key = f"{fn} {ln}".lower()
-                by_name.setdefault(key, []).append(result)
-                # Also index without diacritics so start-list spellings always match
-                stripped = f"{_strip_diacritics(fn)} {_strip_diacritics(ln)}".lower()
-                if stripped != key:
-                    by_name.setdefault(stripped, []).append(result)
+                event_results = _get_uci_event_results(event_code)
+                if not event_results:
+                    continue
 
-                race_finishers.append({
-                    "comp_name":   comp_name,
-                    "date_raw":    race_date,
-                    "race_class":  race_class,
-                    "rank":        rank,
-                    "first_name":  fn,
-                    "last_name":   ln,
-                    "nationality": er.get("nationality", ""),
-                    "race_time":   er.get("time", ""),
-                    "uci_pts":     uci_pts,
-                    "venue":       entry.get("venue", ""),
-                    "country":     entry.get("country", ""),
-                })
+                race_finishers: list = []
+                for er in event_results:
+                    fn = er.get("first_name", "").strip()
+                    ln = er.get("last_name",  "").strip()
+                    if not fn or not ln:
+                        continue
 
-            if race_finishers:
-                race_results_by_id[xco_race_id] = race_finishers
+                    pts_raw = er.get("points", "")
+                    rank = int(er["rank"]) if er.get("rank") and str(er["rank"]).isdigit() else None
+                    uci_pts = int(pts_raw) if str(pts_raw).isdigit() else None
+                    result = {
+                        "race_id":     xco_race_id,
+                        "race_name":   comp_name,
+                        "date":        race_date,
+                        "location":    entry.get("venue", ""),
+                        "rank":        rank,
+                        "time":        er.get("time", ""),
+                        "uci_pts":     uci_pts,
+                        "nationality": er.get("nationality", ""),
+                        "cat":         event_cat,
+                        "race_class":  race_class,
+                        "disc":        disc.code,
+                    }
+                    key = f"{fn} {ln}".lower()
+                    by_name.setdefault(key, []).append(result)
+                    # Also index without diacritics so start-list spellings always match
+                    stripped = f"{_strip_diacritics(fn)} {_strip_diacritics(ln)}".lower()
+                    if stripped != key:
+                        by_name.setdefault(stripped, []).append(result)
+
+                    race_finishers.append({
+                        "comp_name":   comp_name,
+                        "date_raw":    race_date,
+                        "race_class":  race_class,
+                        "rank":        rank,
+                        "first_name":  fn,
+                        "last_name":   ln,
+                        "nationality": er.get("nationality", ""),
+                        "race_time":   er.get("time", ""),
+                        "uci_pts":     uci_pts,
+                        "venue":       entry.get("venue", ""),
+                        "country":     entry.get("country", ""),
+                    })
+
+                if race_finishers:
+                    race_results_by_cat.setdefault(event_cat, {})[xco_race_id] = race_finishers
 
     _uci_xco_history_cache.setdefault(disc.code, {})[uci_cat] = by_name
-    _uci_xco_race_results_cache.setdefault(disc.code, {})[uci_cat] = race_results_by_id
+    # Merged per category rather than assigned to uci_cat: one sweep can now
+    # produce several categories' races (a cyclo-cross women's sweep yields WE,
+    # WU23 and WJ races), and assigning would drop whichever the other sweeps
+    # had already collected.
+    by_cat = _uci_xco_race_results_cache.setdefault(disc.code, {})
+    for cat, races_by_id in race_results_by_cat.items():
+        by_cat.setdefault(cat, {}).update(races_by_id)
     return by_name
 
 
-# Riders' own UCI ranking categories only — U23 riders already appear in the
-# Elite results (the UCI has no standalone U23 XCO ranking), so sweeping
-# MU23/WU23 separately would just re-fetch the same event codes for nothing.
-_ARCHIVE_CATEGORIES = ("ME", "WE", "MJ", "WJ")
+# The archive sweep reads each of these events directly, without the
+# ranking-category folding build_uci_xco_history needs: browsing wants a tab
+# per race that was actually held, whatever ranking its points fed.
+_ARCHIVE_CATEGORIES = ("ME", "WE", "MJ", "WJ", "MU23", "WU23")
 
 
 def build_uci_xco_country_archive(countries: list, years_back: int = 2,
@@ -937,11 +1016,16 @@ def _get_competition_details(competition_id: str, year: int,
     wrong discipline's event entirely (see _label_discipline).
     """
     disc = get_discipline(discipline)
+    # v4: v3 files were written before _UCI_CATEGORY_LABELS knew the U23
+    # labels, so their "events" map is missing every Men/Women Under 23 event
+    # the competition ran. A missing key is indistinguishable from a
+    # competition that never held that race, so they cannot be topped up in
+    # place and the version moves instead.
     # v3: v2 files were written by a label filter that missed the spelled-out
     # discipline names, so many of them name a short-track or downhill event
     # where they claim a cross-country one. They cannot be repaired in place —
     # the code is all that was kept — so the version moves and they are refetched.
-    path = os.path.join(_uci_comp_dir(disc.code), f"{competition_id}.v3.json")
+    path = os.path.join(_uci_comp_dir(disc.code), f"{competition_id}.v4.json")
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             return json.load(f)

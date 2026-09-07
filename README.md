@@ -71,24 +71,63 @@ competition result" for whichever discipline was passed.
 | UCI discipline | `MTB`, race type `XCO` (dataride id 7/92) | `CRO`, race type `CRO-IND` (dataride id 3, no race-type filter) |
 | Season | Calendar year | Aug → Feb, filed by the UCI under the **later** year: a race on 5 Dec 2026 is season 2027 |
 | Class codes | `1`, `2`, `3`, `HC`, `CS`, `S1`… | `C1`, `C2`, `CDM`, `CM`, `CC`, `CN`, `CMM` |
+| Events per ranking | One | Several: ME+MU23, WE+WU23+WJ, MJ (art. C1025) |
 | Points quota | Best 5 per class, best 4 for juniors (art. 4.16.008) | Everything counts, except men's juniors: best 6 from C1/C2, best 5 from the junior World Cup (art. C1029) |
 | Grid order | UCI ranking | UCI ranking, then the domestic cup standings for riders it does not cover (art. C0922 B; JANEV CUP art. 11) |
-| Junior women | Their own race and their own ranking | Ranked and (usually) raced with the elite women |
+| Junior women | Their own race and their own ranking | Their own race at most events, but ranked with the elite women |
 
-**Junior women in cyclo-cross** are the one genuinely awkward case. Art. C1025
-gives the discipline three individual rankings, and junior women sit inside the
-women's one; art. C0922 confirms their grid comes from it too. At a class 1 or
-2 cup round they also start in the combined "Ženy / U23 / Juniorky" race, with
-one classification. So:
+**Junior women in cyclo-cross** are the one genuinely awkward case, because
+the ranking and the race come from different places.
 
-* `uci_category: WJ` with `discipline: CX` reads the **Women Elite** ranking
-  and history — not the standalone Women Junior ranking dataride publishes,
-  which is not what decides anything;
-* `birth_years: [2009, 2010]` (the 17- and 18-year-olds of the 2026/27 season)
-  pulls them out of the combined start list;
-* where a real Women Junior event *does* exist — a national championship, a
-  World Cup round — the exact event wins and the combined one is only the
-  fallback. That chain lives in `ranking._event_code_for()`.
+*The ranking is the women's.* Art. C1025 gives the discipline three individual
+rankings and junior women sit inside the women's one; art. C0922 C confirms
+their grid comes from it too. dataride does publish a standalone Women Junior
+cyclo-cross ranking, but it is a filtered view of the same numbers — all 285
+riders in it appear in the Women Elite ranking on identical points — so
+`uci_category: WJ` with `discipline: CX` reads **Women Elite** for rank and
+points.
+
+*The race is usually their own.* 142 of the 188 competitions in a season's
+calendar run a separate Women Junior event, with its own field and its own
+points scale (art. C1028 item 17) — every championship and World Cup round,
+and most class 1/2 events. Those riders are simply **absent** from that
+meeting's women's classification. The Czech cup rounds are the exception: no
+junior women's event, so they start in the combined "Ženy / U23 / Juniorky"
+race and score on the women's scale.
+
+**U23 riders in cyclo-cross** are the same story: art. C1025 ranks men elite
+and men U23 together (and women elite, U23 and juniors together), but a World
+Cup round or World Championship runs U23 as its own race on its own points
+scale (art. C1028 item 15). So a cyclo-cross *ranking* is fed by several
+*events*, and the fields are disjoint — a U23 rider appears in the U23
+classification of that meeting and nowhere else.
+
+That is what `ranking._CX_RANKING_EVENTS` encodes: the women's ranking is
+built from the WE, WU23 and WJ events, the men's from ME and MU23, and the
+junior men's from MJ alone. `_ranking_event_categories()` reads it, and each
+event's rows are labelled with the category they came from — so a rider's
+history says which race they actually rode, and the archive gets a tab per
+race that was held. `_event_categories()` is the other half, for the opposite
+question: given one race in `races.yml`, which event *is* it — its own where
+the competition ran one, the combined one where it did not.
+
+Getting this wrong was not cosmetic. Before the fix the sweep opened only the
+elite event, so:
+
+* junior women had no history at all beyond the Czech rounds — the reigning
+  junior world champion showed 128 estimated points against an official 688;
+* U23 men were short by everything they scored in their own races — Aubin
+  Sparfel showed 229 against an official 806;
+* the Archive page had no Women Junior tab in cyclo-cross, because no WJ event
+  was ever fetched.
+
+`birth_years: [2009, 2010]` (the 17- and 18-year-olds of the 2026/27 season)
+is still needed to pull junior women out of a combined *start list*, which the
+organiser publishes as one course for all three categories.
+
+MTB is deliberately left on one event per ranking, which is what it has always
+read. Only `_ARCHIVE_CATEGORIES` widened for both disciplines, so the Archive
+page can browse a U23 race in either.
 
 Cyclo-cross start lists are ordered by UCI ranking first, exactly as MTB ones
 are; the difference is what happens below it. Art. C0919's "current standings of

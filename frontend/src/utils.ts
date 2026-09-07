@@ -31,6 +31,22 @@ export function applyTwemoji(node: HTMLElement): void {
   }
 }
 
+/** Lowercase and strip diacritics, so a search box matches the way a reader
+ *  expects it to.
+ *
+ *  Most of the field has accented names — Boroš, Bažantová, Řezáč — and typing
+ *  them accurately means switching keyboard layout, which nobody does mid
+ *  search. Matching "boros" against "Boroš" byte for byte fails, and the row
+ *  simply vanishes: the rider looks absent from the database rather than
+ *  filtered out. Applied to both sides, so typing the accents works too.
+ *
+ *  NFD splits an accented letter into its base plus a combining mark, and the
+ *  range below is exactly the combining-marks block. Mirrors _strip_diacritics
+ *  in mtb_analyzer/ranking.py, which does the same for name matching. */
+export function foldText(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 export function rankDisp(rank: number | null): string {
   return rank != null ? `#${rank}` : "—";
 }
