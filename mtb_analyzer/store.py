@@ -17,7 +17,8 @@ from .config import console
 from .db import get_engine
 from .discipline import DEFAULT_DISCIPLINE
 from .discipline import normalize as normalize_discipline
-from .ranking import _strip_diacritics, ranking_window_start
+from .ranking import (_lookup_rider_history, _strip_diacritics,
+                      ranking_window_start)
 from .schema import meta, race_entries, races, rider_results, riders, uci_ranking, uci_xco_race_results
 
 _MONTHS = {m: i for i, m in enumerate(
@@ -430,7 +431,7 @@ def save_uci_race_results(race_results_cache: dict) -> None:
 
 
 def save_uci_ranking(uci_cat: str, entries: list,
-                     discipline: str = DEFAULT_DISCIPLINE) -> None:
+                     discipline: str = DEFAULT_DISCIPLINE) -> list:
     """
     Replace the stored official UCI ranking for one category (in one
     discipline) with `entries`
@@ -453,6 +454,11 @@ def save_uci_ranking(uci_cat: str, entries: list,
     between runs by just moving their row. Cross-discipline is a different
     matter: a cyclo-cross regular who also races MTB legitimately holds two
     rows, which is why the constraint is not on rider_id alone.
+
+    Returns [(rider_id, entry)] for every entry that resolved to a `riders`
+    row, so a caller can attach data keyed by rider identity without walking
+    the same resolution ladder a second time — see
+    save_ranked_rider_histories.
     """
     discipline = normalize_discipline(discipline)
     with get_engine().begin() as conn:
@@ -532,8 +538,8 @@ def save_uci_ranking(uci_cat: str, entries: list,
                 "team":       e.get("team", ""),
             }
 
-        ranking_rows  = [_ranking_row(rid, e) for rid, e in matched]
-        ranking_rows += [_ranking_row(rid, e) for rid, (_, e) in zip(new_ids, to_create)]
+        resolved = matched + [(rid, e) for rid, (_, e) in zip(new_ids, to_create)]
+        ranking_rows = [_ranking_row(rid, e) for rid, e in resolved]
 
         conn.execute(delete(uci_ranking).where(
             uci_ranking.c.uci_cat == uci_cat,
@@ -554,4 +560,77 @@ def save_uci_ranking(uci_cat: str, entries: list,
     console.print(
         f"[green]  ✓ Saved UCI ranking ({discipline} {uci_cat}): {len(matched)} matched "
         f"to tracked riders, {len(new_ids)} new riders created[/green]"
+    )
+    return resolved
+
+
+def save_ranked_rider_histories(resolved: list, history_db: dict,
+                                discipline: str = DEFAULT_DISCIPLINE,
+                                seen: set | None = None) -> None:
+    """Give every officially ranked rider the same race history a tracked one
+    gets.
+
+    Until this ran, `rider_results` was written in exactly one place — the
+    start-list loop in save_race — so a rider who is in the UCI ranking but has
+    never appeared on a race in races.yml got a profile page with a rank, a
+    points total and an empty history. Michael Boroš, 24th in cyclo-cross on
+    783 points, had nothing to show. The results were already in the database,
+    as loose names in uci_xco_race_results; they just had no rider to hang on.
+
+    `resolved` is save_uci_ranking()'s return value and `history_db` is
+    ranking.build_uci_xco_history() for the *same* discipline and ranking
+    category, so the rows written here come from the same sweep, in the same
+    shape, as the ones save_race writes. Nothing downstream can tell the two
+    apart, which is the point: no new column, no new endpoint, and the rider
+    card renders what it always rendered.
+
+    Riders who already have a tracked entry in this discipline are skipped.
+    save_race is their writer and its history can legitimately hold rows this
+    sweep does not — supplement_from_uci_competition appends the tracked
+    competition's own result, which the sweep skips while the event is still
+    running — and _save_results prunes in-window rows that are absent from
+    what it is given. Two writers would take turns deleting each other's rows.
+
+    `seen` is caller-owned so it can be shared across a discipline's ranking
+    categories: the UCI occasionally has a rider in two of them between runs,
+    and without it the second category's write would prune the first's. First
+    category wins, deterministically.
+    """
+    discipline = normalize_discipline(discipline)
+    seen = seen if seen is not None else set()
+
+    tracked_skips = seen_skips = unmatched = written = rows_written = 0
+    with get_engine().begin() as conn:
+        tracked = {r[0] for r in conn.execute(
+            select(race_entries.c.rider_id)
+            .join(races, races.c.id == race_entries.c.race_id)
+            .where(races.c.discipline == discipline)
+            .distinct()
+        )}
+
+        for rider_id, entry in resolved:
+            if rider_id in tracked:
+                tracked_skips += 1
+                continue
+            if rider_id in seen:
+                seen_skips += 1
+                continue
+            seen.add(rider_id)
+            results = _lookup_rider_history(
+                history_db, entry.get("first_name", ""), entry.get("last_name", ""))
+            if not results:
+                # The ranking spells this rider's name differently from the
+                # results feed. _save_results would no-op on an empty list
+                # anyway; skipping here just saves the round trip.
+                unmatched += 1
+                continue
+            _save_results(conn, rider_id, results, discipline)
+            written += 1
+            rows_written += len(results)
+
+    extra = f", {seen_skips} already written" if seen_skips else ""
+    console.print(
+        f"[green]  ✓ Ranked-rider history ({discipline}): {written} riders, "
+        f"{rows_written} results[/green] [dim]({tracked_skips} tracked, "
+        f"{unmatched} no name match{extra})[/dim]"
     )

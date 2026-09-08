@@ -15,9 +15,11 @@ from .discipline import get as get_discipline
 from .discipline import normalize as normalize_discipline
 from .geocode import geocode
 from .pipeline import fetch_riders
-from .ranking import (build_uci_xco_country_archive, get_uci_cache,
-                      get_uci_xco_race_results_cache, ranking_categories)
-from .store import save_all, save_uci_race_results, save_uci_ranking
+from .ranking import (build_uci_xco_country_archive, build_uci_xco_history,
+                      get_uci_cache, get_uci_xco_race_results_cache,
+                      ranking_categories)
+from .store import (save_all, save_ranked_rider_histories,
+                    save_uci_race_results, save_uci_ranking)
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 RACES_FILE = os.environ.get("RACES_FILE") or os.path.normpath(
@@ -128,10 +130,24 @@ def run() -> None:
         # this is the real list, not four names one of which is a duplicate.
         categories = ranking_categories(discipline)
         console.print(f"[dim]  Saving UCI {label} ranking ({'/'.join(categories)})...[/dim]")
+        # Shared across this discipline's categories so a rider the UCI has
+        # moved between two of them is written once — see
+        # save_ranked_rider_histories.
+        seen_riders: set = set()
         for uci_cat in categories:
             cache = (uci_caches.get((discipline, uci_cat))
                      or get_uci_cache(uci_cat, discipline=discipline))
-            save_uci_ranking(uci_cat, list(cache.get("by_name", {}).values()), discipline)
+            resolved = save_uci_ranking(
+                uci_cat, list(cache.get("by_name", {}).values()), discipline)
+            # Give the riders that ranking just fused in the same 12-month
+            # history a tracked rider gets, so their profile page is not a
+            # rank and an empty table. Memoized per (discipline, ranking
+            # category): free for a category some races.yml race already swept,
+            # a real sweep for one nothing tracked — which out of season is
+            # every cyclo-cross category, since fetch_riders returns before
+            # building a history when a start list is not published yet.
+            history_db = build_uci_xco_history(uci_cat, discipline=discipline)
+            save_ranked_rider_histories(resolved, history_db, discipline, seen_riders)
 
     # build_uci_xco_history (called inside fetch_riders) already fetched and
     # cached full finisher lists for every UCI XCO event within its rolling
