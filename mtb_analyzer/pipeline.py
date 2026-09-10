@@ -15,7 +15,7 @@ from .ranking import (build_uci_xco_history, compute_points_from_history,
                       enrich_cup_points, enrich_with_race_results,
                       fetch_first_cup_standings, get_uci_cache, lookup_rider,
                       ranking_category, riders_from_uci_competition,
-                      supplement_from_uci_competition,
+                      supplement_from_uci_competition, unmatched_finishers,
                       _lookup_rider_history, _strip_diacritics)
 
 
@@ -35,18 +35,23 @@ def merge_riders(primary: list, extra: list) -> list:
     return merged
 
 
-def _rebuild_past_race_from_uci(race: dict, uci_category: str, discipline: str) -> list:
-    """Fallback for a past race whose start list has gone from its source site.
+def _has_official_results(race: dict) -> bool:
+    """Whether this race's official UCI classification can be read yet.
 
-    Only applies once the race has actually run and a uci_competition_id is
-    configured — before that, an empty scrape means the organiser hasn't
-    published the list yet, which is normal and must not be papered over.
+    Needs a uci_competition_id and a date already past: before the race runs,
+    an empty scrape means the organiser hasn't published the start list yet,
+    which is normal and must not be papered over with results that don't exist.
     """
-    uci_comp_id = race.get("uci_competition_id")
     race_date = race.get("date", "")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    if not uci_comp_id or not race_date or race_date >= today:
+    return bool(race.get("uci_competition_id")) and bool(race_date) and race_date < today
+
+
+def _rebuild_past_race_from_uci(race: dict, uci_category: str, discipline: str) -> list:
+    """Fallback for a past race whose start list has gone from its source site."""
+    if not _has_official_results(race):
         return []
+    uci_comp_id = race["uci_competition_id"]
 
     console.print("[dim]  Start list unavailable — rebuilding from official UCI results...[/dim]")
     riders = riders_from_uci_competition(
@@ -92,6 +97,49 @@ def _filter_by_birth_year(riders: list, race: dict) -> list:
     return kept
 
 
+def _merge_missing_finishers(riders: list, race: dict, uci_category: str,
+                             discipline: str) -> list:
+    """Add anyone who finished a past race but was never on its start list.
+
+    A start list is a snapshot taken beforehand; the official classification is
+    the record of who actually rode. A rider who entered on the day, or after
+    the organiser last republished, appears only in the second — and the page
+    then contradicts itself, showing a field whose winner is missing while the
+    archive lists her first. That is exactly what happened to Lia Schrievers,
+    who won the women's race at ČP XCO NMNM 2026 without ever reaching the
+    scraped start list.
+
+    Runs after the birth-year filter, not before it: riders reconstructed from
+    UCI results carry no birth year (the results feed publishes none), so the
+    filter would drop every one of them. It does not need to — the UCI event
+    read here is the one for this exact category, so its finishers are already
+    the right riders, and unmatched_finishers refuses to substitute a related
+    event for a missing one.
+
+    Only ever additive. A start-list rider the UCI has no result for stays (a
+    DNS is still information), and who counts as already present is decided by
+    the same matcher that attaches results to the riders we do have, so the
+    start list's own spelling, team and UCI ID keep priority.
+    """
+    if not _has_official_results(race):
+        return riders
+
+    finishers = unmatched_finishers(
+        riders, str(race["uci_competition_id"]), _competition_year(race, discipline),
+        uci_category, discipline)
+    if not finishers:
+        return riders
+
+    merged = merge_riders(riders, finishers)
+    added = len(merged) - len(riders)
+    if added:
+        console.print(
+            f"[green]  + {added} finisher(s) in the official results but not on "
+            f"the start list[/green]"
+        )
+    return merged
+
+
 def fetch_riders(race: dict, uci_caches: dict) -> list:
     url          = race["url"]
     category     = race.get("category")
@@ -135,6 +183,7 @@ def fetch_riders(race: dict, uci_caches: dict) -> list:
         riders = _rebuild_past_race_from_uci(race, uci_category, discipline)
 
     riders = _filter_by_birth_year(riders, race)
+    riders = _merge_missing_finishers(riders, race, uci_category, discipline)
 
     if not riders:
         console.print("[yellow]  No riders found — skipping[/yellow]")

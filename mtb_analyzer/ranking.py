@@ -1348,6 +1348,25 @@ def enrich_with_race_results(riders: list, competition_id: str, year: int, uci_c
         rider.result_time = er.get("time", "")
 
 
+def _rider_from_event_result(er: dict) -> "Rider | None":
+    """One row of a UCI classification as a Rider, or None when it carries no
+    usable name."""
+    first = (er.get("first_name") or "").strip()
+    last  = (er.get("last_name") or "").strip()
+    if not (first or last):
+        return None
+    rank_raw = er.get("rank")
+    return Rider(
+        first_name=first,
+        # The UCI publishes surnames in caps; match the casing the start
+        # list parsers produce via normalize_rider_name().
+        last_name=last.title() if last.isupper() else last,
+        country=normalize_country(er.get("nationality", "")),
+        result_rank=int(rank_raw) if rank_raw and str(rank_raw).isdigit() else None,
+        result_time=er.get("time", ""),
+    )
+
+
 def riders_from_uci_competition(competition_id: str, year: int, uci_cat: str,
                                 discipline: str = DEFAULT_DISCIPLINE) -> list:
     """
@@ -1378,23 +1397,63 @@ def riders_from_uci_competition(competition_id: str, year: int, uci_cat: str,
     if not event_results:
         return []
 
-    riders = []
-    for er in event_results:
-        first = (er.get("first_name") or "").strip()
-        last  = (er.get("last_name") or "").strip()
-        if not (first or last):
+    return [r for r in (_rider_from_event_result(er) for er in event_results) if r]
+
+
+def unmatched_finishers(riders: list, competition_id: str, year: int, uci_cat: str,
+                        discipline: str = DEFAULT_DISCIPLINE) -> list:
+    """Official finishers of a past race that nobody in `riders` accounts for.
+
+    Uses the same name map and matcher as enrich_with_race_results, rather than
+    comparing names itself, so the two can never disagree about who is already
+    present: a result the enricher would have attached to a start-list rider is
+    never also reported missing. A comparison of its own would eventually get
+    this wrong — the UCI writes 'Victor-Alexandru' where a start list writes
+    'Victor Alexandru', and either side may be the one carrying a middle name.
+
+    The event is resolved strictly, exactly as riders_from_uci_competition
+    does, with none of _event_code_for's fallback: reading a related event here
+    would not merely misattribute one result, it would append a whole field
+    that never started this race — the elite women onto a junior women's race,
+    say.
+
+    Only classified riders are returned — someone the UCI lists as DNS is not
+    evidence of a missing entrant, just a row of dashes. A rider who started
+    and was lapped or did not finish keeps their place in the classification
+    and does come back.
+
+    Returns Rider objects with result_rank/result_time already set.
+    """
+    event_codes = _get_competition_event_codes(competition_id, year, discipline)
+    event_code = event_codes.get(uci_cat)
+    if not event_code:
+        return []
+
+    event_results = _get_uci_event_results(event_code)
+    if not event_results:
+        return []
+
+    name_map = _build_event_name_map(event_results)
+    # Indexed by identity: the name map holds the very dicts in event_results,
+    # and a result dict is not hashable.
+    index_of = {id(er): i for i, er in enumerate(event_results)}
+    claimed = [False] * len(event_results)
+    for rider in riders:
+        er = _match_rider_in_event_map(rider, name_map)
+        if er is None:
             continue
-        rank_raw = er.get("rank")
-        riders.append(Rider(
-            first_name=first,
-            # The UCI publishes surnames in caps; match the casing the start
-            # list parsers produce via normalize_rider_name().
-            last_name=last.title() if last.isupper() else last,
-            country=normalize_country(er.get("nationality", "")),
-            result_rank=int(rank_raw) if rank_raw and str(rank_raw).isdigit() else None,
-            result_time=er.get("time", ""),
-        ))
-    return riders
+        i = index_of.get(id(er))
+        if i is not None:
+            claimed[i] = True
+
+    missing = []
+    for er, taken in zip(event_results, claimed):
+        if taken:
+            continue
+        rider = _rider_from_event_result(er)
+        if rider and rider.result_rank is not None:
+            missing.append(rider)
+    return missing
 
 
 def supplement_from_uci_competition(
