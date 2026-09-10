@@ -811,6 +811,22 @@ races:
   uci_competition_id: 77334
   output: 29-mtb-cross-country-rund-um-den-roadlberg-wj.html
   location: "Wintersdorf, Austria"
+- url: "https://www.computerauswertung.at/starterliste.php?V_ID=260921&lang=en"
+  name: 29. MTB Cross Country "Rund Um Den Roadlberg" 2026 — Men U23
+  date: '2026-09-20'
+  category: Men U23
+  uci_category: MU23
+  uci_competition_id: 77334
+  output: 29-mtb-cross-country-rund-um-den-roadlberg-mu23.html
+  location: "Wintersdorf, Austria"
+- url: "https://www.computerauswertung.at/starterliste.php?V_ID=260921&lang=en"
+  name: 29. MTB Cross Country "Rund Um Den Roadlberg" 2026 — Women U23
+  date: '2026-09-20'
+  category: Women U23
+  uci_category: WU23
+  uci_competition_id: 77334
+  output: 29-mtb-cross-country-rund-um-den-roadlberg-wu23.html
+  location: "Wintersdorf, Austria"
 
 # ─── Cyclo-cross: JANEV Cup 2026/27 (Czech national cup) ──────────────────────
 #
