@@ -255,6 +255,7 @@ img.emoji {
 }
 .stat-value { font-size: 1.4rem; font-weight: 700; color: #90cdf4; }
 .stat-label { font-size: .7rem; color: #718096; text-transform: uppercase; letter-spacing: .05em; margin-top: .1rem; }
+.course-note { margin: .4rem 0 1rem; font-size: .8rem; color: #a0aec0; }
 
 /* Legend */
 .legend {

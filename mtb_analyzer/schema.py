@@ -55,6 +55,32 @@ races = Table(
     Column("location", Text, nullable=False, server_default=""),
     Column("lat", Float),
     Column("lon", Float),
+    # Hand-entered course description from races.yml. lap_km and
+    # lap_elevation_m describe the circuit, so they are identical on every
+    # category row of one competition; laps is genuinely per-category, since
+    # juniors ride fewer of the same loop than elites. That split is why all
+    # three live here rather than in a competitions table. Nullable because
+    # they are filled in by hand, one venue at a time — a race without them
+    # simply shows no course block.
+    Column("lap_km", Float),
+    Column("lap_elevation_m", Integer),
+    Column("laps", Integer),
+    Column("terrain", Text, nullable=False, server_default=""),
+    # Race-*day* conditions for the venue, backfilled from the Open-Meteo
+    # archive by mtb_analyzer/weather.py. Units are Open-Meteo's defaults:
+    # °C, mm, km/h. These cover the whole calendar day, not the hour anyone
+    # actually raced — a 09:10 junior race and a 14:30 elite one at the same
+    # venue get identical numbers, and the rain may all have fallen in the
+    # evening. Narrowing it would need start times, which races.yml has none
+    # of, so the UI says "race-day conditions" and means it.
+    #
+    # NULL means "not known yet", which is not the same as 0.0 (a real dry
+    # day): the race may still be in the future, or a lookup may have failed
+    # and be waiting for the next ingest to retry it.
+    Column("weather_temp_max_c", Float),
+    Column("weather_temp_min_c", Float),
+    Column("weather_precip_mm", Float),
+    Column("weather_wind_kmh", Float),
 )
 
 # A rider's participation in one race, plus everything that is true only of

@@ -7,6 +7,7 @@
 
 import { getRaces, getRiders, getResults, getMeta, Race, Rider, RaceResult } from "./api.js";
 import { renderStatsBar } from "./ui/StatsBar.js";
+import { renderCourseBar } from "./ui/CourseBar.js";
 import { renderCountryChart } from "./ui/CountryChart.js";
 import { renderRiderTable, filterRiderTable } from "./ui/RiderTable.js";
 import { renderH2H } from "./ui/H2H.js";
@@ -31,6 +32,7 @@ export async function bootRaceBrowser(opts: RaceBrowserOptions): Promise<void> {
   const raceName     = $<HTMLElement>("#race-name");
   const raceDate     = $<HTMLElement>("#race-date");
   const raceCat      = $<HTMLElement>("#race-cat");
+  const courseArea   = $<HTMLElement>("#course-area");
   const statsArea    = $<HTMLElement>("#stats-area");
   const searchInput  = $<HTMLInputElement>("#search-input");
   const tableArea    = $<HTMLElement>("#table-area");
@@ -58,6 +60,7 @@ export async function bootRaceBrowser(opts: RaceBrowserOptions): Promise<void> {
     raceCat.textContent  = `${race.category} · ${race.uci_category}`;
 
     const trends = computeTrends(currentResults);
+    renderCourseBar(courseArea, race);
     renderStatsBar(statsArea, currentRiders);
     renderRiderTable(tableArea, currentRiders, selectedIds, onSelect, openRiderCard,
                      trends, race.discipline);

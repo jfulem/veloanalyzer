@@ -32,6 +32,21 @@ export interface Race {
   category: string;
   /** 'XCO' or 'CX'. */
   discipline: string;
+  /** Hand-entered course description, null until someone measures the venue.
+   *  lap_km and lap_elevation_m describe the circuit and are the same for
+   *  every category of one competition; laps is per-category, since juniors
+   *  ride fewer of the same loop. */
+  lap_km: number | null;
+  lap_elevation_m: number | null;
+  laps: number | null;
+  terrain: string;
+  /** Conditions over the whole race *day* at the venue, from the Open-Meteo
+   *  archive — not the hour anyone actually raced, which would need start
+   *  times we don't have. Null while a race is still in the future. */
+  weather_temp_max_c: number | null;
+  weather_temp_min_c: number | null;
+  weather_precip_mm: number | null;
+  weather_wind_kmh: number | null;
 }
 
 export interface Rider {

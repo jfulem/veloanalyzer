@@ -50,6 +50,10 @@ Other optional fields:
 | `cup_standings_url` | Domestic cup standings page, or a **list** of them tried in order until one has data. Sorts riders the UCI hasn't ranked; in cyclo-cross it sets the grid outright. `cp_xco_standings_url` is the old name and still works |
 | `birth_years` | Narrow the start list to these birth years — how a category that shares a course with another is pulled out of it |
 | `lat` / `lon` | Explicit coordinates, for a venue the geocoder gets wrong |
+| `lap_km` | Lap length in km. The circuit is the same for every category, so repeat it on each of a competition's rows |
+| `lap_elevation_m` | Elevation gain per lap in metres. Same on every category row |
+| `laps` | Laps **for this category** — juniors ride fewer of the same loop than elites, so this one genuinely differs row to row |
+| `terrain` | Free-text course note ("rocky forest singletrack, one long fire-road climb") |
 
 `MU23`/`WU23` have no standalone UCI ranking and fall back to Elite
 automatically; in cyclo-cross `WJ` does too (see below).
@@ -211,6 +215,7 @@ mtb_analyzer/
 ├── ranking.py                    # UCI ranking cache, race history, points-quota rules
 ├── discipline.py                   # per-discipline config: UCI ids, season shape, points rules
 ├── geocode.py                      # Nominatim lookup for races.yml `location:`
+├── weather.py                      # Open-Meteo race-day conditions by lat/lon + date
 └── parsers/                          # one module per start-list site
 scripts/
 ├── ingest.py                # CLI wrapper around mtb_analyzer.ingest (needs DATABASE_URL)
@@ -230,4 +235,5 @@ migrations/                # Alembic
 | Czech Cup XCO standings | [cpxcmtb.sportsoft.cz](https://cpxcmtb.sportsoft.cz) |
 | Czech Cup cyclo-cross standings (JANEV Cup, formerly HSF System Cup) | [cpcx.sportsoft.cz](https://cpcx.sportsoft.cz) |
 | Race venue coordinates | [Nominatim](https://nominatim.openstreetmap.org) (OpenStreetMap) |
+| Race-day weather | [Open-Meteo](https://open-meteo.com) historical archive (ERA5), CC-BY 4.0 |
 | Start lists | Directly from each race's `url:` in `races.yml` |

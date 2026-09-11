@@ -130,7 +130,10 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     // ── /api/races ────────────────────────────────────────────────────────
     if (parts.length === 2) {
       return json(await sql`
-        SELECT id, slug, name, date::text AS date, uci_category, category, discipline
+        SELECT id, slug, name, date::text AS date, uci_category, category, discipline,
+               lap_km, lap_elevation_m, laps, terrain,
+               weather_temp_max_c, weather_temp_min_c,
+               weather_precip_mm, weather_wind_kmh
         FROM races
         WHERE ${disc}::text IS NULL OR discipline = ${disc}
         ORDER BY date ASC NULLS LAST, name
@@ -143,6 +146,9 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
       return json(await sql`
         SELECT r.id, r.slug, r.name, r.date::text AS date, r.uci_category, r.category,
                r.discipline, r.location, r.lat, r.lon,
+               r.lap_km, r.lap_elevation_m, r.laps, r.terrain,
+               r.weather_temp_max_c, r.weather_temp_min_c,
+               r.weather_precip_mm, r.weather_wind_kmh,
                count(e.id)::int              AS total,
                count(e.uci_rank)::int        AS ranked,
                min(e.uci_rank)::int          AS best,
@@ -166,7 +172,10 @@ async function route(url: URL, sql: Sql): Promise<Response | null> {
     // ── /api/races/{slug} ─────────────────────────────────────────────────
     if (parts.length === 3) {
       const rows = (await sql`
-        SELECT id, slug, name, date::text AS date, uci_category, category, discipline
+        SELECT id, slug, name, date::text AS date, uci_category, category, discipline,
+               lap_km, lap_elevation_m, laps, terrain,
+               weather_temp_max_c, weather_temp_min_c,
+               weather_precip_mm, weather_wind_kmh
         FROM races WHERE slug = ${slug}
       `) as unknown[];
       if (rows.length === 0) return notFound(`No race with slug '${slug}'`);

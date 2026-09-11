@@ -1,20 +1,18 @@
 // Shared by the landing page and the race overview, both of which were
 // previously rendered ahead of time by scripts/generate_site.py.
 
+import type { Race } from "./api.js";
 import { apiQuery } from "./discipline.js";
 
 // See the note in api.ts — same-origin by default.
 const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
 
-export interface RaceStat {
-  id: number;
-  slug: string;
-  name: string;
-  date: string;
-  uci_category: string;
-  category: string;
-  /** 'XCO' or 'CX'. */
-  discipline: string;
+/** A race plus the aggregates /api/races/stats computes over its entries.
+ *
+ *  `extends Race` rather than repeating its fields: results.ts hands a
+ *  RaceStat[] straight to code expecting Race[], and until now that superset
+ *  relationship was only a comment. This makes the compiler hold it. */
+export interface RaceStat extends Race {
   /** Free-text venue, geocoded at ingest time. lat/lon are null until a
    *  location: is set in races.yml and successfully geocoded — races.html
    *  and the results/start-list pages don't need this, only the home map. */

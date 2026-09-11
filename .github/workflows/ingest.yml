@@ -91,4 +91,17 @@ jobs:
                   where not exists (select 1 from race_entries e where e.race_id = r.id)
               ''')).scalar_one()
               print('races with 0 entries:', empty)
+              # Course data is hand-entered, so this only ever grows by hand.
+              # Weather should reach every past race that has coordinates —
+              # anything missing there is a real failure, not just a race that
+              # hasn't run yet, and a later run should clear it.
+              course = c.execute(text(
+                  'select count(*) from races where lap_km is not null')).scalar_one()
+              gaps = c.execute(text('''
+                  select count(*) from races
+                  where date < current_date and lat is not null
+                    and weather_temp_max_c is null
+              ''')).scalar_one()
+              print('races with course data:', course)
+              print('past races missing weather:', gaps)
           "

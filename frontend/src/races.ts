@@ -3,6 +3,7 @@ import {
   UCI_CAT_LABEL, RaceStat,
 } from "./raceStats.js";
 import { initChrome } from "./discipline.js";
+import { totalClimbM } from "./utils.js";
 
 function $(sel: string): HTMLElement {
   const node = document.querySelector<HTMLElement>(sel);
@@ -30,6 +31,12 @@ function row(s: RaceStat, destination: string): HTMLTableRowElement {
   catCell.appendChild(document.createTextNode(` ${s.category}`));
   tr.appendChild(catCell);
 
+  // The one course number worth sorting a season by: distance mostly restates
+  // the category's target duration, but total climbing genuinely separates one
+  // venue from another.
+  const climb = totalClimbM(s.lap_elevation_m, s.laps);
+  tr.appendChild(el("td", { class: "num" }, climb === null ? "—" : `${climb} m`));
+
   tr.appendChild(el("td", { class: "num" }, String(s.total)));
   tr.appendChild(el("td", { class: "num" }, String(s.ranked)));
   tr.appendChild(el("td", { class: "num" }, num(s.best, "#")));
@@ -48,7 +55,7 @@ function section(container: HTMLElement, title: string, rows: RaceStat[], destin
   const thead = el("thead");
   const headRow = document.createElement("tr");
   for (const [label, cls] of [
-    ["Date", ""], ["Race", ""], ["Category", ""],
+    ["Date", ""], ["Race", ""], ["Category", ""], ["Climb", "num"],
     ["Riders", "num"], ["Ranked", "num"], ["Best", "num"], ["Avg rank", "num"],
   ] as [string, string][]) {
     headRow.appendChild(el("th", cls ? { class: cls } : {}, label));

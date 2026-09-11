@@ -18,8 +18,9 @@ from .pipeline import fetch_riders
 from .ranking import (build_uci_xco_country_archive, build_uci_xco_history,
                       get_uci_cache, get_uci_xco_race_results_cache,
                       ranking_categories)
-from .store import (save_all, save_ranked_rider_histories,
+from .store import (parse_iso_date, save_all, save_ranked_rider_histories,
                     save_uci_race_results, save_uci_ranking)
+from .weather import weather
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 RACES_FILE = os.environ.get("RACES_FILE") or os.path.normpath(
@@ -64,6 +65,54 @@ def _resolve_locations(races: list) -> None:
             race["lat"], race["lon"] = coords
 
 
+def _resolve_weather(races: list) -> None:
+    """Fill in race-day conditions for every race that has coordinates and has
+    already run.
+
+    Must come after _resolve_locations: it reads the lat/lon that one writes
+    into the same dicts. Caching is by rounded coordinates and date, so a
+    competition's four category rows pay for one lookup — the same arrangement
+    geocoding has for venues.
+
+    A race with no coordinates, or one still to come, is skipped silently and
+    picked up by a later run; see weather.weather for why a miss is never
+    cached.
+    """
+    for race in races:
+        on = parse_iso_date(race.get("date", ""))
+        values = weather(race.get("lat"), race.get("lon"), on)
+        if not values:
+            continue
+        for field, value in values.items():
+            race[f"weather_{field}"] = value
+
+
+def _warn_on_course_mismatch(races: list) -> None:
+    """Flag competitions whose category rows disagree about the course.
+
+    lap_km and lap_elevation_m describe the circuit, so every category row of
+    one competition repeats them — which means a typo in one of four hand-copied
+    rows is invisible. Nothing else in the pipeline can catch that, since each
+    row is otherwise self-consistent. laps is excluded: it is meant to differ.
+    """
+    by_comp: dict = {}
+    for race in races:
+        comp_id = race.get("uci_competition_id")
+        if not comp_id:
+            continue
+        by_comp.setdefault(comp_id, []).append(race)
+
+    for comp_id, group in by_comp.items():
+        for field in ("lap_km", "lap_elevation_m"):
+            seen = {r.get(field) for r in group if r.get(field) is not None}
+            if len(seen) > 1:
+                console.print(
+                    f"[yellow]  ! Competition {comp_id}: category rows disagree on "
+                    f"{field} ({', '.join(str(v) for v in sorted(seen))}) — "
+                    f"the circuit is the same for all of them[/yellow]"
+                )
+
+
 def run() -> None:
     races = load_races()
     if not races:
@@ -72,6 +121,8 @@ def run() -> None:
 
     bootstrap()
     _resolve_locations(races)
+    _resolve_weather(races)
+    _warn_on_course_mismatch(races)
 
     console.print(f"[bold cyan]Processing {len(races)} race(s)...[/bold cyan]")
     # Keyed by (discipline, uci_category) — see pipeline.fetch_riders.

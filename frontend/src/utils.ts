@@ -47,6 +47,23 @@ export function foldText(s: string): string {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
 
+/** Race distance in km, or null when the course isn't fully described.
+ *
+ *  Derived at display rather than stored: it is a pure function of two columns,
+ *  and a stored copy would be a second source of truth to keep in step with
+ *  every races.yml edit. Shared with totalClimbM below so the race page and the
+ *  races index cannot round differently. */
+export function totalDistanceKm(lapKm: number | null, laps: number | null): number | null {
+  if (!lapKm || !laps || lapKm <= 0 || laps <= 0) return null;
+  return lapKm * laps;
+}
+
+/** Total climbing in metres over the whole race, or null — see totalDistanceKm. */
+export function totalClimbM(lapElevationM: number | null, laps: number | null): number | null {
+  if (!lapElevationM || !laps || lapElevationM <= 0 || laps <= 0) return null;
+  return Math.round(lapElevationM * laps);
+}
+
 export function rankDisp(rank: number | null): string {
   return rank != null ? `#${rank}` : "—";
 }

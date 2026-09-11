@@ -177,6 +177,13 @@ def _resolve_rider(conn: Connection, rider) -> int:
     ).scalar_one()
 
 
+# The columns whose absence means "not known yet" rather than "cleared".
+_WEATHER_COLUMNS = frozenset({
+    "weather_temp_max_c", "weather_temp_min_c",
+    "weather_precip_mm", "weather_wind_kmh",
+})
+
+
 def _upsert_race(conn: Connection, race_cfg: dict) -> int:
     slug = race_cfg.get("output", "").removesuffix(".html")
     values = {
@@ -191,12 +198,32 @@ def _upsert_race(conn: Connection, race_cfg: dict) -> int:
         "location": race_cfg.get("location", "") or "",
         "lat": race_cfg.get("lat"),
         "lon": race_cfg.get("lon"),
+        "lap_km": race_cfg.get("lap_km"),
+        "lap_elevation_m": race_cfg.get("lap_elevation_m"),
+        "laps": race_cfg.get("laps"),
+        "terrain": race_cfg.get("terrain", "") or "",
+        "weather_temp_max_c": race_cfg.get("weather_temp_max_c"),
+        "weather_temp_min_c": race_cfg.get("weather_temp_min_c"),
+        "weather_precip_mm": race_cfg.get("weather_precip_mm"),
+        "weather_wind_kmh": race_cfg.get("weather_wind_kmh"),
     }
     stmt = insert(races).values(**values)
+    # Every column here is overwritten from races.yml, which is authoritative —
+    # except the weather, which is not. A lookup that failed, or a race that
+    # hadn't run yet, arrives as NULL, and writing that over a value an earlier
+    # run already stored would lose conditions the site had. COALESCE keeps the
+    # stored one until a real reading replaces it. The course columns
+    # deliberately stay a blind overwrite: clearing laps: in the yml should
+    # clear the column.
+    set_ = {
+        k: (func.coalesce(stmt.excluded[k], races.c[k])
+            if k in _WEATHER_COLUMNS else stmt.excluded[k])
+        for k in values if k != "slug"
+    }
     return conn.execute(
         stmt.on_conflict_do_update(
             index_elements=[races.c.slug],
-            set_={k: stmt.excluded[k] for k in values if k != "slug"},
+            set_=set_,
         ).returning(races.c.id)
     ).scalar_one()
 
