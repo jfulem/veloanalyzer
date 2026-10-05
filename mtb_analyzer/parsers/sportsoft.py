@@ -67,6 +67,9 @@ _CATEGORY_MAP = {
     "Starší žiaci": "Older Boys",
     "Staršie žiačky": "Older Girls",
 }
+# Organisers capitalise course names inconsistently ("Junior women" at one
+# event, "Junior Women" at the next), so the lookup ignores case.
+_CATEGORY_MAP_CI = {k.lower(): v for k, v in _CATEGORY_MAP.items()}
 
 # ISO 3166-1 alpha-3 codes that differ from IOC alpha-3
 _ISO3_TO_IOC = {
@@ -95,7 +98,7 @@ def _parse_rows(table, col: dict, category_filter) -> list:
             continue
 
         czech_cat   = cells[course_idx].get_text(strip=True)
-        english_cat = _CATEGORY_MAP.get(czech_cat, czech_cat)
+        english_cat = _CATEGORY_MAP_CI.get(czech_cat.lower(), czech_cat)
         if not category_matches(english_cat, category_filter):
             continue
 

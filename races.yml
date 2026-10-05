@@ -902,6 +902,50 @@ races:
   output: janev-cx-2026-1-chynov-wj.html
   location: "Chýnov, Czech Republic"
 
+# Standalone UCI C1, not a JANEV Cup round — so no `cup_standings_url`: the
+# site would order the start list by the cup table, but the grid here follows
+# the UCI ranking (art. C0922). Junior women have a course of their own, as at
+# the national championship, so no `birth_years:` filter is needed.
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3660
+  name: "Velká cena města Plzně 2026 (UCI C1) — Men Juniors"
+  date: '2026-10-10'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 79096
+  output: vc-plzen-cx-2026-mj.html
+  location: "Plzeň, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3660
+  name: "Velká cena města Plzně 2026 (UCI C1) — Men Elite"
+  date: '2026-10-10'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 79096
+  output: vc-plzen-cx-2026-me.html
+  location: "Plzeň, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3660
+  name: "Velká cena města Plzně 2026 (UCI C1) — Women Elite"
+  date: '2026-10-10'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 79096
+  output: vc-plzen-cx-2026-we.html
+  location: "Plzeň, Czech Republic"
+
+- url: https://registrace.sportsoft.cz/startlist.aspx?e=3660
+  name: "Velká cena města Plzně 2026 (UCI C1) — Women Juniors"
+  date: '2026-10-10'
+  discipline: CX
+  category: Women Juniors
+  uci_category: WJ
+  uci_competition_id: 79096
+  output: vc-plzen-cx-2026-wj.html
+  location: "Plzeň, Czech Republic"
+
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3653
   name: "JANEV Cup 2026 #2 Holé Vrchy (UCI C2) — Men Juniors"
   date: '2026-10-17'
