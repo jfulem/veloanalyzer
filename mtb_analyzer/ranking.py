@@ -2062,6 +2062,22 @@ def find_xcodata_slug(rider: Rider) -> str:
     return ""
 
 
+def _contradicts(rider: Rider, entry: dict) -> bool:
+    """True when the start list and a fuzzy-matched ranking entry disagree on
+    nationality or birth year, i.e. the names merely look alike.
+
+    'Tomáš Meier' (CZE) scored exactly 82 against 'Thomas Mein' (GBR, 1999),
+    so a Czech rider was shown under a British rider's name with his UCI rank
+    and points — on the start list and in the results alike. A field either
+    side leaves blank proves nothing and is not held against the match.
+    """
+    country = entry.get("country", "")
+    if rider.country and country and rider.country != country:
+        return True
+    birth_year = entry.get("birth_year", "")
+    return bool(rider.birth_year and birth_year and rider.birth_year != birth_year)
+
+
 def lookup_rider(rider: Rider, cache: dict) -> Rider:
     """Looks up UCI rank for a rider. Tries exact name match first, then fuzzy."""
     by_name = cache.get("by_name", {})
@@ -2108,7 +2124,7 @@ def lookup_rider(rider: Rider, cache: dict) -> Rider:
     if all_names:
         key_ascii = _strip_diacritics(rider.full_name.lower())
         best_match, score = process.extractOne(key_ascii, all_names, scorer=fuzz.token_sort_ratio)
-        if score >= 82:
+        if score >= 82 and not _contradicts(rider, by_name[best_match]):
             _apply(by_name[best_match], score)
         else:
             rider.uci_rank         = None
