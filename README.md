@@ -197,7 +197,7 @@ python main.py --url "https://..." --category "Junior" --export report.html   # 
 `my.raceresult.com` (JSON API — auto-detects participants vs. results mode,
 and handles season-long projects with one event ID per stage via `?list=` or
 `?selectorResult=`), `sportzeitnehmung.at`, `runtix.com`, `sportkrono.hu`,
-`hynekmusil.cz`, `temposport.hu`, `bike-revolution.ch` (delegates to an
+`hynekmusil.cz`, `cyklistikaszc.sk` (Slovak federation entry lists), `temposport.hu`, `bike-revolution.ch` (delegates to an
 embedded RaceResult widget), `stoperica.com`, `wowtiming.com`, Google Sheets
 (`pubhtml`), and a generic table-scraper fallback. To add a site, drop a
 parser in `mtb_analyzer/parsers/` and register it in `parsers/__init__.py`.

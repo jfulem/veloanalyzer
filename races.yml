@@ -1052,6 +1052,91 @@ races:
   output: janev-cx-2026-3-rymarov-wj.html
   location: "Rýmařov, Czech Republic"
 
+# Slovak UCI C2 weekend, not JANEV Cup rounds — no `cup_standings_url`, so the
+# grid follows the UCI ranking. The NoLimited Cup has standings of its own, but
+# nothing here reads them yet. The SZC entry list gives junior women a section
+# of their own, so no `birth_years:` filter; it publishes no nationality, birth
+# year or UCI ID, so riders are identified by name alone.
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2213
+  name: "Grand Prix Topoľčianky 2026 (UCI C2) — Men Juniors"
+  date: '2026-10-24'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 79130
+  output: gp-topolcianky-cx-2026-mj.html
+  location: "Topoľčianky, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2213
+  name: "Grand Prix Topoľčianky 2026 (UCI C2) — Men Elite"
+  date: '2026-10-24'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 79130
+  output: gp-topolcianky-cx-2026-me.html
+  location: "Topoľčianky, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2213
+  name: "Grand Prix Topoľčianky 2026 (UCI C2) — Women Elite"
+  date: '2026-10-24'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 79130
+  output: gp-topolcianky-cx-2026-we.html
+  location: "Topoľčianky, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2213
+  name: "Grand Prix Topoľčianky 2026 (UCI C2) — Women Juniors"
+  date: '2026-10-24'
+  discipline: CX
+  category: Women Juniors
+  uci_category: WJ
+  uci_competition_id: 79130
+  output: gp-topolcianky-cx-2026-wj.html
+  location: "Topoľčianky, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2214
+  name: "NoLimited Cup 2026 #4 Topoľčianky (UCI C2) — Men Juniors"
+  date: '2026-10-25'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 79132
+  output: nolimited-cx-2026-4-topolcianky-mj.html
+  location: "Topoľčianky, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2214
+  name: "NoLimited Cup 2026 #4 Topoľčianky (UCI C2) — Men Elite"
+  date: '2026-10-25'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 79132
+  output: nolimited-cx-2026-4-topolcianky-me.html
+  location: "Topoľčianky, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2214
+  name: "NoLimited Cup 2026 #4 Topoľčianky (UCI C2) — Women Elite"
+  date: '2026-10-25'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 79132
+  output: nolimited-cx-2026-4-topolcianky-we.html
+  location: "Topoľčianky, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2214
+  name: "NoLimited Cup 2026 #4 Topoľčianky (UCI C2) — Women Juniors"
+  date: '2026-10-25'
+  discipline: CX
+  category: Women Juniors
+  uci_category: WJ
+  uci_competition_id: 79132
+  output: nolimited-cx-2026-4-topolcianky-wj.html
+  location: "Topoľčianky, Slovakia"
+
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3655
   name: "JANEV Cup 2026 #4 Hlinsko (UCI C2) — Men Juniors"
   date: '2026-10-31'

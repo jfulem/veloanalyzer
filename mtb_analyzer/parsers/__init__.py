@@ -4,6 +4,7 @@ from ..config import NAME_CORRECTIONS, console
 from ..utils import fetch
 from .bike_revolution import parse_bike_revolution
 from .computerauswertung import parse_computerauswertung
+from .cyklistikaszc import parse_cyklistikaszc
 from .generic import parse_generic
 from .gsheets import parse_gsheets
 from .hynekmusil import parse_hynekmusil
@@ -43,6 +44,8 @@ def detect_site(url: str) -> str:
         return "bike_revolution"
     if "computerauswertung" in host:
         return "computerauswertung"
+    if "cyklistikaszc" in host:
+        return "cyklistikaszc"
     return "unknown"
 
 
@@ -85,6 +88,8 @@ def parse_start_list(url: str, category_filter: str = None) -> tuple:
         riders = parse_bike_revolution(url, category_filter)
     elif site == "computerauswertung":
         riders = parse_computerauswertung(url, category_filter)
+    elif site == "cyklistikaszc":
+        riders = parse_cyklistikaszc(url, category_filter)
     else:
         console.print("[yellow]Unknown website format — trying generic parser...[/yellow]")
         riders = parse_generic(soup_title, category_filter)
@@ -108,5 +113,6 @@ __all__ = [
     "parse_temposport",
     "parse_bike_revolution",
     "parse_computerauswertung",
+    "parse_cyklistikaszc",
     "parse_generic",
 ]

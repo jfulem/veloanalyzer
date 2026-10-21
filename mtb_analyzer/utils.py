@@ -12,6 +12,12 @@ def fetch(url: str, retries: int = 3, delay: float = 1.0, timeout: int = 20) -> 
         try:
             resp = requests.get(url, headers=HEADERS, timeout=timeout)
             resp.raise_for_status()
+            # With no charset in the header, requests assumes ISO-8859-1 for
+            # any text/* response and mangles UTF-8 pages (cyklistikaszc.sk:
+            # 'GRÖBL' came back as 'GRÃ\x96BL'). Hand BeautifulSoup the bytes
+            # instead, so the page's own <meta charset> decides.
+            if "charset" not in resp.headers.get("Content-Type", "").lower():
+                return BeautifulSoup(resp.content, "html.parser")
             return BeautifulSoup(resp.text, "html.parser")
         except requests.RequestException as e:
             if attempt < retries - 1:
