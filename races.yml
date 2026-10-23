@@ -1190,6 +1190,44 @@ races:
   output: janev-cx-2026-4-hlinsko-wj.html
   location: "Hlinsko, Czech Republic"
 
+# Slovak cup round outside the UCI calendar — no class and no competition id,
+# so no official results to enrich from. Otherwise as Topoľčianky above.
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2215
+  name: "Grand Prix Sereď 2026 — Men Juniors"
+  date: '2026-11-08'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  output: gp-sered-cx-2026-mj.html
+  location: "Sereď, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2215
+  name: "Grand Prix Sereď 2026 — Men Elite"
+  date: '2026-11-08'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  output: gp-sered-cx-2026-me.html
+  location: "Sereď, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2215
+  name: "Grand Prix Sereď 2026 — Women Elite"
+  date: '2026-11-08'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  output: gp-sered-cx-2026-we.html
+  location: "Sereď, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2215
+  name: "Grand Prix Sereď 2026 — Women Juniors"
+  date: '2026-11-08'
+  discipline: CX
+  category: Women Juniors
+  uci_category: WJ
+  output: gp-sered-cx-2026-wj.html
+  location: "Sereď, Slovakia"
+
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3656
   name: "JANEV Cup 2026 #5 Jičín (UCI C2) — Men Juniors"
   date: '2026-11-14'
@@ -1293,6 +1331,87 @@ races:
     - https://cpcx.sportsoft.cz/2025/results.aspx
   output: janev-cx-2026-6-prachatice-wj.html
   location: "Prachatice, Czech Republic"
+
+# Slovak UCI weekend in Šamorín — as Topoľčianky above.
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2216
+  name: "NoLimited Cup 2026 #5 Šamorín (UCI C1) — Men Juniors"
+  date: '2026-11-21'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 79167
+  output: nolimited-cx-2026-5-samorin-mj.html
+  location: "Šamorín, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2216
+  name: "NoLimited Cup 2026 #5 Šamorín (UCI C1) — Men Elite"
+  date: '2026-11-21'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 79167
+  output: nolimited-cx-2026-5-samorin-me.html
+  location: "Šamorín, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2216
+  name: "NoLimited Cup 2026 #5 Šamorín (UCI C1) — Women Elite"
+  date: '2026-11-21'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 79167
+  output: nolimited-cx-2026-5-samorin-we.html
+  location: "Šamorín, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2216
+  name: "NoLimited Cup 2026 #5 Šamorín (UCI C1) — Women Juniors"
+  date: '2026-11-21'
+  discipline: CX
+  category: Women Juniors
+  uci_category: WJ
+  uci_competition_id: 79167
+  output: nolimited-cx-2026-5-samorin-wj.html
+  location: "Šamorín, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2217
+  name: "Grand Prix Šamorín 2026 (UCI C2) — Men Juniors"
+  date: '2026-11-22'
+  discipline: CX
+  category: Men Juniors
+  uci_category: MJ
+  uci_competition_id: 79874
+  output: gp-samorin-cx-2026-mj.html
+  location: "Šamorín, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2217
+  name: "Grand Prix Šamorín 2026 (UCI C2) — Men Elite"
+  date: '2026-11-22'
+  discipline: CX
+  category: Men Elite
+  uci_category: ME
+  uci_competition_id: 79874
+  output: gp-samorin-cx-2026-me.html
+  location: "Šamorín, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2217
+  name: "Grand Prix Šamorín 2026 (UCI C2) — Women Elite"
+  date: '2026-11-22'
+  discipline: CX
+  category: Women Elite
+  uci_category: WE
+  uci_competition_id: 79874
+  output: gp-samorin-cx-2026-we.html
+  location: "Šamorín, Slovakia"
+
+- url: https://www.cyklistikaszc.sk/sk/submenu/kalendar-vysledky/zoznam-prihlasenych-pretekarov/2217
+  name: "Grand Prix Šamorín 2026 (UCI C2) — Women Juniors"
+  date: '2026-11-22'
+  discipline: CX
+  category: Women Juniors
+  uci_category: WJ
+  uci_competition_id: 79874
+  output: gp-samorin-cx-2026-wj.html
+  location: "Šamorín, Slovakia"
 
 - url: https://registrace.sportsoft.cz/startlist.aspx?e=3657
   name: "JANEV Cup 2026 #7 Kolín (UCI C2) — Men Juniors"
